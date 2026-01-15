@@ -1,0 +1,71 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 0.75rem;
+  color: var(--mat-sys-primary);
+  margin: 0;
+}
+
+.subtitle {
+  margin: 0.35rem 0 0;
+  color: var(--mat-sys-on-surface-variant, #6b5b66);
+}
+
+.ghost-chip {
+  border: 1px solid color-mix(in srgb, var(--mat-sys-primary) 40%, transparent);
+  background: color-mix(in srgb, var(--mat-sys-primary) 8%, transparent);
+  color: var(--mat-sys-primary);
+  border-radius: 999px;
+  padding: 0.4rem 1rem;
+  font: inherit;
+}
+
+.chat-layout {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.chat-card,
+.summary-card {
+  border-radius: 24px;
+  padding: 0.5rem 0;
+}
+
+.bubble {
+  padding: 0.75rem 1rem;
+  border-radius: 16px;
+  margin: 0.75rem 0;
+  max-width: 80%;
+}
+
+.user {
+  background: #f8d0d7;
+  margin-left: auto;
+}
+
+.assistant {
+  background: #fff7f9;
+  border: 1px solid color-mix(in srgb, var(--mat-sys-primary) 15%, transparent);
+}
+
+.summary-card ul {
+  margin: 0.75rem 0 0;
+  padding-left: 1.2rem;
+  display: grid;
+  gap: 0.5rem;
+}

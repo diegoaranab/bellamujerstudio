@@ -1,0 +1,124 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 0.75rem;
+  color: var(--mat-sys-primary);
+  margin: 0;
+}
+
+.subtitle {
+  margin: 0.35rem 0 0;
+  color: var(--mat-sys-on-surface-variant, #6b5b66);
+}
+
+.ghost-chip {
+  border: 1px solid color-mix(in srgb, var(--mat-sys-primary) 40%, transparent);
+  background: color-mix(in srgb, var(--mat-sys-primary) 8%, transparent);
+  color: var(--mat-sys-primary);
+  border-radius: 999px;
+  padding: 0.4rem 1rem;
+  font: inherit;
+}
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.kpi-card {
+  border-radius: 20px;
+}
+
+.kpi-label {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--mat-sys-on-surface-variant, #6b5b66);
+}
+
+.kpi-value {
+  margin: 0.4rem 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.kpi-meta {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--mat-sys-primary);
+}
+
+.grid-two {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.5rem;
+}
+
+.chart-card,
+.list-card {
+  border-radius: 24px;
+}
+
+.chart-placeholder {
+  margin-top: 1rem;
+  height: 220px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #f8d0d7 0%, #fff7f9 100%);
+  color: #7d3953;
+  font-weight: 600;
+}
+
+.schedule {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0 0;
+  display: grid;
+  gap: 1rem;
+}
+
+.schedule li {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  padding: 0.75rem;
+  border-radius: 14px;
+  background: #fff7f9;
+}
+
+.time {
+  font-weight: 600;
+  color: var(--mat-sys-primary);
+}
+
+.name {
+  margin: 0;
+  font-weight: 600;
+}
+
+.detail {
+  margin: 0.2rem 0 0;
+  color: var(--mat-sys-on-surface-variant, #6b5b66);
+  font-size: 0.85rem;
+}
+
+@media (max-width: 600px) {
+  .page-header {
+    align-items: flex-start;
+  }
+}

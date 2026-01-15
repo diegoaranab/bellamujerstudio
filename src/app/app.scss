@@ -1,0 +1,125 @@
+.app-shell {
+  min-height: 100vh;
+  background: var(--mat-sys-surface, #fff7f9);
+}
+
+.shell-container {
+  min-height: 100vh;
+}
+
+.sidenav {
+  width: 240px;
+  padding: 1.5rem 0.5rem;
+  border-right: 1px solid color-mix(in srgb, var(--mat-sys-primary) 15%, transparent);
+  background: #ffffff;
+}
+
+.sidenav-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0 1rem 1.5rem;
+}
+
+.logo {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: #8a1e3f;
+  color: #ffffff;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+}
+
+.brand-name {
+  margin: 0;
+  font-weight: 600;
+}
+
+.brand-subtitle {
+  margin: 0.2rem 0 0;
+  font-size: 0.85rem;
+  color: var(--mat-sys-on-surface-variant, #6b5b66);
+}
+
+mat-nav-list a.active-link {
+  background: color-mix(in srgb, var(--mat-sys-primary) 12%, transparent);
+  border-radius: 12px;
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #ffffff;
+  border-bottom: 1px solid color-mix(in srgb, var(--mat-sys-primary) 12%, transparent);
+  padding: 0 1.5rem;
+}
+
+.topbar-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.page-title {
+  font-weight: 600;
+}
+
+.page-subtitle {
+  font-size: 0.85rem;
+  color: var(--mat-sys-on-surface-variant, #6b5b66);
+}
+
+.spacer {
+  flex: 1;
+}
+
+.content {
+  padding: 1.5rem 2rem 4.5rem;
+}
+
+.bottom-nav {
+  display: none;
+}
+
+.bottom-nav__item {
+  flex: 1;
+  text-decoration: none;
+  color: var(--mat-sys-on-surface-variant, #6b5b66);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.75rem;
+  padding: 0.75rem 0;
+}
+
+.bottom-nav__item.active {
+  color: var(--mat-sys-primary);
+}
+
+@media (max-width: 900px) {
+  .sidenav {
+    display: none;
+  }
+
+  .content {
+    padding: 1.25rem 1.25rem 6rem;
+  }
+
+  .topbar {
+    padding: 0 1rem;
+  }
+
+  .bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    background: #ffffff;
+    border-top: 1px solid color-mix(in srgb, var(--mat-sys-primary) 12%, transparent);
+    z-index: 3;
+  }
+}
