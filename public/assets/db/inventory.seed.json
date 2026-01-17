@@ -58,7 +58,7 @@
       "id": "mat_lima",
       "nombre": "Lima",
       "unidad": "pza",
-      "stockActual": 120,
+      "stockActual": 40,
       "stockMinimo": 40,
       "costoPorUnidadMXN": 3.5,
       "proveedorSugerido": "Insumos Belleza Tehuacán"
@@ -184,7 +184,7 @@
       "id": "mat_labial",
       "nombre": "Labial",
       "unidad": "g",
-      "stockActual": 120,
+      "stockActual": 10,
       "stockMinimo": 40,
       "costoPorUnidadMXN": 1.3,
       "proveedorSugerido": "Beauty Supply Tehuacán"
