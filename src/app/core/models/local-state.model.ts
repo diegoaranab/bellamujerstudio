@@ -1,0 +1,10 @@
+import { Transaction } from './transaction.model';
+
+export interface LocalStateData {
+  version: 1;
+  updatedAtISO: string;
+  serviceOverrides: any[];
+  inventoryAdjustments: any[];
+  clientsOverrides: any[];
+  transactions: Transaction[];
+}
