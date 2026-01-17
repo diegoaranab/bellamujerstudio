@@ -1,0 +1,405 @@
+{
+  "services": [
+    {
+      "id": "srv_gelish",
+      "categoryId": "cat_unas",
+      "nombre": "Gelish con color",
+      "descripcionCorta": "Esmaltado semipermanente con brillo duradero.",
+      "precioBaseMXN": 320,
+      "duracionMinBase": 60,
+      "activo": true
+    },
+    {
+      "id": "srv_acrilico",
+      "categoryId": "cat_unas",
+      "nombre": "Uñas acrílicas",
+      "descripcionCorta": "Extensión y esculpido con acabado natural.",
+      "precioBaseMXN": 520,
+      "duracionMinBase": 120,
+      "activo": true
+    },
+    {
+      "id": "srv_relleno_acrilico",
+      "categoryId": "cat_unas",
+      "nombre": "Relleno de acrílico",
+      "descripcionCorta": "Mantenimiento para crecimiento de uña.",
+      "precioBaseMXN": 300,
+      "duracionMinBase": 80,
+      "activo": true
+    },
+    {
+      "id": "srv_pestanas_clasicas",
+      "categoryId": "cat_pestanas",
+      "nombre": "Pestañas clásicas",
+      "descripcionCorta": "Aplicación 1 a 1 para un look natural.",
+      "precioBaseMXN": 480,
+      "duracionMinBase": 90,
+      "activo": true
+    },
+    {
+      "id": "srv_pestanas_2d",
+      "categoryId": "cat_pestanas",
+      "nombre": "Pestañas 2D",
+      "descripcionCorta": "Más volumen con abanicos ligeros.",
+      "precioBaseMXN": 620,
+      "duracionMinBase": 110,
+      "activo": true
+    },
+    {
+      "id": "srv_pestanas_retoque",
+      "categoryId": "cat_pestanas",
+      "nombre": "Retoque de pestañas",
+      "descripcionCorta": "Relleno para mantener el volumen.",
+      "precioBaseMXN": 350,
+      "duracionMinBase": 60,
+      "activo": true
+    },
+    {
+      "id": "srv_keratina",
+      "categoryId": "cat_alisados",
+      "nombre": "Alisado con keratina",
+      "descripcionCorta": "Suaviza y reduce frizz con acabado sedoso.",
+      "precioBaseMXN": 950,
+      "duracionMinBase": 150,
+      "activo": true
+    },
+    {
+      "id": "srv_botox_capilar",
+      "categoryId": "cat_alisados",
+      "nombre": "Botox capilar",
+      "descripcionCorta": "Tratamiento reparador con brillo intenso.",
+      "precioBaseMXN": 780,
+      "duracionMinBase": 130,
+      "activo": true
+    },
+    {
+      "id": "srv_maquillaje_social",
+      "categoryId": "cat_maquillaje",
+      "nombre": "Maquillaje social",
+      "descripcionCorta": "Maquillaje fresco para eventos de día.",
+      "precioBaseMXN": 450,
+      "duracionMinBase": 60,
+      "activo": true
+    },
+    {
+      "id": "srv_maquillaje_glam",
+      "categoryId": "cat_maquillaje",
+      "nombre": "Maquillaje glam",
+      "descripcionCorta": "Look definido con ojos marcados y brillo.",
+      "precioBaseMXN": 650,
+      "duracionMinBase": 80,
+      "activo": true
+    },
+    {
+      "id": "srv_peinado_recogido",
+      "categoryId": "cat_peinado",
+      "nombre": "Peinado recogido",
+      "descripcionCorta": "Recogido elegante para eventos.",
+      "precioBaseMXN": 420,
+      "duracionMinBase": 70,
+      "activo": true
+    },
+    {
+      "id": "srv_peinado_ondas",
+      "categoryId": "cat_peinado",
+      "nombre": "Peinado con ondas",
+      "descripcionCorta": "Ondas suaves con acabado natural.",
+      "precioBaseMXN": 360,
+      "duracionMinBase": 50,
+      "activo": true
+    }
+  ],
+  "variants": [
+    {
+      "id": "var_acrilico_corto",
+      "serviceId": "srv_acrilico",
+      "nombre": "Largo corto",
+      "precioDeltaMXN": 0,
+      "duracionDeltaMin": 0
+    },
+    {
+      "id": "var_acrilico_medio",
+      "serviceId": "srv_acrilico",
+      "nombre": "Largo medio",
+      "precioDeltaMXN": 80,
+      "duracionDeltaMin": 15
+    },
+    {
+      "id": "var_acrilico_largo",
+      "serviceId": "srv_acrilico",
+      "nombre": "Largo extra",
+      "precioDeltaMXN": 140,
+      "duracionDeltaMin": 25
+    },
+    {
+      "id": "var_keratina_corto",
+      "serviceId": "srv_keratina",
+      "nombre": "Cabello corto",
+      "precioDeltaMXN": 0,
+      "duracionDeltaMin": 0
+    },
+    {
+      "id": "var_keratina_largo",
+      "serviceId": "srv_keratina",
+      "nombre": "Cabello largo",
+      "precioDeltaMXN": 250,
+      "duracionDeltaMin": 30
+    }
+  ],
+  "addOns": [
+    {
+      "id": "add_retiro",
+      "nombre": "Retiro de producto",
+      "precioMXN": 80,
+      "duracionExtraMin": 20
+    },
+    {
+      "id": "add_decoracion_basica",
+      "nombre": "Decoración básica",
+      "precioMXN": 60,
+      "duracionExtraMin": 15
+    },
+    {
+      "id": "add_hidratacion",
+      "nombre": "Hidratación profunda",
+      "precioMXN": 120,
+      "duracionExtraMin": 20
+    },
+    {
+      "id": "add_ampolleta_brillo",
+      "nombre": "Ampolleta de brillo",
+      "precioMXN": 90,
+      "duracionExtraMin": 10
+    }
+  ],
+  "serviceAddOns": [
+    { "serviceId": "srv_gelish", "addOnId": "add_decoracion_basica" },
+    { "serviceId": "srv_acrilico", "addOnId": "add_retiro" },
+    { "serviceId": "srv_acrilico", "addOnId": "add_decoracion_basica" },
+    { "serviceId": "srv_relleno_acrilico", "addOnId": "add_retiro" },
+    { "serviceId": "srv_keratina", "addOnId": "add_hidratacion" },
+    { "serviceId": "srv_botox_capilar", "addOnId": "add_ampolleta_brillo" },
+    { "serviceId": "srv_peinado_recogido", "addOnId": "add_ampolleta_brillo" }
+  ],
+  "bom": [
+    {
+      "serviceId": "srv_gelish",
+      "materialId": "mat_base_coat",
+      "cantidad": 2,
+      "unidad": "ml"
+    },
+    {
+      "serviceId": "srv_gelish",
+      "materialId": "mat_gel_color",
+      "cantidad": 3,
+      "unidad": "ml"
+    },
+    {
+      "serviceId": "srv_gelish",
+      "materialId": "mat_top_coat",
+      "cantidad": 2,
+      "unidad": "ml"
+    },
+    {
+      "serviceId": "srv_gelish",
+      "materialId": "mat_lima",
+      "cantidad": 1,
+      "unidad": "pza"
+    },
+    {
+      "serviceId": "srv_acrilico",
+      "variantId": "var_acrilico_corto",
+      "materialId": "mat_acrilico_polvo",
+      "cantidad": 25,
+      "unidad": "g"
+    },
+    {
+      "serviceId": "srv_acrilico",
+      "variantId": "var_acrilico_medio",
+      "materialId": "mat_acrilico_polvo",
+      "cantidad": 32,
+      "unidad": "g"
+    },
+    {
+      "serviceId": "srv_acrilico",
+      "variantId": "var_acrilico_largo",
+      "materialId": "mat_acrilico_polvo",
+      "cantidad": 40,
+      "unidad": "g"
+    },
+    {
+      "serviceId": "srv_acrilico",
+      "materialId": "mat_monomero",
+      "cantidad": 20,
+      "unidad": "ml"
+    },
+    {
+      "serviceId": "srv_acrilico",
+      "materialId": "mat_tips",
+      "cantidad": 10,
+      "unidad": "pza"
+    },
+    {
+      "serviceId": "srv_relleno_acrilico",
+      "materialId": "mat_acrilico_polvo",
+      "cantidad": 18,
+      "unidad": "g"
+    },
+    {
+      "serviceId": "srv_relleno_acrilico",
+      "materialId": "mat_monomero",
+      "cantidad": 12,
+      "unidad": "ml"
+    },
+    {
+      "serviceId": "srv_pestanas_clasicas",
+      "materialId": "mat_pestanias_clasicas",
+      "cantidad": 60,
+      "unidad": "pza"
+    },
+    {
+      "serviceId": "srv_pestanas_clasicas",
+      "materialId": "mat_pegamento_pestanas",
+      "cantidad": 2,
+      "unidad": "ml"
+    },
+    {
+      "serviceId": "srv_pestanas_clasicas",
+      "materialId": "mat_pads",
+      "cantidad": 2,
+      "unidad": "pza"
+    },
+    {
+      "serviceId": "srv_pestanas_2d",
+      "materialId": "mat_pestanias_volumen",
+      "cantidad": 80,
+      "unidad": "pza"
+    },
+    {
+      "serviceId": "srv_pestanas_2d",
+      "materialId": "mat_pegamento_pestanas",
+      "cantidad": 2,
+      "unidad": "ml"
+    },
+    {
+      "serviceId": "srv_pestanas_2d",
+      "materialId": "mat_pads",
+      "cantidad": 2,
+      "unidad": "pza"
+    },
+    {
+      "serviceId": "srv_pestanas_retoque",
+      "materialId": "mat_pestanias_volumen",
+      "cantidad": 40,
+      "unidad": "pza"
+    },
+    {
+      "serviceId": "srv_pestanas_retoque",
+      "materialId": "mat_pegamento_pestanas",
+      "cantidad": 1,
+      "unidad": "ml"
+    },
+    {
+      "serviceId": "srv_keratina",
+      "materialId": "mat_shampoo_keratina",
+      "cantidad": 30,
+      "unidad": "ml"
+    },
+    {
+      "serviceId": "srv_keratina",
+      "materialId": "mat_tratamiento_keratina",
+      "cantidad": 80,
+      "unidad": "ml"
+    },
+    {
+      "serviceId": "srv_botox_capilar",
+      "materialId": "mat_shampoo_keratina",
+      "cantidad": 25,
+      "unidad": "ml"
+    },
+    {
+      "serviceId": "srv_botox_capilar",
+      "materialId": "mat_btx_capilar",
+      "cantidad": 70,
+      "unidad": "ml"
+    },
+    {
+      "serviceId": "srv_maquillaje_social",
+      "materialId": "mat_base_maquillaje",
+      "cantidad": 6,
+      "unidad": "ml"
+    },
+    {
+      "serviceId": "srv_maquillaje_social",
+      "materialId": "mat_sombra",
+      "cantidad": 2,
+      "unidad": "g"
+    },
+    {
+      "serviceId": "srv_maquillaje_social",
+      "materialId": "mat_labial",
+      "cantidad": 1,
+      "unidad": "g"
+    },
+    {
+      "serviceId": "srv_maquillaje_social",
+      "materialId": "mat_fijador_maquillaje",
+      "cantidad": 2,
+      "unidad": "ml"
+    },
+    {
+      "serviceId": "srv_maquillaje_glam",
+      "materialId": "mat_base_maquillaje",
+      "cantidad": 8,
+      "unidad": "ml"
+    },
+    {
+      "serviceId": "srv_maquillaje_glam",
+      "materialId": "mat_sombra",
+      "cantidad": 3,
+      "unidad": "g"
+    },
+    {
+      "serviceId": "srv_maquillaje_glam",
+      "materialId": "mat_labial",
+      "cantidad": 1.5,
+      "unidad": "g"
+    },
+    {
+      "serviceId": "srv_maquillaje_glam",
+      "materialId": "mat_fijador_maquillaje",
+      "cantidad": 3,
+      "unidad": "ml"
+    },
+    {
+      "serviceId": "srv_peinado_recogido",
+      "materialId": "mat_crema_peinar",
+      "cantidad": 8,
+      "unidad": "ml"
+    },
+    {
+      "serviceId": "srv_peinado_recogido",
+      "materialId": "mat_spray_fijador",
+      "cantidad": 10,
+      "unidad": "ml"
+    },
+    {
+      "serviceId": "srv_peinado_recogido",
+      "materialId": "mat_pasadores",
+      "cantidad": 8,
+      "unidad": "pza"
+    },
+    {
+      "serviceId": "srv_peinado_ondas",
+      "materialId": "mat_crema_peinar",
+      "cantidad": 6,
+      "unidad": "ml"
+    },
+    {
+      "serviceId": "srv_peinado_ondas",
+      "materialId": "mat_spray_fijador",
+      "cantidad": 8,
+      "unidad": "ml"
+    }
+  ]
+}

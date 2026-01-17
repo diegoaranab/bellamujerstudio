@@ -1,0 +1,21 @@
+{
+  "categories": [
+    { "id": "cat_alisados", "nombre": "Alisados", "activo": true },
+    { "id": "cat_cejas4k", "nombre": "Cejas 4K", "activo": true },
+    { "id": "cat_unas", "nombre": "Uñas", "activo": true },
+    { "id": "cat_decoraciones_unas", "nombre": "Decoraciones uñas", "activo": true },
+    { "id": "cat_spa", "nombre": "SPA", "activo": true },
+    { "id": "cat_pestanas", "nombre": "Pestañas", "activo": true },
+    { "id": "cat_depilaciones", "nombre": "Depilaciones", "activo": true },
+    { "id": "cat_maquillaje", "nombre": "Maquillaje", "activo": true },
+    { "id": "cat_peinado", "nombre": "Peinado", "activo": true },
+    { "id": "cat_cortes", "nombre": "Cortes", "activo": true },
+    { "id": "cat_tintes", "nombre": "Tintes", "activo": true },
+    { "id": "cat_babylights", "nombre": "Babylights", "activo": true },
+    { "id": "cat_balayage", "nombre": "Balayage", "activo": true },
+    { "id": "cat_retoque_raiz", "nombre": "Retoque raíz", "activo": true },
+    { "id": "cat_efectos_color", "nombre": "Efectos de color", "activo": true },
+    { "id": "cat_peluqueria_barberia", "nombre": "Peluquería & Barbería", "activo": true },
+    { "id": "cat_pinta_caritas", "nombre": "Pinta caritas", "activo": true }
+  ]
+}

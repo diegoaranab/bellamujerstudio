@@ -1,0 +1,28 @@
+{
+  "clients": [
+    {
+      "id": "cli_lucia_morales",
+      "nombre": "Lucía Morales",
+      "telefono": "2381123456",
+      "notas": "Prefiere tonos naturales y citas por la mañana."
+    },
+    {
+      "id": "cli_ana_rodriguez",
+      "nombre": "Ana Rodríguez",
+      "telefono": "2382219074",
+      "notas": "Alérgica al látex, confirmar productos."
+    },
+    {
+      "id": "cli_diana_hernandez",
+      "nombre": "Diana Hernández",
+      "telefono": "2383347788",
+      "notas": "Le gustan diseños con brillo en gelish."
+    },
+    {
+      "id": "cli_maria_lopez",
+      "nombre": "María López",
+      "telefono": "2384471209",
+      "notas": "Agenda previa para retoques de pestañas."
+    }
+  ]
+}

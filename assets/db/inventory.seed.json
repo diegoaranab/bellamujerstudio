@@ -1,0 +1,211 @@
+{
+  "materials": [
+    {
+      "id": "mat_gel_color",
+      "nombre": "Gel color",
+      "unidad": "ml",
+      "stockActual": 250,
+      "stockMinimo": 80,
+      "costoPorUnidadMXN": 3.5,
+      "proveedorSugerido": "Distribuidora Uñas Tehuacán"
+    },
+    {
+      "id": "mat_base_coat",
+      "nombre": "Base coat",
+      "unidad": "ml",
+      "stockActual": 180,
+      "stockMinimo": 60,
+      "costoPorUnidadMXN": 2.8,
+      "proveedorSugerido": "Distribuidora Uñas Tehuacán"
+    },
+    {
+      "id": "mat_top_coat",
+      "nombre": "Top coat",
+      "unidad": "ml",
+      "stockActual": 160,
+      "stockMinimo": 60,
+      "costoPorUnidadMXN": 3.0,
+      "proveedorSugerido": "Distribuidora Uñas Tehuacán"
+    },
+    {
+      "id": "mat_acrilico_polvo",
+      "nombre": "Polvo acrílico",
+      "unidad": "g",
+      "stockActual": 900,
+      "stockMinimo": 300,
+      "costoPorUnidadMXN": 0.9,
+      "proveedorSugerido": "Nail Pro Puebla"
+    },
+    {
+      "id": "mat_monomero",
+      "nombre": "Monómero",
+      "unidad": "ml",
+      "stockActual": 600,
+      "stockMinimo": 200,
+      "costoPorUnidadMXN": 1.2,
+      "proveedorSugerido": "Nail Pro Puebla"
+    },
+    {
+      "id": "mat_tips",
+      "nombre": "Tips para uñas",
+      "unidad": "pza",
+      "stockActual": 500,
+      "stockMinimo": 150,
+      "costoPorUnidadMXN": 0.8,
+      "proveedorSugerido": "Nail Pro Puebla"
+    },
+    {
+      "id": "mat_lima",
+      "nombre": "Lima",
+      "unidad": "pza",
+      "stockActual": 120,
+      "stockMinimo": 40,
+      "costoPorUnidadMXN": 3.5,
+      "proveedorSugerido": "Insumos Belleza Tehuacán"
+    },
+    {
+      "id": "mat_removedor",
+      "nombre": "Removedor de gel",
+      "unidad": "ml",
+      "stockActual": 400,
+      "stockMinimo": 120,
+      "costoPorUnidadMXN": 0.7,
+      "proveedorSugerido": "Insumos Belleza Tehuacán"
+    },
+    {
+      "id": "mat_pegamento_pestanas",
+      "nombre": "Pegamento de pestañas",
+      "unidad": "ml",
+      "stockActual": 120,
+      "stockMinimo": 40,
+      "costoPorUnidadMXN": 6.5,
+      "proveedorSugerido": "Lash Center Puebla"
+    },
+    {
+      "id": "mat_pestanias_clasicas",
+      "nombre": "Pestañas clásicas",
+      "unidad": "pza",
+      "stockActual": 300,
+      "stockMinimo": 90,
+      "costoPorUnidadMXN": 1.1,
+      "proveedorSugerido": "Lash Center Puebla"
+    },
+    {
+      "id": "mat_pestanias_volumen",
+      "nombre": "Pestañas volumen",
+      "unidad": "pza",
+      "stockActual": 260,
+      "stockMinimo": 80,
+      "costoPorUnidadMXN": 1.4,
+      "proveedorSugerido": "Lash Center Puebla"
+    },
+    {
+      "id": "mat_pads",
+      "nombre": "Pads para ojos",
+      "unidad": "pza",
+      "stockActual": 200,
+      "stockMinimo": 60,
+      "costoPorUnidadMXN": 0.9,
+      "proveedorSugerido": "Lash Center Puebla"
+    },
+    {
+      "id": "mat_shampoo_keratina",
+      "nombre": "Shampoo pre-alisado",
+      "unidad": "ml",
+      "stockActual": 800,
+      "stockMinimo": 250,
+      "costoPorUnidadMXN": 0.6,
+      "proveedorSugerido": "Cosmética Capilar Puebla"
+    },
+    {
+      "id": "mat_tratamiento_keratina",
+      "nombre": "Tratamiento de keratina",
+      "unidad": "ml",
+      "stockActual": 700,
+      "stockMinimo": 200,
+      "costoPorUnidadMXN": 1.8,
+      "proveedorSugerido": "Cosmética Capilar Puebla"
+    },
+    {
+      "id": "mat_btx_capilar",
+      "nombre": "Botox capilar",
+      "unidad": "ml",
+      "stockActual": 650,
+      "stockMinimo": 200,
+      "costoPorUnidadMXN": 1.6,
+      "proveedorSugerido": "Cosmética Capilar Puebla"
+    },
+    {
+      "id": "mat_crema_peinar",
+      "nombre": "Crema para peinar",
+      "unidad": "ml",
+      "stockActual": 500,
+      "stockMinimo": 150,
+      "costoPorUnidadMXN": 0.5,
+      "proveedorSugerido": "Cosmética Capilar Puebla"
+    },
+    {
+      "id": "mat_spray_fijador",
+      "nombre": "Spray fijador",
+      "unidad": "ml",
+      "stockActual": 450,
+      "stockMinimo": 140,
+      "costoPorUnidadMXN": 0.7,
+      "proveedorSugerido": "Cosmética Capilar Puebla"
+    },
+    {
+      "id": "mat_pasadores",
+      "nombre": "Pasadores",
+      "unidad": "pza",
+      "stockActual": 300,
+      "stockMinimo": 100,
+      "costoPorUnidadMXN": 0.4,
+      "proveedorSugerido": "Insumos Belleza Tehuacán"
+    },
+    {
+      "id": "mat_base_maquillaje",
+      "nombre": "Base de maquillaje",
+      "unidad": "ml",
+      "stockActual": 250,
+      "stockMinimo": 80,
+      "costoPorUnidadMXN": 2.4,
+      "proveedorSugerido": "Beauty Supply Tehuacán"
+    },
+    {
+      "id": "mat_sombra",
+      "nombre": "Sombra de ojos",
+      "unidad": "g",
+      "stockActual": 180,
+      "stockMinimo": 60,
+      "costoPorUnidadMXN": 1.1,
+      "proveedorSugerido": "Beauty Supply Tehuacán"
+    },
+    {
+      "id": "mat_labial",
+      "nombre": "Labial",
+      "unidad": "g",
+      "stockActual": 120,
+      "stockMinimo": 40,
+      "costoPorUnidadMXN": 1.3,
+      "proveedorSugerido": "Beauty Supply Tehuacán"
+    },
+    {
+      "id": "mat_fijador_maquillaje",
+      "nombre": "Fijador de maquillaje",
+      "unidad": "ml",
+      "stockActual": 180,
+      "stockMinimo": 60,
+      "costoPorUnidadMXN": 1.0,
+      "proveedorSugerido": "Beauty Supply Tehuacán"
+    },
+    {
+      "id": "mat_desmaquillante",
+      "nombre": "Desmaquillante",
+      "unidad": "ml",
+      "stockActual": 220,
+      "stockMinimo": 70,
+      "costoPorUnidadMXN": 0.6,
+      "proveedorSugerido": "Beauty Supply Tehuacán"
+    }
+  ]
+}
