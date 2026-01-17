@@ -38,14 +38,15 @@
         <router-outlet />
       </main>
 
-      <nav class="bottom-nav" aria-label="Navegación móvil">
-        @for (item of navItems; track item.path) {
-          <a class="bottom-nav__item" [routerLink]="item.path" routerLinkActive="active">
-            <mat-icon>{{ item.icon }}</mat-icon>
-            <span>{{ item.label }}</span>
-          </a>
-        }
-      </nav>
     </mat-sidenav-content>
   </mat-sidenav-container>
+
+  <nav class="bottom-nav" aria-label="Navegación móvil">
+    @for (item of navItems; track item.path) {
+      <a class="bottom-nav__item" [routerLink]="item.path" routerLinkActive="active">
+        <mat-icon>{{ item.icon }}</mat-icon>
+        <span>{{ item.label }}</span>
+      </a>
+    }
+  </nav>
 </div>

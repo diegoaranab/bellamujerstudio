@@ -58,6 +58,10 @@ mat-card {
   color: var(--mat-sys-primary);
 }
 
+.list-meta span {
+  display: block;
+}
+
 .list-meta .duration {
   font-weight: 500;
   color: var(--mat-sys-on-surface-variant, #6b5b66);

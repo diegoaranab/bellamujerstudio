@@ -100,9 +100,21 @@ button {
 
 @media (max-width: 840px) {
   .bm-list {
+    .mat-mdc-list-item.mdc-list-item {
+      flex-wrap: wrap;
+      align-items: flex-start;
+      height: auto;
+    }
+
+    .mdc-list-item__content {
+      flex: 1 1 100%;
+      min-width: 0;
+    }
+
     .mat-mdc-list-item-meta {
+      flex: 1 1 100%;
       width: 100%;
-      margin-top: 0.5rem;
+      margin-top: 0.35rem;
       text-align: left;
     }
   }
