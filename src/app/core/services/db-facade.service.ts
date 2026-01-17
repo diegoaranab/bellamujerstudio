@@ -124,6 +124,28 @@ export class DbFacadeService {
     this.stateSubject.next(nextState);
   }
 
+  addInventoryAdjustment(
+    materialId: string,
+    deltaCantidad: number,
+    motivo?: string
+  ): void {
+    const current = this.localState.loadState();
+    const adjustment: InventoryAdjustment = {
+      materialId,
+      delta: deltaCantidad,
+      motivo,
+      createdAtISO: new Date().toISOString()
+    };
+
+    const nextState: LocalStateData = {
+      ...current,
+      inventoryAdjustments: [...current.inventoryAdjustments, adjustment]
+    };
+
+    this.localState.saveState(nextState);
+    this.stateSubject.next(nextState);
+  }
+
   updateTransactionStatus(
     transactionId: string,
     newStatus: 'programada' | 'completada' | 'cancelada'
