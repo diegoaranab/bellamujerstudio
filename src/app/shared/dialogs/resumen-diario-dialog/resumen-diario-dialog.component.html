@@ -1,0 +1,111 @@
+<ng-container *ngIf="resumen$ | async as resumen">
+  <div class="dialog-title">
+    <div>
+      <p class="eyebrow">Resumen diario</p>
+      <h2 class="dialog-heading">Hoy, {{ resumen.fechaLabel }}</h2>
+    </div>
+    <button mat-icon-button type="button" (click)="close()" aria-label="Cerrar">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <mat-dialog-content class="dialog-content">
+    <section class="kpi-grid">
+      <div class="kpi-card">
+        <p class="kpi-label">Ingresos hoy</p>
+        <p class="kpi-value">
+          {{ resumen.ingresosHoyMXN | currency: 'MXN':'symbol-narrow' }}
+        </p>
+      </div>
+      <div class="kpi-card">
+        <p class="kpi-label">Citas de hoy</p>
+        <p class="kpi-value">{{ resumen.citasHoy }}</p>
+      </div>
+      <div class="kpi-card">
+        <p class="kpi-label">Ticket promedio</p>
+        <p class="kpi-value">
+          {{ resumen.ticketPromedioMXN | currency: 'MXN':'symbol-narrow' }}
+        </p>
+      </div>
+      <div class="kpi-card status-card">
+        <p class="kpi-label">Estados</p>
+        <div class="status-grid">
+          <div class="status-row">
+            <span>Completadas</span>
+            <strong>{{ resumen.statusCounts.completada }}</strong>
+          </div>
+          <div class="status-row">
+            <span>Programadas</span>
+            <strong>{{ resumen.statusCounts.programada }}</strong>
+          </div>
+          <div class="status-row">
+            <span>Canceladas</span>
+            <strong>{{ resumen.statusCounts.cancelada }}</strong>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <mat-divider></mat-divider>
+
+    <section class="section">
+      <div class="section-header">
+        <h3>Servicios más solicitados</h3>
+        <p>Basado en citas registradas hoy.</p>
+      </div>
+      <div class="bm-data-list">
+        <div class="bm-data-row" *ngFor="let servicio of resumen.topServicios">
+          <div class="bm-data-main">
+            <div class="bm-data-title">{{ servicio.nombre }}</div>
+            <div class="bm-data-subtitle">
+              {{ servicio.count }} servicios ·
+              {{ servicio.revenueMXN | currency: 'MXN':'symbol-narrow':'1.0-0' }}
+            </div>
+          </div>
+          <div class="bm-data-meta">
+            <div class="price">{{ servicio.count }}x</div>
+          </div>
+        </div>
+        <p class="empty-state" *ngIf="resumen.topServicios.length === 0">
+          Aún no hay servicios registrados hoy.
+        </p>
+      </div>
+    </section>
+
+    <mat-divider></mat-divider>
+
+    <section class="section">
+      <div class="section-header">
+        <h3>Insumos críticos</h3>
+        <p>Materiales por debajo del stock mínimo.</p>
+      </div>
+      <div class="bm-data-list">
+        <div class="bm-data-row" *ngFor="let insumo of resumen.insumosCriticos">
+          <div class="bm-data-main">
+            <div class="bm-data-title">{{ insumo.nombre }}</div>
+            <div class="bm-data-subtitle">
+              {{ insumo.stockActual }} {{ insumo.unidad }} disponibles
+            </div>
+          </div>
+          <div class="bm-data-meta">
+            <div class="price">
+              Mín: {{ insumo.stockMinimo }} {{ insumo.unidad }}
+            </div>
+          </div>
+        </div>
+        <p class="empty-state" *ngIf="resumen.insumosCriticos.length === 0">
+          Todo el inventario está en niveles saludables.
+        </p>
+      </div>
+    </section>
+  </mat-dialog-content>
+
+  <mat-dialog-actions align="end" class="dialog-actions">
+    <button mat-stroked-button type="button" (click)="copiarResumen(resumen)">
+      Copiar resumen
+    </button>
+    <button mat-flat-button color="primary" type="button" (click)="close()">
+      Listo
+    </button>
+  </mat-dialog-actions>
+</ng-container>
