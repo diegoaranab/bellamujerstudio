@@ -54,13 +54,14 @@ mat-card {
   justify-content: space-between;
   gap: 1rem;
   width: 100%;
-  align-items: center;
+  align-items: flex-start;
 }
 
 .list-main {
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
+  min-width: 0;
 }
 
 .name {
@@ -72,6 +73,9 @@ mat-card {
   margin: 0;
   color: var(--mat-sys-on-surface-variant, #6b5b66);
   font-size: 0.85rem;
+  white-space: normal;
+  overflow: visible;
+  word-break: break-word;
 }
 
 @media (max-width: 600px) {

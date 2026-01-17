@@ -55,3 +55,23 @@ p {
 button {
   font-family: inherit;
 }
+
+.dense-list {
+  .mat-mdc-list-item,
+  .mdc-list-item {
+    height: auto;
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+  }
+
+  .mdc-list-item__content,
+  .mat-mdc-list-item-content {
+    min-width: 0;
+  }
+
+  .mdc-list-item__primary-text,
+  .mdc-list-item__secondary-text,
+  .mat-mdc-list-item-line {
+    white-space: normal;
+  }
+}
