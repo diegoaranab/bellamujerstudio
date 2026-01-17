@@ -1,0 +1,161 @@
+<h2 mat-dialog-title>Nueva cita</h2>
+
+<mat-dialog-content class="dialog-content">
+  <form [formGroup]="form" class="dialog-form">
+    <section class="form-section">
+      <div class="section-header">
+        <h3>Cliente</h3>
+        <mat-slide-toggle formControlName="clienteNuevo">
+          Cliente nuevo
+        </mat-slide-toggle>
+      </div>
+
+      @if (!form.controls.clienteNuevo.value) {
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Cliente</mat-label>
+          <input
+            type="text"
+            matInput
+            formControlName="clienteSeleccion"
+            [matAutocomplete]="clientesAuto"
+          />
+          <mat-autocomplete
+            #clientesAuto="matAutocomplete"
+            [displayWith]="displayClient"
+          >
+            @for (cliente of filteredClients$ | async; track cliente.id) {
+              <mat-option [value]="cliente">
+                {{ cliente.nombre }}
+              </mat-option>
+            }
+          </mat-autocomplete>
+          <mat-hint>Selecciona un cliente existente</mat-hint>
+        </mat-form-field>
+      }
+
+      @if (form.controls.clienteNuevo.value) {
+        <div class="grid-two">
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Nombre</mat-label>
+            <input matInput formControlName="clienteNombre" />
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Teléfono</mat-label>
+            <input matInput formControlName="clienteTelefono" />
+          </mat-form-field>
+        </div>
+      }
+
+      @if (form.hasError('clienteRequerido') && form.touched) {
+        <p class="field-error">Indica el cliente de la cita.</p>
+      }
+    </section>
+
+    <mat-divider></mat-divider>
+
+    <section class="form-section">
+      <h3>Detalles de la cita</h3>
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Servicio</mat-label>
+        <mat-select formControlName="servicioId">
+          @for (servicio of services$ | async; track servicio.id) {
+            <mat-option [value]="servicio.id">
+              {{ servicio.nombre }}
+            </mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+
+      <div class="grid-two">
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Fecha</mat-label>
+          <input matInput [matDatepicker]="picker" formControlName="fecha" />
+          <mat-datepicker #picker></mat-datepicker>
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Hora</mat-label>
+          <input matInput type="time" formControlName="hora" />
+        </mat-form-field>
+      </div>
+
+      <div class="grid-two">
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Estado</mat-label>
+          <mat-select formControlName="estado">
+            <mat-option value="programada">Programada</mat-option>
+            <mat-option value="completada">Completada</mat-option>
+            <mat-option value="cancelada">Cancelada</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        @if ((estado$ | async) === 'completada') {
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Método de pago</mat-label>
+            <mat-select formControlName="metodoPago">
+              <mat-option value="efectivo">Efectivo</mat-option>
+              <mat-option value="transferencia">Transferencia</mat-option>
+              <mat-option value="tarjeta">Tarjeta</mat-option>
+              <mat-option value="otro">Otro</mat-option>
+            </mat-select>
+          </mat-form-field>
+        }
+      </div>
+
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Notas</mat-label>
+        <textarea matInput rows="3" formControlName="notas"></textarea>
+      </mat-form-field>
+    </section>
+
+    <mat-divider></mat-divider>
+
+    <section class="form-section summary">
+      <h3>Resumen</h3>
+      @if (selectedService$ | async; as servicio) {
+        <div class="summary-row">
+          <span class="summary-label">Servicio</span>
+          <span class="summary-value">{{ servicio.nombre }}</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-label">Duración</span>
+          <span class="summary-value">{{ servicio.duracionMinBase }} min</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-label">Precio</span>
+          <span class="summary-value">
+            {{ servicio.precioBaseMXN | currency: 'MXN' : 'symbol-narrow' }}
+          </span>
+        </div>
+      } @else {
+        <p class="summary-empty">Selecciona un servicio para ver el resumen.</p>
+      }
+
+      @if ((estado$ | async) === 'completada') {
+        @if (bomSnapshot$ | async; as bomSnapshot) {
+          @if (bomSnapshot.length > 0) {
+            <div class="summary-subtitle">
+              Impacto en inventario (estimado)
+            </div>
+            <ul class="bom-list">
+              @for (item of bomSnapshot; track item.materialId) {
+                <li>
+                  <span>{{ item.nombre }}</span>
+                  <span class="bom-qty">
+                    {{ item.cantidad }} {{ item.unidad }}
+                  </span>
+                </li>
+              }
+            </ul>
+          }
+        }
+      }
+    </section>
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end" class="dialog-actions">
+  <button mat-button type="button" (click)="cancelar()">Cancelar</button>
+  <button mat-flat-button color="primary" type="button" (click)="guardar()">
+    Guardar cita
+  </button>
+</mat-dialog-actions>
