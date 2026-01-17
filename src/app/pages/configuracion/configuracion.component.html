@@ -1,0 +1,58 @@
+<section class="page">
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">Configuración</p>
+      <h1>Controles de demo</h1>
+      <p class="subtitle">
+        Administra el estado local para compartir, reiniciar o cargar escenarios.
+      </p>
+    </div>
+  </header>
+
+  <section class="cards">
+    <mat-card>
+      <mat-card-header>
+        <mat-card-title>Datos de demostración</mat-card-title>
+        <mat-card-subtitle>
+          Exporta o restaura el estado de la demo en un archivo JSON.
+        </mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <p class="helper-text">
+          Usa estos controles para reiniciar la información del estudio o
+          moverla entre dispositivos.
+        </p>
+        <div class="actions">
+          <button mat-stroked-button color="primary" (click)="onResetDemo()">
+            Reiniciar demo
+          </button>
+          <button mat-flat-button color="primary" (click)="onExportDemo()">
+            Exportar demo
+          </button>
+          <button
+            mat-stroked-button
+            color="primary"
+            type="button"
+            (click)="fileInput.click()"
+          >
+            Importar demo
+          </button>
+          <input
+            #fileInput
+            class="file-input"
+            type="file"
+            accept="application/json"
+            (change)="onImportDemo($event)"
+          />
+        </div>
+        <p
+          *ngIf="statusMessage"
+          class="status"
+          [class.status--error]="statusTone === 'error'"
+        >
+          {{ statusMessage }}
+        </p>
+      </mat-card-content>
+    </mat-card>
+  </section>
+</section>
