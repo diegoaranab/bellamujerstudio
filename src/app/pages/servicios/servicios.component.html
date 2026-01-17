@@ -9,25 +9,28 @@
   </header>
 
   <section class="cards">
-    <mat-card>
-      <mat-card-title>Faciales &amp; skincare</mat-card-title>
+    <mat-card *ngFor="let categoria of categorias$ | async">
+      <mat-card-header>
+        <mat-card-title>{{ categoria.nombre }}</mat-card-title>
+        <mat-card-subtitle>
+          {{ categoria.servicios.length }} servicios activos
+        </mat-card-subtitle>
+      </mat-card-header>
       <mat-card-content>
-        <p>5 servicios activos · Ticket promedio $620 MXN</p>
-        <p class="meta">Última actualización: hoy 9:00</p>
-      </mat-card-content>
-    </mat-card>
-    <mat-card>
-      <mat-card-title>Cejas &amp; pestañas</mat-card-title>
-      <mat-card-content>
-        <p>8 servicios activos · Ticket promedio $480 MXN</p>
-        <p class="meta">Promoción vigente 10% martes</p>
-      </mat-card-content>
-    </mat-card>
-    <mat-card>
-      <mat-card-title>Depilación</mat-card-title>
-      <mat-card-content>
-        <p>4 servicios activos · Ticket promedio $350 MXN</p>
-        <p class="meta">Paquetes trimestrales disponibles</p>
+        <mat-list class="dense-list">
+          <mat-list-item *ngFor="let servicio of categoria.servicios">
+            <div class="list-row">
+              <div>
+                <p class="name">{{ servicio.nombre }}</p>
+                <p class="detail">{{ servicio.descripcionCorta }}</p>
+              </div>
+              <p class="amount">
+                {{ servicio.precioBaseMXN | currency: 'MXN' }} ·
+                {{ servicio.duracionMinBase }} min
+              </p>
+            </div>
+          </mat-list-item>
+        </mat-list>
       </mat-card-content>
     </mat-card>
   </section>

@@ -13,74 +13,84 @@
   <section class="kpi-grid">
     <mat-card class="kpi-card">
       <mat-card-content>
-        <p class="kpi-label">Ventas hoy</p>
-        <p class="kpi-value">$8,450 MXN</p>
-        <p class="kpi-meta">+12% vs. ayer</p>
+        <p class="kpi-label">Servicios</p>
+        <p class="kpi-value">{{ serviciosCount$ | async }}</p>
+        <p class="kpi-meta">Servicios activos en catálogo</p>
       </mat-card-content>
     </mat-card>
     <mat-card class="kpi-card">
       <mat-card-content>
-        <p class="kpi-label">Ventas semana</p>
-        <p class="kpi-value">$42,980 MXN</p>
-        <p class="kpi-meta">92 citas atendidas</p>
+        <p class="kpi-label">Materiales</p>
+        <p class="kpi-value">{{ materialesCount$ | async }}</p>
+        <p class="kpi-meta">Productos y consumibles</p>
       </mat-card-content>
     </mat-card>
     <mat-card class="kpi-card">
       <mat-card-content>
-        <p class="kpi-label">Ganancia estimada</p>
-        <p class="kpi-value">$18,320 MXN</p>
-        <p class="kpi-meta">Margen 42%</p>
-      </mat-card-content>
-    </mat-card>
-    <mat-card class="kpi-card">
-      <mat-card-content>
-        <p class="kpi-label">Stock bajo</p>
-        <p class="kpi-value">6 productos</p>
-        <p class="kpi-meta">Reabastecer esta semana</p>
+        <p class="kpi-label">Clientes</p>
+        <p class="kpi-value">{{ clientesCount$ | async }}</p>
+        <p class="kpi-meta">Clientes registrados</p>
       </mat-card-content>
     </mat-card>
   </section>
 
   <section class="grid-two">
-    <mat-card class="chart-card">
+    <mat-card class="list-card">
       <mat-card-header>
-        <mat-card-title>Rendimiento semanal</mat-card-title>
-        <mat-card-subtitle>Servicios más solicitados</mat-card-subtitle>
+        <mat-card-title>Costos fijos</mat-card-title>
+        <mat-card-subtitle>Gastos fijos por hora (demo)</mat-card-subtitle>
       </mat-card-header>
       <mat-card-content>
-        <div class="chart-placeholder">Gráfica (demo)</div>
+        <p class="kpi-value">
+          {{ gastosFijosPorHora$ | async | currency: 'MXN' }}
+        </p>
+        <p class="detail">
+          Precio demo de un servicio:
+          {{ demoPrecioServicio$ | async | currency: 'MXN' }}
+        </p>
       </mat-card-content>
     </mat-card>
 
     <mat-card class="list-card">
       <mat-card-header>
-        <mat-card-title>Próximas citas</mat-card-title>
-        <mat-card-subtitle>Agenda de hoy</mat-card-subtitle>
+        <mat-card-title>Servicios destacados</mat-card-title>
+        <mat-card-subtitle>Catálogo activo</mat-card-subtitle>
       </mat-card-header>
       <mat-card-content>
-        <ul class="schedule">
-          <li>
-            <span class="time">10:00</span>
-            <div>
-              <p class="name">Andrea López</p>
-              <p class="detail">Lash lift + tinte</p>
+        <mat-list class="dense-list">
+          <mat-list-item *ngFor="let servicio of serviciosDestacados$ | async">
+            <div class="list-row">
+              <div>
+                <p class="name">{{ servicio.nombre }}</p>
+                <p class="detail">{{ servicio.descripcionCorta }}</p>
+              </div>
+              <p class="amount">
+                {{ servicio.precioBaseMXN | currency: 'MXN' }}
+              </p>
             </div>
-          </li>
-          <li>
-            <span class="time">12:30</span>
-            <div>
-              <p class="name">Rebeca Ruiz</p>
-              <p class="detail">Diseño de ceja HD</p>
+          </mat-list-item>
+        </mat-list>
+      </mat-card-content>
+    </mat-card>
+  </section>
+
+  <section class="grid-two">
+    <mat-card class="list-card">
+      <mat-card-header>
+        <mat-card-title>Clientes recientes</mat-card-title>
+        <mat-card-subtitle>Datos de contacto</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <mat-list class="dense-list">
+          <mat-list-item *ngFor="let cliente of clientesRecientes$ | async">
+            <div class="list-row">
+              <div>
+                <p class="name">{{ cliente.nombre }}</p>
+                <p class="detail">{{ cliente.telefono }}</p>
+              </div>
             </div>
-          </li>
-          <li>
-            <span class="time">15:00</span>
-            <div>
-              <p class="name">Mariana Soto</p>
-              <p class="detail">Limpieza facial premium</p>
-            </div>
-          </li>
-        </ul>
+          </mat-list-item>
+        </mat-list>
       </mat-card-content>
     </mat-card>
   </section>

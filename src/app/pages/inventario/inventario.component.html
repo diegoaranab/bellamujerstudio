@@ -10,24 +10,36 @@
 
   <section class="cards">
     <mat-card>
-      <mat-card-title>Consumos críticos</mat-card-title>
+      <mat-card-header>
+        <mat-card-title>Materiales disponibles</mat-card-title>
+        <mat-card-subtitle>Control de existencias</mat-card-subtitle>
+      </mat-card-header>
       <mat-card-content>
-        <p>6 artículos con stock &lt; 10 unidades.</p>
-        <p class="meta">Recomendación: generar pedido hoy</p>
-      </mat-card-content>
-    </mat-card>
-    <mat-card>
-      <mat-card-title>Rotación semanal</mat-card-title>
-      <mat-card-content>
-        <p>Suero hidratante, cera premium, tintes.</p>
-        <p class="meta">Reabastecer el viernes</p>
-      </mat-card-content>
-    </mat-card>
-    <mat-card>
-      <mat-card-title>Órdenes pendientes</mat-card-title>
-      <mat-card-content>
-        <p>2 pedidos en tránsito · 1 en validación</p>
-        <p class="meta">Proveedor principal: BellezaMX</p>
+        <mat-list class="dense-list">
+          <mat-list-item
+            *ngFor="let material of (inventario$ | async)?.materials"
+          >
+            <div class="list-row">
+              <div class="list-main">
+                <p class="name">{{ material.nombre }}</p>
+                <p class="detail">
+                  Stock actual: {{ material.stockActual }}
+                  {{ material.unidad }}
+                </p>
+                <p class="detail">
+                  Mínimo sugerido: {{ material.stockMinimo }}
+                  {{ material.unidad }}
+                </p>
+              </div>
+              <mat-chip
+                *ngIf="material.stockActual <= material.stockMinimo"
+                color="warn"
+              >
+                Stock bajo
+              </mat-chip>
+            </div>
+          </mat-list-item>
+        </mat-list>
       </mat-card-content>
     </mat-card>
   </section>
