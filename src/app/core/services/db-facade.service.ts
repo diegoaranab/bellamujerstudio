@@ -28,6 +28,8 @@ interface InventoryAdjustment {
   cantidad?: number;
   delta?: number;
   ajuste?: number;
+  motivo?: string;
+  createdAtISO?: string;
 }
 
 @Injectable({
@@ -108,9 +110,14 @@ export class DbFacadeService {
 
   addTransaction(tx: Transaction): void {
     const current = this.localState.loadState();
+    const inventoryAdjustments = [
+      ...current.inventoryAdjustments,
+      ...this.createInventoryAdjustmentsForTransaction(tx)
+    ];
     const nextState: LocalStateData = {
       ...current,
-      transactions: [...current.transactions, tx]
+      transactions: [...current.transactions, tx],
+      inventoryAdjustments
     };
 
     this.localState.saveState(nextState);
@@ -252,6 +259,30 @@ export class DbFacadeService {
     }
 
     return 0;
+  }
+
+  private createInventoryAdjustmentsForTransaction(
+    tx: Transaction
+  ): InventoryAdjustment[] {
+    if (tx.status !== 'completada') {
+      return [];
+    }
+
+    const createdAtISO = new Date().toISOString();
+    const adjustments: InventoryAdjustment[] = [];
+
+    tx.items.forEach((item) => {
+      item.bomSnapshot?.forEach((bomItem) => {
+        adjustments.push({
+          materialId: bomItem.materialId,
+          delta: -bomItem.cantidad,
+          motivo: `Consumo por servicio (${tx.id})`,
+          createdAtISO
+        });
+      });
+    });
+
+    return adjustments;
   }
 
   private isServiceOverride(value: unknown): value is ServiceOverride {
