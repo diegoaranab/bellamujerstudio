@@ -15,25 +15,28 @@
         <mat-card-subtitle>Control de existencias</mat-card-subtitle>
       </mat-card-header>
       <mat-card-content>
-        <mat-list class="dense-list bm-list">
-          <mat-list-item
+        <div class="bm-data-list">
+          <div
+            class="bm-data-row"
             *ngFor="let material of (inventario$ | async)?.materials"
           >
-            <span matListItemTitle>{{ material.nombre }}</span>
-            <span matListItemLine>
-              Stock actual: {{ material.stockActual }} {{ material.unidad }} •
-              Mínimo sugerido: {{ material.stockMinimo }} {{ material.unidad }}
-            </span>
-            <div matListItemMeta>
+            <div class="bm-data-main">
+              <div class="bm-data-title">{{ material.nombre }}</div>
+              <div class="bm-data-subtitle">
+                Stock actual: {{ material.stockActual }} {{ material.unidad }}
+              </div>
+            </div>
+            <div class="bm-data-meta">
               <mat-chip
                 *ngIf="material.stockMinimo > 0 && material.stockActual <= material.stockMinimo"
                 color="warn"
+                selected
               >
                 Stock bajo
               </mat-chip>
             </div>
-          </mat-list-item>
-        </mat-list>
+          </div>
+        </div>
       </mat-card-content>
     </mat-card>
   </section>

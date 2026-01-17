@@ -57,19 +57,27 @@
         <mat-card-subtitle>Catálogo activo</mat-card-subtitle>
       </mat-card-header>
       <mat-card-content>
-        <mat-list class="dense-list">
-          <mat-list-item *ngFor="let servicio of serviciosDestacados$ | async">
-            <div class="list-row">
-              <div>
-                <p class="name">{{ servicio.nombre }}</p>
-                <p class="detail">{{ servicio.descripcionCorta }}</p>
+        <div class="bm-data-list">
+          <div
+            class="bm-data-row"
+            *ngFor="let servicio of serviciosDestacados$ | async"
+          >
+            <div class="bm-data-main">
+              <div class="bm-data-title">{{ servicio.nombre }}</div>
+              <div class="bm-data-subtitle">
+                {{ servicio.descripcionCorta }}
               </div>
-              <p class="amount">
-                {{ servicio.precioBaseMXN | currency: 'MXN' }}
-              </p>
             </div>
-          </mat-list-item>
-        </mat-list>
+            <div class="bm-data-meta">
+              <div class="price">
+                {{
+                  servicio.precioBaseMXN
+                    | currency: 'MXN':'symbol-narrow':'1.0-0'
+                }}
+              </div>
+            </div>
+          </div>
+        </div>
       </mat-card-content>
     </mat-card>
   </section>
@@ -81,16 +89,19 @@
         <mat-card-subtitle>Datos de contacto</mat-card-subtitle>
       </mat-card-header>
       <mat-card-content>
-        <mat-list class="dense-list">
-          <mat-list-item *ngFor="let cliente of clientesRecientes$ | async">
-            <div class="list-row">
-              <div>
-                <p class="name">{{ cliente.nombre }}</p>
-                <p class="detail">{{ cliente.telefono }}</p>
-              </div>
+        <div class="bm-data-list">
+          <div
+            class="bm-data-row"
+            *ngFor="let cliente of clientesRecientes$ | async"
+          >
+            <div class="bm-data-main">
+              <div class="bm-data-title">{{ cliente.nombre }}</div>
             </div>
-          </mat-list-item>
-        </mat-list>
+            <div class="bm-data-meta">
+              <div class="duration">{{ cliente.telefono }}</div>
+            </div>
+          </div>
+        </div>
       </mat-card-content>
     </mat-card>
   </section>
