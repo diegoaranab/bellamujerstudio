@@ -56,66 +56,68 @@ button {
   font-family: inherit;
 }
 
-.dense-list {
-  .mat-mdc-list-item,
-  .mdc-list-item {
-    height: auto;
-    padding-top: 0.75rem;
-    padding-bottom: 0.75rem;
-  }
-
-  .mdc-list-item__content,
-  .mat-mdc-list-item-content {
-    min-width: 0;
-  }
-
-  .mdc-list-item__primary-text,
-  .mdc-list-item__secondary-text,
-  .mat-mdc-list-item-line {
-    white-space: normal;
-  }
+.bm-data-list {
+  display: flex;
+  flex-direction: column;
 }
 
-.bm-list {
-  .mat-mdc-list-item,
-  .mdc-list-item {
-    height: auto;
-    align-items: flex-start;
-  }
-
-  .mat-mdc-list-item-content {
-    align-items: flex-start;
-  }
-
-  .mat-mdc-list-item-title,
-  .mat-mdc-list-item-line {
-    white-space: normal;
-  }
-
-  .mat-mdc-list-item-meta {
-    align-self: flex-start;
-    text-align: right;
-  }
+.bm-data-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem 1.5rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--mat-sys-primary) 12%, transparent);
 }
 
-@media (max-width: 840px) {
-  .bm-list {
-    .mat-mdc-list-item.mdc-list-item {
-      flex-wrap: wrap;
-      align-items: flex-start;
-      height: auto;
-    }
+.bm-data-row:last-child {
+  border-bottom: none;
+}
 
-    .mdc-list-item__content {
-      flex: 1 1 100%;
-      min-width: 0;
-    }
+.bm-data-main {
+  min-width: 0;
+}
 
-    .mat-mdc-list-item-meta {
-      flex: 1 1 100%;
-      width: 100%;
-      margin-top: 0.35rem;
-      text-align: left;
-    }
+.bm-data-title {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.bm-data-subtitle {
+  margin-top: 0.25rem;
+  font-size: 0.85rem;
+  color: var(--mat-sys-on-surface-variant, #6b5b66);
+  overflow-wrap: anywhere;
+}
+
+.bm-data-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25rem;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.bm-data-meta .price {
+  font-weight: 600;
+}
+
+.bm-data-meta .duration {
+  font-size: 0.85rem;
+  color: var(--mat-sys-on-surface-variant, #6b5b66);
+}
+
+@media (max-width: 720px) {
+  .bm-data-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .bm-data-meta {
+    flex-direction: row;
+    align-items: center;
+    text-align: left;
+    white-space: normal;
+    gap: 0.75rem;
   }
 }

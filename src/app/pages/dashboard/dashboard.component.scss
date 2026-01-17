@@ -72,43 +72,14 @@
   border-radius: 24px;
 }
 
-.name {
-  margin: 0;
-  font-weight: 600;
-}
-
 .detail {
   margin: 0.2rem 0 0;
   color: var(--mat-sys-on-surface-variant, #6b5b66);
   font-size: 0.85rem;
 }
 
-.dense-list {
-  padding: 0;
-}
-
-.list-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  width: 100%;
-  align-items: center;
-}
-
-.amount {
-  margin: 0;
-  font-weight: 600;
-  color: var(--mat-sys-primary);
-  white-space: nowrap;
-}
-
 @media (max-width: 600px) {
   .page-header {
-    align-items: flex-start;
-  }
-
-  .list-row {
-    flex-direction: column;
     align-items: flex-start;
   }
 }

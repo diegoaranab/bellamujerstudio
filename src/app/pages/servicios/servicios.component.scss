@@ -44,31 +44,3 @@ mat-card {
   border-radius: 20px;
   padding: 0.5rem 0;
 }
-
-.dense-list {
-  padding: 0;
-}
-
-.list-meta {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 0.15rem;
-  font-weight: 600;
-  color: var(--mat-sys-primary);
-}
-
-.list-meta span {
-  display: block;
-}
-
-.list-meta .duration {
-  font-weight: 500;
-  color: var(--mat-sys-on-surface-variant, #6b5b66);
-}
-
-@media (max-width: 840px) {
-  .list-meta {
-    align-items: flex-start;
-  }
-}
