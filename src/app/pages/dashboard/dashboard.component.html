@@ -128,16 +128,46 @@
                 {{ cita.servicio }} · {{ cita.hora }}
               </div>
             </div>
-            <div class="bm-data-meta">
-              <mat-chip
-                [ngClass]="'bm-chip-' + cita.estado"
-                selected
-              >
-                {{ statusLabel(cita.estado) }}
-              </mat-chip>
-              <div class="price">
-                {{ cita.totalMXN | currency: 'MXN':'symbol-narrow':'1.0-0' }}
+            <div class="bm-data-meta cita-meta">
+              <div class="cita-meta-main">
+                <mat-chip
+                  [ngClass]="'bm-chip-' + cita.estado"
+                  selected
+                >
+                  {{ statusLabel(cita.estado) }}
+                </mat-chip>
+                <div class="price">
+                  {{ cita.totalMXN | currency: 'MXN':'symbol-narrow':'1.0-0' }}
+                </div>
               </div>
+              <button
+                mat-icon-button
+                class="cita-action"
+                [matMenuTriggerFor]="citaMenu"
+                aria-label="Cambiar estado de cita"
+              >
+                <mat-icon>more_vert</mat-icon>
+              </button>
+              <mat-menu #citaMenu="matMenu">
+                <button
+                  mat-menu-item
+                  (click)="updateCitaStatus(cita.id, 'completada')"
+                >
+                  Marcar como completada
+                </button>
+                <button
+                  mat-menu-item
+                  (click)="updateCitaStatus(cita.id, 'cancelada')"
+                >
+                  Marcar como cancelada
+                </button>
+                <button
+                  mat-menu-item
+                  (click)="updateCitaStatus(cita.id, 'programada')"
+                >
+                  Marcar como programada
+                </button>
+              </mat-menu>
             </div>
           </div>
           <p class="empty-state" *ngIf="citas.length === 0">

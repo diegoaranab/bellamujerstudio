@@ -87,6 +87,17 @@
   display: inline;
 }
 
+.cita-meta-main {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.35rem;
+}
+
+.cita-action {
+  align-self: flex-end;
+}
+
 .bm-chip-programada {
   background: color-mix(in srgb, var(--mat-sys-primary) 15%, transparent);
   color: var(--mat-sys-primary);
@@ -110,6 +121,15 @@
 
 @media (max-width: 600px) {
   .page-header {
+    align-items: flex-start;
+  }
+
+  .citas-list .bm-data-meta {
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .cita-meta-main {
     align-items: flex-start;
   }
 }

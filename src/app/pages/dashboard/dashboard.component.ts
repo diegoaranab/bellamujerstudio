@@ -1,8 +1,11 @@
 import { AsyncPipe, CurrencyPipe, NgClass, NgFor, NgIf } from '@angular/common';
 import { Component, inject } from '@angular/core';
+import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatIconModule } from '@angular/material/icon';
 import { MatListModule } from '@angular/material/list';
+import { MatMenuModule } from '@angular/material/menu';
 import { combineLatest, map } from 'rxjs';
 
 import { DbFacadeService } from '../../core/services/db-facade.service';
@@ -24,9 +27,12 @@ interface CitaHoyVm {
     AsyncPipe,
     CurrencyPipe,
     NgClass,
+    MatButtonModule,
     MatCardModule,
     MatChipsModule,
+    MatIconModule,
     MatListModule,
+    MatMenuModule,
     NgFor,
     NgIf
   ],
@@ -122,6 +128,13 @@ export class DashboardComponent {
       default:
         return 'Programada';
     }
+  }
+
+  updateCitaStatus(
+    transactionId: string,
+    newStatus: TransactionStatus
+  ): void {
+    this.dbFacade.updateTransactionStatus(transactionId, newStatus);
   }
 
   private formatServiceName(serviceNames: string[]): string {

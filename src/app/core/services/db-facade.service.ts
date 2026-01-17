@@ -124,6 +124,59 @@ export class DbFacadeService {
     this.stateSubject.next(nextState);
   }
 
+  updateTransactionStatus(
+    transactionId: string,
+    newStatus: 'programada' | 'completada' | 'cancelada'
+  ): void {
+    const current = this.localState.loadState();
+    const transactionIndex = current.transactions.findIndex(
+      (tx) => tx.id === transactionId
+    );
+
+    if (transactionIndex === -1) {
+      return;
+    }
+
+    const transaction = current.transactions[transactionIndex];
+    if (transaction.status === newStatus) {
+      return;
+    }
+
+    const updatedTransaction: Transaction = {
+      ...transaction,
+      status: newStatus
+    };
+
+    let inventoryAdjustments = current.inventoryAdjustments;
+
+    if (newStatus === 'completada' && transaction.status !== 'completada') {
+      inventoryAdjustments = [
+        ...inventoryAdjustments,
+        ...this.createInventoryAdjustmentsForTransaction(updatedTransaction)
+      ];
+    } else if (
+      transaction.status === 'completada' &&
+      newStatus !== 'completada'
+    ) {
+      inventoryAdjustments = [
+        ...inventoryAdjustments,
+        ...this.createReverseInventoryAdjustmentsForTransaction(transaction)
+      ];
+    }
+
+    const transactions = [...current.transactions];
+    transactions[transactionIndex] = updatedTransaction;
+
+    const nextState: LocalStateData = {
+      ...current,
+      transactions,
+      inventoryAdjustments
+    };
+
+    this.localState.saveState(nextState);
+    this.stateSubject.next(nextState);
+  }
+
   generateId(): string {
     if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
       return crypto.randomUUID();
@@ -277,6 +330,26 @@ export class DbFacadeService {
           materialId: bomItem.materialId,
           delta: -bomItem.cantidad,
           motivo: `Consumo por servicio (${tx.id})`,
+          createdAtISO
+        });
+      });
+    });
+
+    return adjustments;
+  }
+
+  private createReverseInventoryAdjustmentsForTransaction(
+    tx: Transaction
+  ): InventoryAdjustment[] {
+    const createdAtISO = new Date().toISOString();
+    const adjustments: InventoryAdjustment[] = [];
+
+    tx.items.forEach((item) => {
+      item.bomSnapshot?.forEach((bomItem) => {
+        adjustments.push({
+          materialId: bomItem.materialId,
+          delta: bomItem.cantidad,
+          motivo: `Reversión de consumo por servicio (${tx.id})`,
           createdAtISO
         });
       });
