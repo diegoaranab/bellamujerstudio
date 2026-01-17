@@ -75,3 +75,35 @@ button {
     white-space: normal;
   }
 }
+
+.bm-list {
+  .mat-mdc-list-item,
+  .mdc-list-item {
+    height: auto;
+    align-items: flex-start;
+  }
+
+  .mat-mdc-list-item-content {
+    align-items: flex-start;
+  }
+
+  .mat-mdc-list-item-title,
+  .mat-mdc-list-item-line {
+    white-space: normal;
+  }
+
+  .mat-mdc-list-item-meta {
+    align-self: flex-start;
+    text-align: right;
+  }
+}
+
+@media (max-width: 840px) {
+  .bm-list {
+    .mat-mdc-list-item-meta {
+      width: 100%;
+      margin-top: 0.5rem;
+      text-align: left;
+    }
+  }
+}
