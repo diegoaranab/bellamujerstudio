@@ -54,7 +54,11 @@ mat-card {
   justify-content: space-between;
   gap: 1rem;
   width: 100%;
-  align-items: center;
+  align-items: flex-start;
+}
+
+.list-main {
+  min-width: 0;
 }
 
 .name {
@@ -66,6 +70,9 @@ mat-card {
   margin: 0.2rem 0 0;
   color: var(--mat-sys-on-surface-variant, #6b5b66);
   font-size: 0.85rem;
+  white-space: normal;
+  overflow: visible;
+  word-break: break-word;
 }
 
 .amount {
