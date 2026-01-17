@@ -5,6 +5,7 @@ import {
   provideBrowserGlobalErrorListeners
 } from '@angular/core';
 import { provideHttpClient } from '@angular/common/http';
+import { provideNativeDateAdapter } from '@angular/material/core';
 import { provideAnimations } from '@angular/platform-browser/animations';
 import { provideRouter, withHashLocation } from '@angular/router';
 
@@ -15,6 +16,7 @@ export const appConfig: ApplicationConfig = {
     provideBrowserGlobalErrorListeners(),
     provideAnimations(),
     provideHttpClient(),
+    provideNativeDateAdapter(),
     provideRouter(routes, withHashLocation()),
     { provide: LOCALE_ID, useValue: 'es-MX' },
     { provide: DEFAULT_CURRENCY_CODE, useValue: 'MXN' }

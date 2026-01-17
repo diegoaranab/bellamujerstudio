@@ -70,6 +70,7 @@
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>Fecha</mat-label>
           <input matInput [matDatepicker]="picker" formControlName="fecha" />
+          <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
           <mat-datepicker #picker></mat-datepicker>
         </mat-form-field>
         <mat-form-field appearance="outline" class="full-width">

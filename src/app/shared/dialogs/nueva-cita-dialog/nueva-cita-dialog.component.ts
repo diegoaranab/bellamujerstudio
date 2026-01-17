@@ -19,6 +19,7 @@ import { MatNativeDateModule } from '@angular/material/core';
 import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
+import { MatIconModule } from '@angular/material/icon';
 import { MatSelectModule } from '@angular/material/select';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
@@ -50,6 +51,7 @@ import { DbFacadeService } from '../../../core/services/db-facade.service';
     MatDialogModule,
     MatFormFieldModule,
     MatInputModule,
+    MatIconModule,
     MatSelectModule,
     MatAutocompleteModule,
     MatSlideToggleModule,
@@ -184,6 +186,7 @@ export class NuevaCitaDialogComponent {
           this.form.controls.clienteSeleccion.disable({ emitEvent: false });
         } else {
           this.form.controls.clienteSeleccion.enable({ emitEvent: false });
+          this.form.controls.clienteTelefono.setValue('');
         }
       });
   }
@@ -228,14 +231,16 @@ export class NuevaCitaDialogComponent {
     }
 
     const estado = this.form.controls.estado.value;
-    const notas = this.form.controls.notas.value.trim();
-    const telefono = this.form.controls.clienteTelefono.value.trim();
-    const notasFinal = [notas, telefono ? `Teléfono: ${telefono}` : '']
-      .filter(Boolean)
-      .join('\n');
-
     const clientNuevo = this.form.controls.clienteNuevo.value;
     const clienteSeleccion = this.form.controls.clienteSeleccion.value;
+    const notas = this.form.controls.notas.value.trim();
+    const telefono = this.form.controls.clienteTelefono.value.trim();
+    const notasFinal = [
+      notas,
+      clientNuevo && telefono ? `Teléfono: ${telefono}` : ''
+    ]
+      .filter(Boolean)
+      .join('\n');
 
     const clientId = clientNuevo
       ? this.dbFacade.generateId()
