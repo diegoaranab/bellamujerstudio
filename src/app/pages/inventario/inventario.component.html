@@ -41,5 +41,53 @@
         </div>
       </mat-card-content>
     </mat-card>
+
+    <mat-card>
+      <mat-card-header>
+        <mat-card-title>Movimientos recientes</mat-card-title>
+        <mat-card-subtitle>Últimos 10 ajustes de inventario</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <ng-container *ngIf="recentAdjustments$ | async as recentAdjustments">
+          <div
+            class="bm-adjustments"
+            *ngIf="recentAdjustments.length > 0; else noAdjustments"
+          >
+            <div
+              class="bm-adjustment-row"
+              *ngFor="let adjustment of recentAdjustments"
+            >
+              <div class="bm-adjustment-main">
+                <div class="bm-adjustment-title">
+                  {{ adjustment.materialName }}
+                </div>
+                <div class="bm-adjustment-details">
+                  <span
+                    class="bm-adjustment-delta"
+                    [class.positive]="adjustment.delta > 0"
+                    [class.negative]="adjustment.delta < 0"
+                  >
+                    {{ adjustment.delta > 0 ? '+' + adjustment.delta : adjustment.delta }}
+                  </span>
+                  <span class="bm-adjustment-motivo">
+                    {{ adjustment.motivo }}
+                  </span>
+                </div>
+              </div>
+              <div class="bm-adjustment-meta">
+                {{
+                  adjustment.createdAtISO
+                    ? (adjustment.createdAtISO | date: 'medium')
+                    : 'Fecha pendiente'
+                }}
+              </div>
+            </div>
+          </div>
+        </ng-container>
+        <ng-template #noAdjustments>
+          <p class="bm-empty">No hay movimientos recientes.</p>
+        </ng-template>
+      </mat-card-content>
+    </mat-card>
   </section>
 </section>

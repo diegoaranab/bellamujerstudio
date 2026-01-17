@@ -32,6 +32,13 @@ interface InventoryAdjustment {
   createdAtISO?: string;
 }
 
+export interface InventoryAdjustmentEntry {
+  materialId: string;
+  delta: number;
+  motivo?: string;
+  createdAtISO?: string;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -39,6 +46,7 @@ export class DbFacadeService {
   readonly categories$: Observable<CategorySeedDto>;
   readonly services$: Observable<ServicesDbSeed>;
   readonly inventory$: Observable<InventorySeedDto>;
+  readonly inventoryAdjustments$: Observable<InventoryAdjustmentEntry[]>;
   readonly clients$: Observable<ClientSeedDto>;
   readonly overhead$: Observable<OverheadSeedDto>;
   readonly transactions$: Observable<Transaction[]>;
@@ -69,6 +77,19 @@ export class DbFacadeService {
     ]).pipe(
       map(([seed, state]) =>
         this.applyInventoryAdjustments(seed, state.inventoryAdjustments)
+      ),
+      shareReplay(1)
+    );
+    this.inventoryAdjustments$ = this.stateSubject.pipe(
+      map((state) =>
+        state.inventoryAdjustments
+          .filter(this.isInventoryAdjustment)
+          .map((adjustment) => ({
+            materialId: adjustment.materialId,
+            delta: this.resolveAdjustmentDelta(adjustment),
+            motivo: adjustment.motivo,
+            createdAtISO: adjustment.createdAtISO
+          }))
       ),
       shareReplay(1)
     );
