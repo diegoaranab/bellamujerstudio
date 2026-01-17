@@ -24,6 +24,6 @@ export interface Transaction {
   clientNombre: string;
   items: TransactionItem[];
   totalMXN: number;
-  paymentMethod: PaymentMethod;
+  paymentMethod?: PaymentMethod;
   notas?: string;
 }
