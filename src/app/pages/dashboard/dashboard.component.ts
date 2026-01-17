@@ -1,8 +1,10 @@
 import { AsyncPipe, CurrencyPipe, NgClass, NgFor, NgIf } from '@angular/common';
 import { Component, inject } from '@angular/core';
+import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatListModule } from '@angular/material/list';
 import { MatMenuModule } from '@angular/material/menu';
@@ -10,6 +12,7 @@ import { combineLatest, map } from 'rxjs';
 
 import { DbFacadeService } from '../../core/services/db-facade.service';
 import { TransactionStatus } from '../../core/models';
+import { ResumenDiarioDialogComponent } from '../../shared/dialogs/resumen-diario-dialog/resumen-diario-dialog.component';
 
 interface CitaHoyVm {
   id: string;
@@ -41,6 +44,8 @@ interface CitaHoyVm {
 })
 export class DashboardComponent {
   private readonly dbFacade = inject(DbFacadeService);
+  private readonly dialog = inject(MatDialog);
+  private readonly breakpointObserver = inject(BreakpointObserver);
 
   readonly serviciosCount$ = this.dbFacade.services$.pipe(
     map((seed) => seed.services.length)
@@ -135,6 +140,17 @@ export class DashboardComponent {
     newStatus: TransactionStatus
   ): void {
     this.dbFacade.updateTransactionStatus(transactionId, newStatus);
+  }
+
+  openResumenDiario(): void {
+    const isHandset = this.breakpointObserver.isMatched(Breakpoints.Handset);
+    this.dialog.open(ResumenDiarioDialogComponent, {
+      width: isHandset ? '100vw' : '720px',
+      maxWidth: isHandset ? '100vw' : '95vw',
+      height: isHandset ? '100vh' : undefined,
+      maxHeight: isHandset ? '100vh' : '90vh',
+      panelClass: isHandset ? 'bm-dialog-fullscreen' : undefined
+    });
   }
 
   private formatServiceName(serviceNames: string[]): string {
