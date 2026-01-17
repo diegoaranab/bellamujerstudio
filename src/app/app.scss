@@ -105,7 +105,7 @@ mat-nav-list a.active-link {
   }
 
   .content {
-    padding: 1.25rem 1.25rem 6rem;
+    padding: 1.25rem 1.25rem calc(6rem + env(safe-area-inset-bottom));
   }
 
   .topbar {
@@ -121,5 +121,6 @@ mat-nav-list a.active-link {
     background: #ffffff;
     border-top: 1px solid color-mix(in srgb, var(--mat-sys-primary) 12%, transparent);
     z-index: 3;
+    padding-bottom: env(safe-area-inset-bottom);
   }
 }
