@@ -201,10 +201,27 @@ export class NuevaCitaDialogComponent {
       return;
     }
 
-    const [servicio, bomSnapshot] = await Promise.all([
-      firstValueFrom(this.selectedService$),
-      firstValueFrom(this.bomSnapshot$)
+    const servicioId = this.form.controls.servicioId.value;
+    const [servicesDb, materials] = await Promise.all([
+      firstValueFrom(this.servicesDb$),
+      firstValueFrom(this.materials$)
     ]);
+    const servicio =
+      servicesDb.services.find((service) => service.id === servicioId) ?? null;
+    const materialMap = new Map(
+      materials.map((material) => [material.id, material])
+    );
+    const bomSnapshot = servicesDb.bom
+      .filter((item) => item.serviceId === servicioId)
+      .map((item) => {
+        const material = materialMap.get(item.materialId);
+        return {
+          materialId: item.materialId,
+          nombre: material?.nombre ?? item.materialId,
+          cantidad: item.cantidad,
+          unidad: item.unidad
+        };
+      });
 
     if (!servicio) {
       return;
