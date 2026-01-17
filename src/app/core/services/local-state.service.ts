@@ -1,13 +1,6 @@
 import { Injectable } from '@angular/core';
 
-export interface LocalStateData {
-  version: 1;
-  updatedAtISO: string;
-  serviceOverrides: any[];
-  inventoryAdjustments: any[];
-  clientsOverrides: any[];
-  transactions: any[];
-}
+import { LocalStateData } from '../models';
 
 @Injectable({
   providedIn: 'root'
@@ -27,14 +20,10 @@ export class LocalStateService {
 
     try {
       const parsed = JSON.parse(stored);
-      if (this.isValidState(parsed)) {
-        return parsed;
-      }
+      return this.normalizeState(parsed);
     } catch {
       return this.createDefaultState();
     }
-
-    return this.createDefaultState();
   }
 
   saveState(state: LocalStateData): boolean {
@@ -125,6 +114,39 @@ export class LocalStateService {
       Array.isArray(record.clientsOverrides) &&
       Array.isArray(record.transactions)
     );
+  }
+
+  private normalizeState(value: unknown): LocalStateData {
+    if (!value || typeof value !== 'object') {
+      return this.createDefaultState();
+    }
+
+    const record = value as Partial<LocalStateData>;
+    if (record.version !== 1 && typeof record.version !== 'undefined') {
+      return this.createDefaultState();
+    }
+
+    const fallback = this.createDefaultState();
+
+    return {
+      ...fallback,
+      updatedAtISO:
+        typeof record.updatedAtISO === 'string'
+          ? record.updatedAtISO
+          : fallback.updatedAtISO,
+      serviceOverrides: Array.isArray(record.serviceOverrides)
+        ? record.serviceOverrides
+        : fallback.serviceOverrides,
+      inventoryAdjustments: Array.isArray(record.inventoryAdjustments)
+        ? record.inventoryAdjustments
+        : fallback.inventoryAdjustments,
+      clientsOverrides: Array.isArray(record.clientsOverrides)
+        ? record.clientsOverrides
+        : fallback.clientsOverrides,
+      transactions: Array.isArray(record.transactions)
+        ? record.transactions
+        : fallback.transactions
+    };
   }
 
   private createDefaultState(): LocalStateData {

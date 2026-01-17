@@ -6,11 +6,13 @@ import {
   Client,
   ClientSeedDto,
   InventorySeedDto,
+  LocalStateData,
   Material,
   OverheadSeedDto,
-  Service
+  Service,
+  Transaction
 } from '../models';
-import { LocalStateData, LocalStateService } from './local-state.service';
+import { LocalStateService } from './local-state.service';
 import { SeedDbService, ServicesDbSeed } from './seed-db.service';
 
 interface ServiceOverride extends Partial<Service> {
@@ -37,6 +39,7 @@ export class DbFacadeService {
   readonly inventory$: Observable<InventorySeedDto>;
   readonly clients$: Observable<ClientSeedDto>;
   readonly overhead$: Observable<OverheadSeedDto>;
+  readonly transactions$: Observable<Transaction[]>;
 
   private readonly stateSubject: BehaviorSubject<LocalStateData>;
 
@@ -77,6 +80,10 @@ export class DbFacadeService {
       shareReplay(1)
     );
     this.overhead$ = this.seedDb.loadOverhead().pipe(shareReplay(1));
+    this.transactions$ = this.stateSubject.pipe(
+      map((state) => state.transactions),
+      shareReplay(1)
+    );
   }
 
   resetDemo(): void {
@@ -97,6 +104,25 @@ export class DbFacadeService {
     }
 
     this.stateSubject.next(current);
+  }
+
+  addTransaction(tx: Transaction): void {
+    const current = this.localState.loadState();
+    const nextState: LocalStateData = {
+      ...current,
+      transactions: [...current.transactions, tx]
+    };
+
+    this.localState.saveState(nextState);
+    this.stateSubject.next(nextState);
+  }
+
+  generateId(): string {
+    if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+      return crypto.randomUUID();
+    }
+
+    return `bm_${Math.random().toString(36).slice(2, 10)}`;
   }
 
   private refreshLocalState(): void {
