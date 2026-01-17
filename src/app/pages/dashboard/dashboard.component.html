@@ -27,6 +27,13 @@
     </mat-card>
     <mat-card class="kpi-card">
       <mat-card-content>
+        <p class="kpi-label">Insumos críticos</p>
+        <p class="kpi-value">{{ insumosCriticosCount$ | async }}</p>
+        <p class="kpi-meta">Materiales por debajo del mínimo</p>
+      </mat-card-content>
+    </mat-card>
+    <mat-card class="kpi-card">
+      <mat-card-content>
         <p class="kpi-label">Clientes</p>
         <p class="kpi-value">{{ clientesCount$ | async }}</p>
         <p class="kpi-meta">Clientes registrados</p>
@@ -101,6 +108,41 @@
               <div class="duration">{{ cliente.telefono }}</div>
             </div>
           </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </section>
+
+  <section class="grid-two">
+    <mat-card class="list-card">
+      <mat-card-header>
+        <mat-card-title>Citas de hoy</mat-card-title>
+        <mat-card-subtitle>Agenda del día</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="bm-data-list citas-list" *ngIf="citasHoy$ | async as citas">
+          <div class="bm-data-row" *ngFor="let cita of citas">
+            <div class="bm-data-main">
+              <div class="bm-data-title">{{ cita.cliente }}</div>
+              <div class="bm-data-subtitle">
+                {{ cita.servicio }} · {{ cita.hora }}
+              </div>
+            </div>
+            <div class="bm-data-meta">
+              <mat-chip
+                [ngClass]="'bm-chip-' + cita.estado"
+                selected
+              >
+                {{ statusLabel(cita.estado) }}
+              </mat-chip>
+              <div class="price">
+                {{ cita.totalMXN | currency: 'MXN':'symbol-narrow':'1.0-0' }}
+              </div>
+            </div>
+          </div>
+          <p class="empty-state" *ngIf="citas.length === 0">
+            Aún no hay citas para hoy.
+          </p>
         </div>
       </mat-card-content>
     </mat-card>
