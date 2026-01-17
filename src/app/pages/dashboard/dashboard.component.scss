@@ -78,6 +78,36 @@
   font-size: 0.85rem;
 }
 
+.citas-list .bm-data-meta {
+  white-space: normal;
+  gap: 0.5rem;
+}
+
+.citas-list .bm-data-subtitle {
+  display: inline;
+}
+
+.bm-chip-programada {
+  background: color-mix(in srgb, var(--mat-sys-primary) 15%, transparent);
+  color: var(--mat-sys-primary);
+}
+
+.bm-chip-completada {
+  background: color-mix(in srgb, #2e7d32 15%, transparent);
+  color: #2e7d32;
+}
+
+.bm-chip-cancelada {
+  background: color-mix(in srgb, #c62828 15%, transparent);
+  color: #c62828;
+}
+
+.empty-state {
+  margin: 0.75rem 0 0;
+  color: var(--mat-sys-on-surface-variant, #6b5b66);
+  font-size: 0.9rem;
+}
+
 @media (max-width: 600px) {
   .page-header {
     align-items: flex-start;
