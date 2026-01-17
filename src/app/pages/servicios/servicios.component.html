@@ -17,17 +17,13 @@
         </mat-card-subtitle>
       </mat-card-header>
       <mat-card-content>
-        <mat-list class="dense-list">
+        <mat-list class="dense-list bm-list">
           <mat-list-item *ngFor="let servicio of categoria.servicios">
-            <div class="list-row">
-              <div class="list-main">
-                <p class="name">{{ servicio.nombre }}</p>
-                <p class="detail">{{ servicio.descripcionCorta }}</p>
-              </div>
-              <p class="amount">
-                {{ servicio.precioBaseMXN | currency: 'MXN' }} ·
-                {{ servicio.duracionMinBase }} min
-              </p>
+            <span matListItemTitle>{{ servicio.nombre }}</span>
+            <span matListItemLine>{{ servicio.descripcionCorta }}</span>
+            <div matListItemMeta class="list-meta">
+              <span class="price">{{ servicio.precioBaseMXN | currency: 'MXN' }}</span>
+              <span class="duration">{{ servicio.duracionMinBase }} min</span>
             </div>
           </mat-list-item>
         </mat-list>

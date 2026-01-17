@@ -49,42 +49,22 @@ mat-card {
   padding: 0;
 }
 
-.list-row {
+.list-meta {
   display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  width: 100%;
-  align-items: flex-start;
-}
-
-.list-main {
-  min-width: 0;
-}
-
-.name {
-  margin: 0;
-  font-weight: 600;
-}
-
-.detail {
-  margin: 0.2rem 0 0;
-  color: var(--mat-sys-on-surface-variant, #6b5b66);
-  font-size: 0.85rem;
-  white-space: normal;
-  overflow: visible;
-  word-break: break-word;
-}
-
-.amount {
-  margin: 0;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.15rem;
   font-weight: 600;
   color: var(--mat-sys-primary);
-  white-space: nowrap;
 }
 
-@media (max-width: 600px) {
-  .list-row {
-    flex-direction: column;
+.list-meta .duration {
+  font-weight: 500;
+  color: var(--mat-sys-on-surface-variant, #6b5b66);
+}
+
+@media (max-width: 840px) {
+  .list-meta {
     align-items: flex-start;
   }
 }
