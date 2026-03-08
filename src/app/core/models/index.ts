@@ -1,3 +1,4 @@
+export * from './assistant-api.model';
 export * from './assistant-chat-message.model';
 export * from './category.model';
 export * from './client.model';
