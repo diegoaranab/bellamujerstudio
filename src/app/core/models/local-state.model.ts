@@ -1,3 +1,4 @@
+import { AssistantChatMessage } from './assistant-chat-message.model';
 import { Transaction } from './transaction.model';
 
 export interface LocalStateData {
@@ -7,4 +8,5 @@ export interface LocalStateData {
   inventoryAdjustments: any[];
   clientsOverrides: any[];
   transactions: Transaction[];
+  assistantChatHistory: AssistantChatMessage[];
 }

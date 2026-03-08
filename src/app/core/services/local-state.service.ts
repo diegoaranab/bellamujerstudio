@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 
-import { LocalStateData } from '../models';
+import { AssistantChatMessage, LocalStateData } from '../models';
 
 @Injectable({
   providedIn: 'root'
@@ -73,12 +73,13 @@ export class LocalStateService {
         return null;
       }
 
-      const saved = this.saveState(parsed);
+      const normalized = this.normalizeState(parsed);
+      const saved = this.saveState(normalized);
       if (!saved) {
         return null;
       }
 
-      return parsed;
+      return normalized;
     } catch {
       return null;
     }
@@ -99,12 +100,12 @@ export class LocalStateService {
     }
   }
 
-  private isValidState(value: unknown): value is LocalStateData {
+  private isValidState(value: unknown): boolean {
     if (!value || typeof value !== 'object') {
       return false;
     }
 
-    const record = value as LocalStateData;
+    const record = value as Partial<LocalStateData>;
 
     return (
       record.version === 1 &&
@@ -112,7 +113,9 @@ export class LocalStateService {
       Array.isArray(record.serviceOverrides) &&
       Array.isArray(record.inventoryAdjustments) &&
       Array.isArray(record.clientsOverrides) &&
-      Array.isArray(record.transactions)
+      Array.isArray(record.transactions) &&
+      (typeof record.assistantChatHistory === 'undefined' ||
+        Array.isArray(record.assistantChatHistory))
     );
   }
 
@@ -145,7 +148,10 @@ export class LocalStateService {
         : fallback.clientsOverrides,
       transactions: Array.isArray(record.transactions)
         ? record.transactions
-        : fallback.transactions
+        : fallback.transactions,
+      assistantChatHistory: this.normalizeAssistantChatHistory(
+        record.assistantChatHistory
+      )
     };
   }
 
@@ -156,8 +162,40 @@ export class LocalStateService {
       serviceOverrides: [],
       inventoryAdjustments: [],
       clientsOverrides: [],
-      transactions: []
+      transactions: [],
+      assistantChatHistory: []
     };
+  }
+
+  private normalizeAssistantChatHistory(
+    value: unknown
+  ): AssistantChatMessage[] {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    return value
+      .filter((message): message is AssistantChatMessage =>
+        this.isAssistantChatMessage(message)
+      )
+      .map((message) => ({
+        role: message.role,
+        content: message.content,
+        ...(typeof message.createdAtISO === 'string'
+          ? { createdAtISO: message.createdAtISO }
+          : {})
+      }));
+  }
+
+  private isAssistantChatMessage(value: unknown): value is AssistantChatMessage {
+    if (!value || typeof value !== 'object') {
+      return false;
+    }
+
+    const record = value as AssistantChatMessage;
+    const isValidRole = record.role === 'user' || record.role === 'assistant';
+
+    return isValidRole && typeof record.content === 'string';
   }
 
   private isQuotaExceededError(error: unknown): boolean {
