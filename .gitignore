@@ -8,6 +8,7 @@
 
 # Node
 /node_modules
+/worker/node_modules
 npm-debug.log
 yarn-error.log
 
@@ -31,6 +32,8 @@ yarn-error.log
 
 # Miscellaneous
 /.angular/cache
+/worker/.wrangler
+/worker/.dev.vars
 .sass-cache/
 /connect.lock
 /coverage
