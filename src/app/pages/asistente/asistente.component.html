@@ -2,33 +2,116 @@
   <header class="page-header">
     <div>
       <p class="eyebrow">Asistente</p>
-      <h1>Chat</h1>
-      <p class="subtitle">Organiza tareas y obtén sugerencias para el día.</p>
+      <h1>Asistente de cabina</h1>
+      <p class="subtitle">
+        Consulta ventas, inventario y agenda con contexto de tu negocio.
+      </p>
     </div>
-    <button class="ghost-chip" type="button">Nuevo flujo</button>
+    <ng-container *ngIf="vm$ | async as vm">
+      <button
+        class="ghost-chip"
+        type="button"
+        (click)="clearConversation(vm.isSending)"
+        [disabled]="!vm.hasConversation || vm.isSending"
+      >
+        Limpiar conversación
+      </button>
+    </ng-container>
   </header>
 
-  <section class="chat-layout">
-    <mat-card class="chat-card">
-      <mat-card-title>Conversación</mat-card-title>
-      <mat-card-content>
-        <div class="bubble user">Necesito ajustar el horario de mañana.</div>
-        <div class="bubble assistant">
-          Podemos mover 2 citas de la tarde a la mañana. ¿Confirmamos con las clientas?
+  <mat-card class="chat-card" *ngIf="vm$ | async as vm">
+    <mat-card-content class="chat-content">
+      <section class="quick-prompts">
+        <p class="section-label">Prompts rápidos</p>
+        <div class="prompt-list">
+          <button
+            class="prompt-chip"
+            type="button"
+            *ngFor="let prompt of quickPrompts"
+            (click)="sendQuickPrompt(prompt, vm.isSending)"
+            [disabled]="vm.isSending"
+          >
+            {{ prompt }}
+          </button>
         </div>
-        <div class="bubble user">Sí, envía los recordatorios.</div>
-      </mat-card-content>
-    </mat-card>
+      </section>
 
-    <mat-card class="summary-card">
-      <mat-card-title>Resumen sugerido</mat-card-title>
-      <mat-card-content>
-        <ul>
-          <li>Enviar recordatorio a 5 clientas</li>
-          <li>Revisar pedidos de insumos críticos</li>
-          <li>Preparar promoción de fin de semana</li>
-        </ul>
-      </mat-card-content>
-    </mat-card>
-  </section>
+      <section class="conversation">
+        <div class="empty-state" *ngIf="!vm.hasConversation">
+          <mat-icon aria-hidden="true">auto_awesome</mat-icon>
+          <h2>Lista para ayudarte</h2>
+          <p>
+            Pregúntame sobre rentabilidad, reposición de insumos, agenda y
+            resumen operativo del estudio.
+          </p>
+        </div>
+
+        <div class="messages" *ngIf="vm.hasConversation">
+          <article
+            class="message"
+            *ngFor="let message of vm.history; trackBy: trackByMessage"
+            [ngClass]="'message-' + message.role"
+          >
+            <p class="message-role">
+              {{ message.role === 'user' ? 'Tú' : 'Asistente' }}
+            </p>
+            <div class="bubble">
+              <p>{{ message.content }}</p>
+              <time *ngIf="message.createdAtISO">
+                {{ message.createdAtISO | date: 'HH:mm' }}
+              </time>
+            </div>
+          </article>
+        </div>
+
+        <article class="message message-assistant message-pending" *ngIf="vm.isSending">
+          <p class="message-role">Asistente</p>
+          <div class="bubble">
+            <mat-progress-spinner
+              diameter="16"
+              mode="indeterminate"
+              strokeWidth="3"
+            ></mat-progress-spinner>
+            <span>Pensando en la mejor respuesta...</span>
+          </div>
+        </article>
+      </section>
+
+      <section class="composer">
+        <mat-form-field class="composer-field" appearance="outline">
+          <mat-label>Escribe tu mensaje</mat-label>
+          <textarea
+            matInput
+            cdkTextareaAutosize
+            cdkAutosizeMinRows="2"
+            cdkAutosizeMaxRows="6"
+            placeholder="Ejemplo: ¿Cómo va mi agenda de hoy?"
+            [disabled]="vm.isSending"
+            [(ngModel)]="draftMessage"
+            (keydown)="onComposerKeydown($event, vm.isSending)"
+          ></textarea>
+        </mat-form-field>
+
+        <div class="composer-footer">
+          <p class="composer-help" *ngIf="vm.isSending">Enviando consulta...</p>
+          <p class="composer-help composer-help-error" *ngIf="!vm.isSending && vm.lastError">
+            {{ vm.lastError }}
+          </p>
+          <p class="composer-help" *ngIf="!vm.isSending && !vm.lastError">
+            Enter para enviar. Shift + Enter para salto de línea.
+          </p>
+
+          <button
+            mat-flat-button
+            color="primary"
+            type="button"
+            [disabled]="vm.isSending || draftMessage.trim().length === 0"
+            (click)="sendMessage(vm.isSending)"
+          >
+            Enviar
+          </button>
+        </div>
+      </section>
+    </mat-card-content>
+  </mat-card>
 </section>
