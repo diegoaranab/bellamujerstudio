@@ -8,6 +8,8 @@
 .public-shell {
   min-height: 100vh;
   background: var(--mat-sys-surface, #fff7f9);
+  box-sizing: border-box;
+  max-width: 100%;
 }
 
 .public-header {
@@ -19,12 +21,15 @@
   padding: 0.85rem max(1.25rem, calc((100vw - 1180px) / 2 + 1.25rem));
   background: #ffffff;
   border-bottom: 1px solid color-mix(in srgb, var(--mat-sys-primary) 12%, transparent);
+  box-sizing: border-box;
+  max-width: 100%;
 }
 
 .public-brand {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  min-width: 0;
 }
 
 .public-header__meta {
@@ -34,6 +39,7 @@
   color: #8a1e3f;
   font-size: 0.82rem;
   font-weight: 600;
+  min-width: 0;
 }
 
 .public-header__meta span {
@@ -44,13 +50,16 @@
 }
 
 .public-content {
-  width: min(100%, 1180px);
+  width: 100%;
+  max-width: 1180px;
   margin: 0 auto;
   padding: 1.25rem;
+  box-sizing: border-box;
 }
 
 .main-frame {
   min-width: 0;
+  max-width: 100%;
 }
 
 .sidenav {

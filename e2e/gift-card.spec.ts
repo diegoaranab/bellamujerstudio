@@ -52,6 +52,32 @@ test('public gift card route does not render admin shell on desktop or mobile', 
   await expect(page.getByText('Configuración', { exact: true })).toHaveCount(0);
 });
 
+test('public gift card route has no horizontal overflow on mobile viewports', async ({
+  page
+}) => {
+  const mobileViewports = [
+    { width: 390, height: 844 },
+    { width: 375, height: 812 },
+    { width: 360, height: 800 }
+  ];
+
+  for (const viewport of mobileViewports) {
+    await page.setViewportSize(viewport);
+    await page.goto('/#/tarjeta-regalo');
+    await expect(page.getByTestId('public-gift-card-page')).toBeVisible();
+
+    const metrics = await page.evaluate(() => ({
+      bodyScrollWidth: document.body.scrollWidth,
+      clientWidth: document.documentElement.clientWidth,
+      documentScrollWidth: document.documentElement.scrollWidth,
+      innerWidth: window.innerWidth
+    }));
+
+    expect(metrics.documentScrollWidth).toBeLessThanOrEqual(metrics.clientWidth);
+    expect(metrics.bodyScrollWidth).toBeLessThanOrEqual(metrics.innerWidth);
+  }
+});
+
 test('admin gift card route keeps the admin shell', async ({ page }) => {
   await page.goto('/#/tarjetas-regalo');
 

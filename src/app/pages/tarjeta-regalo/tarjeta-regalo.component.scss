@@ -1,10 +1,14 @@
 .gift-page {
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
+  max-width: 100%;
 }
 
 .gift-hero {
+  box-sizing: border-box;
+  max-width: 100%;
   border-radius: 8px;
   padding: 1.4rem;
   background:
@@ -32,20 +36,34 @@ h1 {
 }
 
 .gift-layout {
+  box-sizing: border-box;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 1rem;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .gift-form {
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  max-width: 100%;
+  min-width: 0;
 }
 
 mat-card {
+  box-sizing: border-box;
+  max-width: 100%;
+  min-width: 0;
   border-radius: 8px;
   box-shadow: 0 12px 34px rgba(75, 16, 38, 0.08);
+}
+
+mat-form-field {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .form-grid {
@@ -102,10 +120,14 @@ mat-card {
 }
 
 .preview-wrap {
+  box-sizing: border-box;
+  max-width: 100%;
+  min-width: 0;
   order: -1;
 }
 
 .gift-preview {
+  box-sizing: border-box;
   display: flex;
   min-height: 330px;
   flex-direction: column;
@@ -116,6 +138,8 @@ mat-card {
     radial-gradient(circle at top right, rgba(248, 208, 215, 0.92), transparent 34%),
     linear-gradient(145deg, #ffffff, #fff3f6 48%, #eed4de);
   color: #4b1026;
+  max-width: 100%;
+  min-width: 0;
   box-shadow: 0 18px 45px rgba(75, 16, 38, 0.14);
 }
 
