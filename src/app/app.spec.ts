@@ -59,8 +59,15 @@ describe('App', () => {
 
     expect(compiled.querySelector('[data-testid="public-shell"]')).toBeTruthy();
     expect(compiled.querySelector('[data-testid="admin-shell"]')).toBeFalsy();
+    expect(compiled.querySelector('.topbar')).toBeFalsy();
+    expect(text).toContain('Bella Mujer Studio');
+    expect(text).toContain('Tarjeta de regalo');
+    expect(text).toContain('Tehuacán, Puebla');
     expect(text).not.toContain('Panel Bella Mujer');
+    expect(text).not.toContain('Operación diaria del estudio');
     expect(text).not.toContain('Nueva cita');
+    expect(text).not.toContain('Buscar');
+    expect(text).not.toContain('Notificaciones');
     expect(text).not.toContain('Clientes');
     expect(text).not.toContain('Inventario');
     expect(text).not.toContain('Asistente');

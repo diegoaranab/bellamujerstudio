@@ -10,6 +10,12 @@ test('public gift card route loads with transfer explanation', async ({ page }) 
 
   await expect(page.getByTestId('public-gift-card-page')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Tarjeta regalo Bella Mujer' })).toBeVisible();
+  await expect(page.getByRole('banner', { name: 'Bella Mujer Studio' })).toContainText(
+    'Tarjeta de regalo'
+  );
+  await expect(page.getByRole('banner', { name: 'Bella Mujer Studio' })).toContainText(
+    'Tehuacán, Puebla'
+  );
   await expect(page.getByText('La tarjeta se activa solo cuando Bella Mujer confirme')).toBeVisible();
   await expect(page.getByText('WhatsApp no se envía automáticamente')).toBeVisible();
   await expect(page.getByText('Adjunta manualmente la captura de tu comprobante')).toBeVisible();
@@ -23,7 +29,10 @@ test('public gift card route does not render admin shell on desktop or mobile', 
   await expect(page.getByTestId('public-gift-card-page')).toBeVisible();
   await expect(page.getByTestId('admin-shell')).toHaveCount(0);
   await expect(page.getByText('Panel Bella Mujer')).toHaveCount(0);
+  await expect(page.getByText('Operación diaria del estudio')).toHaveCount(0);
   await expect(page.getByText('Nueva cita')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Buscar' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Notificaciones' })).toHaveCount(0);
   await expect(page.getByText('Clientes', { exact: true })).toHaveCount(0);
   await expect(page.getByText('Inventario', { exact: true })).toHaveCount(0);
   await expect(page.getByText('Asistente', { exact: true })).toHaveCount(0);
