@@ -1,0 +1,188 @@
+<section class="page" data-testid="admin-gift-card-page">
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">Ventas especiales</p>
+      <h1>Tarjetas regalo</h1>
+      <p class="subtitle">
+        Administra manualmente las tarjetas solicitadas por WhatsApp y pagadas
+        por transferencia.
+      </p>
+    </div>
+    <a mat-flat-button color="primary" routerLink="/tarjeta-regalo">
+      <mat-icon>open_in_new</mat-icon>
+      Ver página pública
+    </a>
+  </header>
+
+  <section class="summary-grid" *ngIf="summary$ | async as summary">
+    <mat-card>
+      <mat-card-content>
+        <p class="kpi-label">Total tarjetas</p>
+        <p class="kpi-value">{{ summary.totalCards }}</p>
+      </mat-card-content>
+    </mat-card>
+    <mat-card>
+      <mat-card-content>
+        <p class="kpi-label">Pendientes</p>
+        <p class="kpi-value">{{ summary.pendingCount }}</p>
+      </mat-card-content>
+    </mat-card>
+    <mat-card>
+      <mat-card-content>
+        <p class="kpi-label">Pagadas</p>
+        <p class="kpi-value">{{ summary.paidCount }}</p>
+      </mat-card-content>
+    </mat-card>
+    <mat-card>
+      <mat-card-content>
+        <p class="kpi-label">Usadas</p>
+        <p class="kpi-value">{{ summary.usedCount }}</p>
+      </mat-card-content>
+    </mat-card>
+    <mat-card>
+      <mat-card-content>
+        <p class="kpi-label">Monto confirmado</p>
+        <p class="kpi-value">
+          {{ summary.totalPaidAmountMXN | currency: 'MXN':'symbol-narrow':'1.0-0' }}
+        </p>
+      </mat-card-content>
+    </mat-card>
+  </section>
+
+  <mat-card>
+    <mat-card-header>
+      <mat-card-title>Registrar tarjeta regalo</mat-card-title>
+      <mat-card-subtitle>Útil para solicitudes recibidas directamente en el estudio.</mat-card-subtitle>
+    </mat-card-header>
+    <mat-card-content>
+      <form class="admin-form" [formGroup]="form" (ngSubmit)="onCreate()">
+        <mat-form-field appearance="outline">
+          <mat-label>Nombre de quien regala</mat-label>
+          <input matInput formControlName="buyerName" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>WhatsApp de quien regala</mat-label>
+          <input matInput formControlName="buyerPhone" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Email opcional</mat-label>
+          <input matInput formControlName="buyerEmail" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Nombre de quien recibe</mat-label>
+          <input matInput formControlName="recipientName" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>WhatsApp de quien recibe opcional</mat-label>
+          <input matInput formControlName="recipientPhone" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Monto MXN</mat-label>
+          <input matInput type="number" min="300" formControlName="amountMXN" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Estatus</mat-label>
+          <mat-select formControlName="status">
+            <mat-option *ngFor="let status of statusOptions" [value]="status">
+              {{ statusLabel(status) }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Método de pago</mat-label>
+          <mat-select formControlName="paymentMethod">
+            <mat-option *ngFor="let method of paymentMethods" [value]="method">
+              {{ paymentLabel(method) }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="span-2">
+          <mat-label>Mensaje opcional</mat-label>
+          <textarea matInput rows="2" formControlName="message"></textarea>
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="span-2">
+          <mat-label>Notas internas opcionales</mat-label>
+          <textarea matInput rows="2" formControlName="notes"></textarea>
+        </mat-form-field>
+        <button mat-flat-button color="primary" type="submit">
+          <mat-icon>add</mat-icon>
+          Registrar tarjeta
+        </button>
+      </form>
+    </mat-card-content>
+  </mat-card>
+
+  <mat-card>
+    <mat-card-header>
+      <mat-card-title>Tarjetas registradas</mat-card-title>
+      <mat-card-subtitle>Control manual de folios, pagos y uso.</mat-card-subtitle>
+    </mat-card-header>
+    <mat-card-content>
+      <div *ngIf="giftCards$ | async as giftCards">
+        <p
+          class="empty-state"
+          data-testid="admin-empty-state"
+          *ngIf="giftCards.length === 0"
+        >
+          Aún no hay tarjetas regalo registradas.
+        </p>
+
+        <div
+          class="gift-card-list"
+          data-testid="admin-gift-card-list"
+          *ngIf="giftCards.length > 0"
+        >
+          <article
+            class="gift-row"
+            data-testid="admin-gift-card-row"
+            *ngFor="let giftCard of giftCards"
+          >
+            <div class="gift-main">
+              <div class="row-title">
+                <strong>{{ giftCard.folio }}</strong>
+                <mat-chip [ngClass]="'status-' + giftCard.status">
+                  {{ statusLabel(giftCard.status) }}
+                </mat-chip>
+              </div>
+              <p>{{ giftCard.recipientName }} recibe de {{ giftCard.buyerName }}</p>
+              <p class="muted">
+                {{ giftCard.createdAtISO | date: 'dd/MM/yyyy' }} ·
+                {{ paymentLabel(giftCard.paymentMethod) }}
+              </p>
+              <p class="muted" *ngIf="giftCard.message">
+                Mensaje: {{ giftCard.message }}
+              </p>
+              <mat-form-field appearance="outline" class="notes-field">
+                <mat-label>Notas internas</mat-label>
+                <textarea
+                  matInput
+                  rows="2"
+                  [value]="giftCard.notes ?? ''"
+                  (blur)="onNotesBlur(giftCard.id, $event)"
+                ></textarea>
+              </mat-form-field>
+            </div>
+
+            <div class="gift-actions">
+              <strong class="amount">
+                {{ giftCard.amountMXN | currency: 'MXN':'symbol-narrow':'1.0-0' }}
+              </strong>
+              <mat-form-field appearance="outline">
+                <mat-label>Estatus</mat-label>
+                <mat-select
+                  data-testid="status-selector"
+                  [value]="giftCard.status"
+                  (selectionChange)="onStatusChange(giftCard.id, $event)"
+                >
+                  <mat-option *ngFor="let status of statusOptions" [value]="status">
+                    {{ statusLabel(status) }}
+                  </mat-option>
+                </mat-select>
+              </mat-form-field>
+            </div>
+          </article>
+        </div>
+      </div>
+    </mat-card-content>
+  </mat-card>
+</section>

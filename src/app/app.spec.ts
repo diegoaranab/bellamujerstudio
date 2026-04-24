@@ -29,6 +29,7 @@ describe('App', () => {
     expect(navText).toContain('Servicios');
     expect(navText).toContain('Clientes');
     expect(navText).toContain('Inventario');
+    expect(navText).toContain('Tarjetas regalo');
     expect(navText).toContain('Asistente');
     expect(navText).toContain('Configuración');
   });

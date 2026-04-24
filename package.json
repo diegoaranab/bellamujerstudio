@@ -7,7 +7,10 @@
     "build": "ng build",
     "build:pages": "ng build --configuration production --base-href /bellamujerstudio/ && node scripts/prepare-pages.mjs",
     "watch": "ng build --watch --configuration development",
-    "test": "ng test"
+    "test": "ng test",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:ui": "playwright test --ui"
   },
   "prettier": {
     "printWidth": 100,
@@ -41,6 +44,7 @@
     "@angular/cli": "^21.1.0",
     "@angular/compiler-cli": "^21.1.0",
     "@angular/material": "^21.1.0",
+    "@playwright/test": "^1.59.1",
     "angular-cli-ghpages": "^3.0.2",
     "jsdom": "^27.1.0",
     "typescript": "~5.9.2",

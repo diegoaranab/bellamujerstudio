@@ -1,0 +1,184 @@
+<section class="gift-page" data-testid="public-gift-card-page">
+  <header class="gift-hero">
+    <div>
+      <p class="eyebrow">Día de las madres</p>
+      <h1>Tarjeta regalo Bella Mujer</h1>
+      <p class="subtitle">
+        Regala belleza, calma y un momento especial en Bella Mujer Studio.
+      </p>
+    </div>
+  </header>
+
+  <div class="gift-layout">
+    <form class="gift-form" [formGroup]="form" (ngSubmit)="onSubmit()">
+      <mat-card>
+        <mat-card-header>
+          <mat-card-title>Datos de quien regala</mat-card-title>
+          <mat-card-subtitle>Usaremos estos datos para confirmar la solicitud.</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content class="form-grid">
+          <mat-form-field appearance="outline">
+            <mat-label>Nombre de quien regala</mat-label>
+            <input matInput data-testid="buyer-name-input" formControlName="buyerName" />
+            <mat-error *ngIf="form.controls.buyerName.hasError('required')">
+              Este nombre es obligatorio.
+            </mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>WhatsApp de quien regala</mat-label>
+            <input matInput data-testid="buyer-phone-input" formControlName="buyerPhone" />
+            <mat-error *ngIf="form.controls.buyerPhone.hasError('required')">
+              El WhatsApp es obligatorio.
+            </mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Email opcional</mat-label>
+            <input matInput data-testid="buyer-email-input" formControlName="buyerEmail" />
+            <mat-error *ngIf="form.controls.buyerEmail.hasError('email')">
+              Escribe un email válido.
+            </mat-error>
+          </mat-form-field>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card>
+        <mat-card-header>
+          <mat-card-title>Datos de quien recibe</mat-card-title>
+          <mat-card-subtitle>Personaliza la tarjeta con su nombre y mensaje.</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content class="form-grid">
+          <mat-form-field appearance="outline">
+            <mat-label>Nombre de mamá o persona que recibe</mat-label>
+            <input
+              matInput
+              data-testid="recipient-name-input"
+              formControlName="recipientName"
+            />
+            <mat-error *ngIf="form.controls.recipientName.hasError('required')">
+              Este nombre es obligatorio.
+            </mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>WhatsApp de quien recibe opcional</mat-label>
+            <input
+              matInput
+              data-testid="recipient-phone-input"
+              formControlName="recipientPhone"
+            />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="span-2">
+            <mat-label>Mensaje para la tarjeta opcional</mat-label>
+            <textarea
+              matInput
+              rows="3"
+              data-testid="message-input"
+              formControlName="message"
+            ></textarea>
+          </mat-form-field>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card>
+        <mat-card-header>
+          <mat-card-title>Monto</mat-card-title>
+          <mat-card-subtitle>El mínimo para una tarjeta regalo es de $300 MXN.</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="amount-grid" aria-label="Montos sugeridos">
+            @for (amount of presetAmounts; track amount) {
+              <button
+                mat-stroked-button
+                type="button"
+                data-testid="amount-preset-button"
+                [attr.data-amount]="amount"
+                [ngClass]="{ selected: isSelectedAmount(amount) }"
+                (click)="selectPresetAmount(amount)"
+              >
+                {{ amount | currency: 'MXN':'symbol-narrow':'1.0-0' }}
+              </button>
+            }
+          </div>
+
+          <mat-form-field appearance="outline" class="custom-amount">
+            <mat-label>Otro monto</mat-label>
+            <input
+              matInput
+              type="number"
+              min="300"
+              step="50"
+              data-testid="custom-amount-input"
+              formControlName="amountMXN"
+            />
+            <mat-error *ngIf="form.controls.amountMXN.hasError('min')">
+              El monto mínimo es de $300 MXN.
+            </mat-error>
+          </mat-form-field>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card>
+        <mat-card-header>
+          <mat-card-title>Pago por transferencia</mat-card-title>
+        </mat-card-header>
+        <mat-card-content class="payment-copy">
+          <p>
+            Tu solicitud se enviará por WhatsApp. La tarjeta se activa cuando
+            Bella Mujer confirme la transferencia.
+          </p>
+          <p>
+            Los datos bancarios se compartirán por WhatsApp. Adjunta manualmente
+            la captura de tu comprobante antes de enviar el mensaje.
+          </p>
+        </mat-card-content>
+      </mat-card>
+
+      <button
+        mat-flat-button
+        color="primary"
+        class="submit-button"
+        data-testid="submit-whatsapp-button"
+        type="submit"
+      >
+        <mat-icon>chat</mat-icon>
+        Enviar solicitud por WhatsApp
+      </button>
+
+      <div class="success" data-testid="success-state" *ngIf="successMessage()">
+        <mat-icon>check_circle</mat-icon>
+        <div>
+          <strong>Solicitud creada</strong>
+          <p>{{ successMessage() }}</p>
+          <p>WhatsApp no se envía automáticamente.</p>
+        </div>
+      </div>
+    </form>
+
+    <aside class="preview-wrap" aria-label="Vista previa de tarjeta regalo">
+      <div class="gift-preview" data-testid="preview-card">
+        <div class="preview-topline">
+          <span>Bella Mujer Studio</span>
+          <span>{{ previewFolio() }}</span>
+        </div>
+        <mat-divider />
+        <div class="preview-body">
+          <p class="preview-label">Tarjeta regalo</p>
+          <h2 data-testid="preview-recipient">{{ previewRecipient() }}</h2>
+          <p class="preview-amount" data-testid="preview-amount">
+            {{ form.controls.amountMXN.value | currency: 'MXN':'symbol-narrow':'1.0-0' }}
+          </p>
+          <p class="preview-message" data-testid="preview-message">
+            {{ previewMessage() }}
+          </p>
+        </div>
+        <div class="preview-footer">
+          <span>De:</span>
+          <strong data-testid="preview-buyer">{{ previewBuyer() }}</strong>
+        </div>
+      </div>
+    </aside>
+  </div>
+</section>

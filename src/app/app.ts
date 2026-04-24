@@ -43,6 +43,7 @@ export class App {
     { path: '/servicios', label: 'Servicios', icon: 'spa' },
     { path: '/clientes', label: 'Clientes', icon: 'groups' },
     { path: '/inventario', label: 'Inventario', icon: 'inventory_2' },
+    { path: '/tarjetas-regalo', label: 'Tarjetas regalo', icon: 'card_giftcard' },
     { path: '/asistente', label: 'Asistente', icon: 'chat' },
     { path: '/configuracion', label: 'Configuración', icon: 'settings' }
   ];

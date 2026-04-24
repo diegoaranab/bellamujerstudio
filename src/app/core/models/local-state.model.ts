@@ -1,4 +1,5 @@
 import { AssistantChatMessage } from './assistant-chat-message.model';
+import { GiftCard } from './gift-card.model';
 import { Transaction } from './transaction.model';
 
 export interface LocalStateData {
@@ -9,4 +10,5 @@ export interface LocalStateData {
   clientsOverrides: any[];
   transactions: Transaction[];
   assistantChatHistory: AssistantChatMessage[];
+  giftCards: GiftCard[];
 }

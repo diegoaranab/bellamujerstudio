@@ -2,6 +2,7 @@ export * from './assistant-api.model';
 export * from './assistant-chat-message.model';
 export * from './category.model';
 export * from './client.model';
+export * from './gift-card.model';
 export * from './inventory.model';
 export * from './local-state.model';
 export * from './overhead.model';
