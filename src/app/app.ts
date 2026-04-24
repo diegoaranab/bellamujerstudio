@@ -5,9 +5,8 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatListModule } from '@angular/material/list';
-import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatToolbarModule } from '@angular/material/toolbar';
-import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
 import { NuevaCitaDialogComponent } from './shared/dialogs/nueva-cita-dialog/nueva-cita-dialog.component';
 
@@ -28,7 +27,6 @@ interface NavItem {
     MatButtonModule,
     MatDialogModule,
     MatIconModule,
-    MatSidenavModule,
     MatListModule
   ],
   templateUrl: './app.html',
@@ -37,6 +35,8 @@ interface NavItem {
 export class App {
   private readonly dialog = inject(MatDialog);
   private readonly breakpointObserver = inject(BreakpointObserver);
+  private readonly router = inject(Router);
+  private readonly publicRoutes = new Set(['/tarjeta-regalo']);
 
   protected readonly navItems: NavItem[] = [
     { path: '/inicio', label: 'Inicio', icon: 'dashboard' },
@@ -57,5 +57,10 @@ export class App {
       maxHeight: isHandset ? '100vh' : '90vh',
       panelClass: isHandset ? 'bm-dialog-fullscreen' : undefined
     });
+  }
+
+  protected isPublicRoute(): boolean {
+    const path = this.router.url.split('?')[0].replace(/\/$/, '') || '/';
+    return this.publicRoutes.has(path);
   }
 }

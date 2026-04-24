@@ -119,7 +119,7 @@ export class TarjetaRegaloComponent {
     window.open(buildGiftCardWhatsAppUrl(giftCard), '_blank', 'noopener');
     this.previewFolio.set(giftCard.folio);
     this.successMessage.set(
-      'Se abrió WhatsApp con tu mensaje. Recuerda adjuntar tu comprobante antes de enviarlo.'
+      'Se abrió WhatsApp con tu mensaje. Adjunta manualmente tu comprobante antes de enviarlo.'
     );
   }
 

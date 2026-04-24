@@ -126,12 +126,12 @@
         </mat-card-header>
         <mat-card-content class="payment-copy">
           <p>
-            Tu solicitud se enviará por WhatsApp. La tarjeta se activa cuando
-            Bella Mujer confirme la transferencia.
+            Tu solicitud se prepara para enviarse por WhatsApp. La tarjeta se activa
+            solo cuando Bella Mujer confirme la transferencia.
           </p>
           <p>
-            Los datos bancarios se compartirán por WhatsApp. Adjunta manualmente
-            la captura de tu comprobante antes de enviar el mensaje.
+            WhatsApp no se envía automáticamente. Adjunta manualmente la captura de
+            tu comprobante antes de enviar el mensaje.
           </p>
         </mat-card-content>
       </mat-card>
@@ -152,7 +152,10 @@
         <div>
           <strong>Solicitud creada</strong>
           <p>{{ successMessage() }}</p>
-          <p>WhatsApp no se envía automáticamente.</p>
+          <p>
+            Esta solicitud queda guardada solo en este navegador para el MVP; Bella
+            Mujer la confirma con el mensaje y comprobante enviados por WhatsApp.
+          </p>
         </div>
       </div>
     </form>

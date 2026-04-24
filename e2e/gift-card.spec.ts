@@ -10,8 +10,46 @@ test('public gift card route loads with transfer explanation', async ({ page }) 
 
   await expect(page.getByTestId('public-gift-card-page')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Tarjeta regalo Bella Mujer' })).toBeVisible();
-  await expect(page.getByText('Tu solicitud se enviará por WhatsApp')).toBeVisible();
+  await expect(page.getByText('La tarjeta se activa solo cuando Bella Mujer confirme')).toBeVisible();
+  await expect(page.getByText('WhatsApp no se envía automáticamente')).toBeVisible();
   await expect(page.getByText('Adjunta manualmente la captura de tu comprobante')).toBeVisible();
+});
+
+test('public gift card route does not render admin shell on desktop or mobile', async ({
+  page
+}) => {
+  await page.goto('/#/tarjeta-regalo');
+
+  await expect(page.getByTestId('public-gift-card-page')).toBeVisible();
+  await expect(page.getByTestId('admin-shell')).toHaveCount(0);
+  await expect(page.getByText('Panel Bella Mujer')).toHaveCount(0);
+  await expect(page.getByText('Nueva cita')).toHaveCount(0);
+  await expect(page.getByText('Clientes', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('Inventario', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('Asistente', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('Configuración', { exact: true })).toHaveCount(0);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#/tarjeta-regalo');
+
+  await expect(page.getByTestId('public-gift-card-page')).toBeVisible();
+  await expect(page.locator('.bottom-nav')).toHaveCount(0);
+  await expect(page.getByText('Inicio', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('Servicios', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('Clientes', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('Inventario', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('Tarjetas regalo', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('Asistente', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('Configuración', { exact: true })).toHaveCount(0);
+});
+
+test('admin gift card route keeps the admin shell', async ({ page }) => {
+  await page.goto('/#/tarjetas-regalo');
+
+  await expect(page.getByTestId('admin-gift-card-page')).toBeVisible();
+  await expect(page.getByTestId('admin-shell')).toBeVisible();
+  await expect(page.getByText('Panel Bella Mujer')).toBeVisible();
+  await expect(page.getByRole('link', { name: /Tarjetas regalo/ })).toBeVisible();
 });
 
 test('validation prevents empty gift card requests', async ({ page }) => {

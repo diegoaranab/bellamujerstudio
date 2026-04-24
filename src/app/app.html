@@ -1,6 +1,9 @@
-<div class="app-shell">
-  <mat-sidenav-container class="shell-container">
-    <mat-sidenav class="sidenav" mode="side" opened>
+<div
+  [ngClass]="isPublicRoute() ? 'public-shell' : 'app-shell'"
+  [attr.data-testid]="isPublicRoute() ? 'public-shell' : 'admin-shell'"
+>
+  @if (!isPublicRoute()) {
+    <aside class="sidenav">
       <div class="sidenav-header">
         <div class="logo">BM</div>
         <div>
@@ -16,9 +19,21 @@
           </a>
         }
       </mat-nav-list>
-    </mat-sidenav>
+    </aside>
+  }
 
-    <mat-sidenav-content>
+  <div class="main-frame">
+    @if (isPublicRoute()) {
+      <header class="public-header" aria-label="Bella Mujer Studio">
+        <div class="public-brand">
+          <div class="logo" aria-hidden="true">BM</div>
+          <div>
+            <p class="brand-name">Bella Mujer Studio</p>
+            <p class="brand-subtitle">Tehuacán, Puebla</p>
+          </div>
+        </div>
+      </header>
+    } @else {
       <mat-toolbar class="topbar">
         <div class="topbar-text">
           <span class="page-title">Panel Bella Mujer</span>
@@ -35,20 +50,21 @@
           Nueva cita
         </button>
       </mat-toolbar>
-
-      <main class="content">
-        <router-outlet />
-      </main>
-
-    </mat-sidenav-content>
-  </mat-sidenav-container>
-
-  <nav class="bottom-nav" aria-label="Navegación móvil">
-    @for (item of navItems; track item.path) {
-      <a class="bottom-nav__item" [routerLink]="item.path" routerLinkActive="active">
-        <mat-icon>{{ item.icon }}</mat-icon>
-        <span>{{ item.label }}</span>
-      </a>
     }
-  </nav>
+
+    <main [ngClass]="isPublicRoute() ? 'public-content' : 'content'">
+      <router-outlet />
+    </main>
+  </div>
+
+  @if (!isPublicRoute()) {
+    <nav class="bottom-nav" aria-label="Navegación móvil">
+      @for (item of navItems; track item.path) {
+        <a class="bottom-nav__item" [routerLink]="item.path" routerLinkActive="active">
+          <mat-icon>{{ item.icon }}</mat-icon>
+          <span>{{ item.label }}</span>
+        </a>
+      }
+    </nav>
+  }
 </div>
