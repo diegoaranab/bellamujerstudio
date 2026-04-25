@@ -1,9 +1,71 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
+
+const seededGiftCards = [
+  {
+    id: 'gc-lupita',
+    folio: 'BM-REGALO-20260424-LUPI',
+    createdAtISO: '2026-04-24T12:00:00.000Z',
+    buyerName: 'Diego Arana',
+    buyerPhone: '2381110000',
+    recipientName: 'Mamá Lupita',
+    recipientPhone: '2381111111',
+    amountMXN: 500,
+    message: 'Te queremos mucho.',
+    paymentMethod: 'transferencia',
+    status: 'pendiente',
+    notes: 'Validar comprobante'
+  },
+  {
+    id: 'gc-ana',
+    folio: 'BM-REGALO-20260424-ANA1',
+    createdAtISO: '2026-04-24T13:00:00.000Z',
+    buyerName: 'Alejandra Ruiz',
+    buyerPhone: '2382223333',
+    recipientName: 'Ana Sofía',
+    recipientPhone: '2383334444',
+    amountMXN: 700,
+    message: 'Disfruta tu regalo.',
+    paymentMethod: 'transferencia',
+    status: 'pagada',
+    confirmedAtISO: '2026-04-24T14:00:00.000Z'
+  },
+  {
+    id: 'gc-caro',
+    folio: 'BM-REGALO-20260424-CARO',
+    createdAtISO: '2026-04-24T15:00:00.000Z',
+    buyerName: 'María López',
+    buyerPhone: '2384445555',
+    recipientName: 'Carolina',
+    amountMXN: 1000,
+    paymentMethod: 'efectivo',
+    status: 'entregada',
+    deliveredAtISO: '2026-04-24T16:00:00.000Z'
+  }
+];
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
   await page.evaluate(() => window.localStorage.clear());
 });
+
+async function seedGiftCards(page: Page): Promise<void> {
+  await page.goto('/');
+  await page.evaluate((giftCards) => {
+    window.localStorage.setItem(
+      'bm_state_v1',
+      JSON.stringify({
+        version: 1,
+        updatedAtISO: '2026-04-24T12:00:00.000Z',
+        serviceOverrides: [],
+        inventoryAdjustments: [],
+        clientsOverrides: [],
+        transactions: [],
+        assistantChatHistory: [],
+        giftCards
+      })
+    );
+  }, seededGiftCards);
+}
 
 test('public gift card route loads with transfer explanation', async ({ page }) => {
   await page.goto('/#/tarjeta-regalo');
@@ -19,6 +81,9 @@ test('public gift card route loads with transfer explanation', async ({ page }) 
   await expect(page.getByText('La tarjeta se activa solo cuando Bella Mujer confirme')).toBeVisible();
   await expect(page.getByText('WhatsApp no se envía automáticamente')).toBeVisible();
   await expect(page.getByText('Adjunta manualmente la captura de tu comprobante')).toBeVisible();
+  await expect(page.getByTestId('how-it-works-section')).toBeVisible();
+  await expect(page.getByText('Llena los datos de la tarjeta.')).toBeVisible();
+  await expect(page.getByText('Bella Mujer confirma el pago y activa la tarjeta.')).toBeVisible();
 });
 
 test('public gift card route does not render admin shell on desktop or mobile', async ({
@@ -161,6 +226,76 @@ test('created request appears in admin and status can change', async ({ page }) 
   await row.getByTestId('status-selector').click();
   await page.getByRole('option', { name: 'Pagada' }).click();
   await expect(row).toContainText('Pagada');
+});
+
+test('admin gift card search and status filters update visible rows', async ({ page }) => {
+  await seedGiftCards(page);
+  await page.goto('/#/tarjetas-regalo');
+
+  await expect(page.getByTestId('admin-gift-card-row')).toHaveCount(3);
+
+  await page.getByTestId('gift-card-search-input').fill('Ana Sofía');
+  await expect(page.getByTestId('admin-gift-card-row')).toHaveCount(1);
+  await expect(page.getByTestId('admin-gift-card-row')).toContainText('Ana Sofía');
+
+  await page.getByTestId('gift-card-search-input').fill('CARO');
+  await expect(page.getByTestId('admin-gift-card-row')).toHaveCount(1);
+  await expect(page.getByTestId('admin-gift-card-row')).toContainText('Carolina');
+
+  await page.getByTestId('gift-card-search-input').fill('');
+  await page.getByTestId('gift-card-status-filter').click();
+  await page.getByRole('option', { name: 'Pagadas' }).click();
+  await expect(page.getByTestId('admin-gift-card-row')).toHaveCount(1);
+  await expect(page.getByTestId('admin-gift-card-row')).toContainText('Ana Sofía');
+  await expect(page.getByTestId('admin-gift-card-row')).toContainText('Pagada');
+});
+
+test('admin quick actions expose copy, WhatsApp, and detail controls', async ({ page }) => {
+  await seedGiftCards(page);
+  await page.goto('/#/tarjetas-regalo');
+  await page.evaluate(() => {
+    window.open = (url?: string | URL) => {
+      window.localStorage.setItem('__last_open_url__', String(url));
+      return null;
+    };
+  });
+
+  const row = page.getByTestId('admin-gift-card-row').filter({ hasText: 'Mamá Lupita' });
+  await row.getByTestId('gift-card-actions-button').click();
+
+  await expect(page.getByTestId('copy-folio-action')).toBeVisible();
+  await expect(page.getByTestId('copy-client-message-action')).toBeVisible();
+  await expect(page.getByTestId('view-gift-card-action')).toBeVisible();
+  await page.getByTestId('open-buyer-whatsapp-action').click();
+
+  const openedUrl = await page.evaluate(() => window.localStorage.getItem('__last_open_url__'));
+  const decoded = decodeURIComponent(openedUrl ?? '');
+
+  expect(openedUrl).toContain('https://wa.me/522381110000');
+  expect(decoded).toContain('BM-REGALO-20260424-LUPI');
+  expect(decoded).toContain('Mamá Lupita');
+  expect(decoded).toContain('$500 MXN');
+});
+
+test('admin detail route displays preview and not-found state', async ({ page }) => {
+  await seedGiftCards(page);
+  await page.goto('/#/tarjetas-regalo/gc-ana');
+
+  await expect(page.getByTestId('admin-shell')).toBeVisible();
+  await expect(page.getByTestId('admin-gift-card-detail-page')).toBeVisible();
+  await expect(page.getByTestId('detail-gift-card-preview')).toContainText(
+    'BM-REGALO-20260424-ANA1'
+  );
+  await expect(page.getByTestId('detail-recipient')).toContainText('Ana Sofía');
+  await expect(page.getByTestId('detail-buyer')).toContainText('Alejandra Ruiz');
+  await expect(page.getByTestId('detail-amount')).toContainText('$700');
+  await expect(page.getByTestId('detail-status')).toContainText('Pagada');
+  await expect(page.getByTestId('print-gift-card-button')).toBeVisible();
+
+  await page.goto('/#/tarjetas-regalo/no-existe');
+  await expect(page.getByTestId('gift-card-not-found')).toContainText(
+    'No encontramos esta tarjeta regalo.'
+  );
 });
 
 test('admin empty state appears in a clean browser context', async ({ page }) => {

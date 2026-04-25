@@ -31,10 +31,15 @@ h1 {
 }
 
 .summary-grid,
-.admin-form {
+.admin-form,
+.filters {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 0.85rem;
+}
+
+.filters {
+  margin-bottom: 1rem;
 }
 
 mat-card {
@@ -104,6 +109,13 @@ mat-card {
   gap: 0.75rem;
 }
 
+.action-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
 .amount {
   color: var(--mat-sys-primary);
   font-size: 1.35rem;
@@ -137,6 +149,10 @@ mat-chip.status-cancelada {
 
   .admin-form {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .filters {
+    grid-template-columns: minmax(0, 1fr) 220px;
   }
 
   .gift-row {

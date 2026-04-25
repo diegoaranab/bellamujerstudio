@@ -119,6 +119,31 @@
     </mat-card-header>
     <mat-card-content>
       <div *ngIf="giftCards$ | async as giftCards">
+        <form class="filters" [formGroup]="filters" *ngIf="giftCards.length > 0">
+          <mat-form-field appearance="outline">
+            <mat-label>Buscar</mat-label>
+            <mat-icon matPrefix>search</mat-icon>
+            <input
+              matInput
+              data-testid="gift-card-search-input"
+              formControlName="query"
+              placeholder="Folio, nombre o WhatsApp"
+            />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Estatus</mat-label>
+            <mat-select data-testid="gift-card-status-filter" formControlName="status">
+              <mat-option
+                *ngFor="let status of statusFilterOptions"
+                [value]="status"
+              >
+                {{ statusFilterLabel(status) }}
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+        </form>
+
         <p
           class="empty-state"
           data-testid="admin-empty-state"
@@ -127,61 +152,119 @@
           Aún no hay tarjetas regalo registradas.
         </p>
 
-        <div
-          class="gift-card-list"
-          data-testid="admin-gift-card-list"
-          *ngIf="giftCards.length > 0"
-        >
-          <article
-            class="gift-row"
-            data-testid="admin-gift-card-row"
-            *ngFor="let giftCard of giftCards"
+        <ng-container *ngIf="filteredGiftCards$ | async as filteredGiftCards">
+          <p
+            class="empty-state"
+            data-testid="admin-no-results-state"
+            *ngIf="giftCards.length > 0 && filteredGiftCards.length === 0"
           >
-            <div class="gift-main">
-              <div class="row-title">
-                <strong>{{ giftCard.folio }}</strong>
-                <mat-chip [ngClass]="'status-' + giftCard.status">
-                  {{ statusLabel(giftCard.status) }}
-                </mat-chip>
-              </div>
-              <p>{{ giftCard.recipientName }} recibe de {{ giftCard.buyerName }}</p>
-              <p class="muted">
-                {{ giftCard.createdAtISO | date: 'dd/MM/yyyy' }} ·
-                {{ paymentLabel(giftCard.paymentMethod) }}
-              </p>
-              <p class="muted" *ngIf="giftCard.message">
-                Mensaje: {{ giftCard.message }}
-              </p>
-              <mat-form-field appearance="outline" class="notes-field">
-                <mat-label>Notas internas</mat-label>
-                <textarea
-                  matInput
-                  rows="2"
-                  [value]="giftCard.notes ?? ''"
-                  (blur)="onNotesBlur(giftCard.id, $event)"
-                ></textarea>
-              </mat-form-field>
-            </div>
+            No encontramos tarjetas con esos filtros.
+          </p>
 
-            <div class="gift-actions">
-              <strong class="amount">
-                {{ giftCard.amountMXN | currency: 'MXN':'symbol-narrow':'1.0-0' }}
-              </strong>
-              <mat-form-field appearance="outline">
-                <mat-label>Estatus</mat-label>
-                <mat-select
-                  data-testid="status-selector"
-                  [value]="giftCard.status"
-                  (selectionChange)="onStatusChange(giftCard.id, $event)"
-                >
-                  <mat-option *ngFor="let status of statusOptions" [value]="status">
-                    {{ statusLabel(status) }}
-                  </mat-option>
-                </mat-select>
-              </mat-form-field>
-            </div>
-          </article>
-        </div>
+          <div
+            class="gift-card-list"
+            data-testid="admin-gift-card-list"
+            *ngIf="filteredGiftCards.length > 0"
+          >
+            <article
+              class="gift-row"
+              data-testid="admin-gift-card-row"
+              *ngFor="let giftCard of filteredGiftCards"
+            >
+              <div class="gift-main">
+                <div class="row-title">
+                  <strong>{{ giftCard.folio }}</strong>
+                  <mat-chip [ngClass]="'status-' + giftCard.status">
+                    {{ statusLabel(giftCard.status) }}
+                  </mat-chip>
+                </div>
+                <p>{{ giftCard.recipientName }} recibe de {{ giftCard.buyerName }}</p>
+                <p class="muted">
+                  {{ giftCard.createdAtISO | date: 'dd/MM/yyyy' }} ·
+                  {{ paymentLabel(giftCard.paymentMethod) }}
+                </p>
+                <p class="muted" *ngIf="giftCard.message">
+                  Mensaje: {{ giftCard.message }}
+                </p>
+                <mat-form-field appearance="outline" class="notes-field">
+                  <mat-label>Notas internas</mat-label>
+                  <textarea
+                    matInput
+                    rows="2"
+                    [value]="giftCard.notes ?? ''"
+                    (blur)="onNotesBlur(giftCard.id, $event)"
+                  ></textarea>
+                </mat-form-field>
+              </div>
+
+              <div class="gift-actions">
+                <div class="action-topline">
+                  <strong class="amount">
+                    {{ giftCard.amountMXN | currency: 'MXN':'symbol-narrow':'1.0-0' }}
+                  </strong>
+                  <button
+                    mat-icon-button
+                    type="button"
+                    [matMenuTriggerFor]="giftCardActions"
+                    [attr.aria-label]="'Acciones para ' + giftCard.folio"
+                    data-testid="gift-card-actions-button"
+                  >
+                    <mat-icon>more_vert</mat-icon>
+                  </button>
+                </div>
+                <mat-menu #giftCardActions="matMenu">
+                  <button
+                    mat-menu-item
+                    type="button"
+                    data-testid="copy-folio-action"
+                    (click)="copyFolio(giftCard)"
+                  >
+                    <mat-icon>content_copy</mat-icon>
+                    <span>Copiar folio</span>
+                  </button>
+                  <button
+                    mat-menu-item
+                    type="button"
+                    data-testid="copy-client-message-action"
+                    (click)="copyClientMessage(giftCard)"
+                  >
+                    <mat-icon>mark_chat_read</mat-icon>
+                    <span>Copiar mensaje para cliente</span>
+                  </button>
+                  <button
+                    mat-menu-item
+                    type="button"
+                    data-testid="open-buyer-whatsapp-action"
+                    (click)="openBuyerWhatsApp(giftCard)"
+                  >
+                    <mat-icon>chat</mat-icon>
+                    <span>Abrir WhatsApp del comprador</span>
+                  </button>
+                  <a
+                    mat-menu-item
+                    data-testid="view-gift-card-action"
+                    [routerLink]="['/tarjetas-regalo', giftCard.id]"
+                  >
+                    <mat-icon>visibility</mat-icon>
+                    <span>Ver tarjeta</span>
+                  </a>
+                </mat-menu>
+                <mat-form-field appearance="outline">
+                  <mat-label>Estatus</mat-label>
+                  <mat-select
+                    data-testid="status-selector"
+                    [value]="giftCard.status"
+                    (selectionChange)="onStatusChange(giftCard.id, $event)"
+                  >
+                    <mat-option *ngFor="let status of statusOptions" [value]="status">
+                      {{ statusLabel(status) }}
+                    </mat-option>
+                  </mat-select>
+                </mat-form-field>
+              </div>
+            </article>
+          </div>
+        </ng-container>
       </div>
     </mat-card-content>
   </mat-card>
