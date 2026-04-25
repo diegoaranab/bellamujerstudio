@@ -103,6 +103,19 @@ mat-form-field {
   color: var(--mat-sys-on-surface-variant, #6b5b66);
 }
 
+.how-it-works {
+  display: grid;
+  gap: 0.65rem;
+  margin: 0;
+  padding-left: 1.25rem;
+  color: var(--mat-sys-on-surface-variant, #6b5b66);
+}
+
+.how-it-works li::marker {
+  color: var(--mat-sys-primary);
+  font-weight: 800;
+}
+
 .submit-button {
   min-height: 48px;
   border-radius: 999px;

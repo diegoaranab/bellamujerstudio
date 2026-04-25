@@ -1,0 +1,127 @@
+<section class="detail-page" data-testid="admin-gift-card-detail-page">
+  <ng-container *ngIf="giftCard$ | async as giftCard; else notFound">
+    <header class="detail-header">
+      <div>
+        <p class="eyebrow">Vista de tarjeta regalo</p>
+        <h1>{{ giftCard.folio }}</h1>
+        <p class="subtitle">
+          Lista para mostrar, imprimir o guardar como PDF después de confirmar el pago.
+        </p>
+      </div>
+      <div class="detail-actions">
+        <a mat-stroked-button routerLink="/tarjetas-regalo">
+          <mat-icon>arrow_back</mat-icon>
+          Volver
+        </a>
+        <button mat-stroked-button type="button" (click)="copyFolio(giftCard)">
+          <mat-icon>content_copy</mat-icon>
+          Copiar folio
+        </button>
+        <button mat-stroked-button type="button" (click)="copyClientMessage(giftCard)">
+          <mat-icon>mark_chat_read</mat-icon>
+          Copiar mensaje para cliente
+        </button>
+        <button
+          mat-stroked-button
+          type="button"
+          data-testid="detail-open-whatsapp-button"
+          (click)="openBuyerWhatsApp(giftCard)"
+        >
+          <mat-icon>chat</mat-icon>
+          Abrir WhatsApp del comprador
+        </button>
+        <button
+          mat-flat-button
+          color="primary"
+          type="button"
+          data-testid="print-gift-card-button"
+          (click)="print()"
+        >
+          <mat-icon>print</mat-icon>
+          Imprimir / Guardar como PDF
+        </button>
+      </div>
+    </header>
+
+    <div class="detail-layout">
+      <article class="gift-preview" data-testid="detail-gift-card-preview">
+        <div class="preview-topline">
+          <span>Bella Mujer Studio</span>
+          <span>{{ giftCard.folio }}</span>
+        </div>
+        <mat-divider />
+        <div class="preview-body">
+          <p class="preview-label">Tarjeta regalo</p>
+          <h2 data-testid="detail-recipient">{{ giftCard.recipientName }}</h2>
+          <p class="preview-amount" data-testid="detail-amount">
+            {{ giftCard.amountMXN | currency: 'MXN':'symbol-narrow':'1.0-0' }}
+          </p>
+          <p class="preview-message">
+            {{ giftCard.message || 'Un detalle especial para consentirte en Bella Mujer Studio.' }}
+          </p>
+        </div>
+        <div class="preview-footer">
+          <span>De:</span>
+          <strong data-testid="detail-buyer">{{ giftCard.buyerName }}</strong>
+        </div>
+      </article>
+
+      <mat-card class="detail-card">
+        <mat-card-header>
+          <mat-card-title>Datos de control</mat-card-title>
+          <mat-card-subtitle>Información interna de la tarjeta regalo.</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          <dl>
+            <div>
+              <dt>Folio</dt>
+              <dd data-testid="detail-folio">{{ giftCard.folio }}</dd>
+            </div>
+            <div>
+              <dt>Estatus</dt>
+              <dd>
+                <mat-chip
+                  data-testid="detail-status"
+                  [ngClass]="'status-' + giftCard.status"
+                >
+                  {{ statusLabel(giftCard.status) }}
+                </mat-chip>
+              </dd>
+            </div>
+            <div>
+              <dt>Fecha de creación</dt>
+              <dd>{{ giftCard.createdAtISO | date: 'dd/MM/yyyy, h:mm a' }}</dd>
+            </div>
+            <div>
+              <dt>Método de pago</dt>
+              <dd>{{ paymentLabel(giftCard.paymentMethod) }}</dd>
+            </div>
+            <div>
+              <dt>Comprador</dt>
+              <dd>{{ giftCard.buyerName }}</dd>
+            </div>
+            <div>
+              <dt>WhatsApp comprador</dt>
+              <dd>{{ giftCard.buyerPhone }}</dd>
+            </div>
+            <div *ngIf="giftCard.notes">
+              <dt>Notas</dt>
+              <dd>{{ giftCard.notes }}</dd>
+            </div>
+          </dl>
+        </mat-card-content>
+      </mat-card>
+    </div>
+  </ng-container>
+
+  <ng-template #notFound>
+    <div class="not-found" data-testid="gift-card-not-found">
+      <mat-icon>search_off</mat-icon>
+      <h1>No encontramos esta tarjeta regalo.</h1>
+      <a mat-flat-button color="primary" routerLink="/tarjetas-regalo">
+        <mat-icon>arrow_back</mat-icon>
+        Volver a tarjetas regalo
+      </a>
+    </div>
+  </ng-template>
+</section>

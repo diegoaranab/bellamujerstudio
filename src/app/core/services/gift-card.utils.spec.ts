@@ -1,7 +1,10 @@
 import {
+  buildGiftCardBuyerWhatsAppUrl,
+  buildGiftCardClientConfirmationMessage,
   buildGiftCardWhatsAppMessage,
   buildGiftCardWhatsAppUrl,
   calculateGiftCardSummary,
+  filterGiftCards,
   generateGiftCardFolio,
   giftCardStatusLabel
 } from './gift-card.utils';
@@ -44,6 +47,20 @@ describe('gift-card utils', () => {
     expect(decodeURIComponent(url)).toContain('comprobante');
   });
 
+  it('builds a client confirmation message with validity note', () => {
+    const message = buildGiftCardClientConfirmationMessage(baseGiftCard);
+    const buyerUrl = buildGiftCardBuyerWhatsAppUrl(baseGiftCard);
+
+    expect(message).toContain('Hola, Diego Arana');
+    expect(message).toContain(baseGiftCard.folio);
+    expect(message).toContain('Mamá Lupita');
+    expect(message).toContain('$500 MXN');
+    expect(message).toContain('Válida por 3 meses');
+    expect(message).toContain('No canjeable por efectivo');
+    expect(buyerUrl).toContain('https://wa.me/522381110000?text=');
+    expect(decodeURIComponent(buyerUrl)).toContain(baseGiftCard.folio);
+  });
+
   it('maps status labels in Spanish', () => {
     expect(giftCardStatusLabel('pendiente')).toBe('Pendiente');
     expect(giftCardStatusLabel('pagada')).toBe('Pagada');
@@ -69,5 +86,45 @@ describe('gift-card utils', () => {
       totalPaidAmountMXN: 1200,
       availableBalanceMXN: 1200
     });
+  });
+
+  it('filters gift cards by status and searchable fields', () => {
+    const cards: GiftCard[] = [
+      {
+        ...baseGiftCard,
+        id: '1',
+        folio: 'BM-REGALO-20260424-LUPI',
+        recipientName: 'Mamá Lupita',
+        status: 'pendiente'
+      },
+      {
+        ...baseGiftCard,
+        id: '2',
+        folio: 'BM-REGALO-20260424-ANA1',
+        buyerName: 'Alejandra Ruiz',
+        buyerPhone: '2382223333',
+        recipientName: 'Ana Sofía',
+        status: 'pagada'
+      },
+      {
+        ...baseGiftCard,
+        id: '3',
+        folio: 'BM-REGALO-20260424-CARO',
+        recipientName: 'Carolina',
+        recipientPhone: '2389998888',
+        status: 'entregada'
+      }
+    ];
+
+    expect(filterGiftCards(cards, { status: 'todas', query: 'ana sofia' })).toEqual([
+      cards[1]
+    ]);
+    expect(filterGiftCards(cards, { status: 'pagada', query: '238222' })).toEqual([
+      cards[1]
+    ]);
+    expect(filterGiftCards(cards, { status: 'entregada', query: 'CARO' })).toEqual([
+      cards[2]
+    ]);
+    expect(filterGiftCards(cards, { status: 'pendiente', query: 'sofia' })).toEqual([]);
   });
 });

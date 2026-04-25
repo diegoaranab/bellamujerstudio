@@ -16,6 +16,9 @@ export interface GiftCard {
   folio: string;
   createdAtISO: string;
   updatedAtISO?: string;
+  confirmedAtISO?: string;
+  deliveredAtISO?: string;
+  usedAtISO?: string;
   buyerName: string;
   buyerPhone: string;
   buyerEmail?: string;
