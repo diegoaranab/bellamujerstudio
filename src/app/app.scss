@@ -1,14 +1,69 @@
 .app-shell {
   min-height: 100vh;
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
   background: var(--mat-sys-surface, #fff7f9);
 }
 
-.shell-container {
+.public-shell {
   min-height: 100vh;
+  background: var(--mat-sys-surface, #fff7f9);
+  box-sizing: border-box;
+  max-width: 100%;
+}
+
+.public-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 72px;
+  padding: 0.85rem max(1.25rem, calc((100vw - 1180px) / 2 + 1.25rem));
+  background: #ffffff;
+  border-bottom: 1px solid color-mix(in srgb, var(--mat-sys-primary) 12%, transparent);
+  box-sizing: border-box;
+  max-width: 100%;
+}
+
+.public-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.public-header__meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #8a1e3f;
+  font-size: 0.82rem;
+  font-weight: 600;
+  min-width: 0;
+}
+
+.public-header__meta span {
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--mat-sys-primary) 8%, #ffffff);
+  border: 1px solid color-mix(in srgb, var(--mat-sys-primary) 16%, transparent);
+  padding: 0.4rem 0.7rem;
+}
+
+.public-content {
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 1.25rem;
+  box-sizing: border-box;
+}
+
+.main-frame {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .sidenav {
-  width: 240px;
+  min-height: 100vh;
   padding: 1.5rem 0.5rem;
   border-right: 1px solid color-mix(in srgb, var(--mat-sys-primary) 15%, transparent);
   background: #ffffff;
@@ -100,12 +155,30 @@ mat-nav-list a.active-link {
 }
 
 @media (max-width: 900px) {
+  .app-shell {
+    display: block;
+  }
+
   .sidenav {
     display: none;
   }
 
   .content {
     padding: 1.25rem 1.25rem calc(6rem + env(safe-area-inset-bottom));
+  }
+
+  .public-content {
+    padding: 1rem;
+  }
+
+  .public-header {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 0.85rem 1rem;
+  }
+
+  .public-header__meta {
+    flex-wrap: wrap;
   }
 
   .topbar {

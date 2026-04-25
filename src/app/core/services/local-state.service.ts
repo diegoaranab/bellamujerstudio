@@ -115,7 +115,9 @@ export class LocalStateService {
       Array.isArray(record.clientsOverrides) &&
       Array.isArray(record.transactions) &&
       (typeof record.assistantChatHistory === 'undefined' ||
-        Array.isArray(record.assistantChatHistory))
+        Array.isArray(record.assistantChatHistory)) &&
+      (typeof record.giftCards === 'undefined' ||
+        Array.isArray(record.giftCards))
     );
   }
 
@@ -151,7 +153,10 @@ export class LocalStateService {
         : fallback.transactions,
       assistantChatHistory: this.normalizeAssistantChatHistory(
         record.assistantChatHistory
-      )
+      ),
+      giftCards: Array.isArray(record.giftCards)
+        ? record.giftCards
+        : fallback.giftCards
     };
   }
 
@@ -163,7 +168,8 @@ export class LocalStateService {
       inventoryAdjustments: [],
       clientsOverrides: [],
       transactions: [],
-      assistantChatHistory: []
+      assistantChatHistory: [],
+      giftCards: []
     };
   }
 
