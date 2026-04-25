@@ -30,12 +30,14 @@ export class GiftCardService {
 
   createGiftCard(input: GiftCardCreateInput): GiftCard {
     const now = new Date().toISOString();
+    const status = input.status ?? 'pendiente';
     const giftCard: GiftCard = {
       ...input,
+      ...this.buildStatusTimestampPatch(status, input, now),
       id: this.generateId(),
       folio: input.folio ?? generateGiftCardFolio(),
       createdAtISO: input.createdAtISO ?? now,
-      status: input.status ?? 'pendiente'
+      status
     };
 
     this.saveCards([giftCard, ...this.giftCardsSubject.value]);
@@ -47,15 +49,7 @@ export class GiftCardService {
       const now = new Date().toISOString();
       return {
         status,
-        ...(status === 'pagada' && !giftCard.confirmedAtISO
-          ? { confirmedAtISO: now }
-          : {}),
-        ...(status === 'entregada' && !giftCard.deliveredAtISO
-          ? { deliveredAtISO: now }
-          : {}),
-        ...(status === 'usada' && !giftCard.usedAtISO
-          ? { usedAtISO: now }
-          : {})
+        ...this.buildStatusTimestampPatch(status, giftCard, now)
       };
     });
   }
@@ -117,5 +111,23 @@ export class GiftCardService {
 
   private normalizeGiftCards(giftCards: GiftCard[]): GiftCard[] {
     return giftCards.map((giftCard) => ({ ...giftCard }));
+  }
+
+  private buildStatusTimestampPatch(
+    status: GiftCardStatus,
+    giftCard: Partial<GiftCard>,
+    timestampISO: string
+  ): Partial<GiftCard> {
+    return {
+      ...(status === 'pagada' && !giftCard.confirmedAtISO
+        ? { confirmedAtISO: timestampISO }
+        : {}),
+      ...(status === 'entregada' && !giftCard.deliveredAtISO
+        ? { deliveredAtISO: timestampISO }
+        : {}),
+      ...(status === 'usada' && !giftCard.usedAtISO
+        ? { usedAtISO: timestampISO }
+        : {})
+    };
   }
 }

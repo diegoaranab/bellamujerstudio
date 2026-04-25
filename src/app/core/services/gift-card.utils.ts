@@ -79,14 +79,17 @@ export function calculateGiftCardSummary(
 
       if (giftCard.status === 'pagada') {
         summary.paidCount += 1;
-        summary.totalPaidAmountMXN += giftCard.amountMXN;
       }
 
       if (giftCard.status === 'usada') {
         summary.usedCount += 1;
       }
 
-      if (giftCard.status === 'entregada') {
+      if (
+        giftCard.status === 'pagada' ||
+        giftCard.status === 'entregada' ||
+        giftCard.status === 'usada'
+      ) {
         summary.totalPaidAmountMXN += giftCard.amountMXN;
       }
 

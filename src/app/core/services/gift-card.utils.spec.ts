@@ -83,7 +83,7 @@ describe('gift-card utils', () => {
       pendingCount: 1,
       paidCount: 1,
       usedCount: 1,
-      totalPaidAmountMXN: 1200,
+      totalPaidAmountMXN: 2200,
       availableBalanceMXN: 1200
     });
   });

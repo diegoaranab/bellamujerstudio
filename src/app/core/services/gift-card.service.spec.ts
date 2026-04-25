@@ -82,6 +82,91 @@ describe('GiftCardService', () => {
     expect(state.giftCards[0]).toEqual(giftCard);
   });
 
+  it('sets confirmedAtISO when creating a paid gift card', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-04-25T10:00:00.000Z'));
+
+    const giftCard = service.createGiftCard({
+      buyerName: 'Diego Arana',
+      buyerPhone: '2381110000',
+      recipientName: 'Mamá Lupita',
+      amountMXN: 500,
+      paymentMethod: 'transferencia',
+      status: 'pagada'
+    });
+
+    expect(giftCard.confirmedAtISO).toBe('2026-04-25T10:00:00.000Z');
+  });
+
+  it('sets deliveredAtISO when creating a delivered gift card', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-04-25T11:00:00.000Z'));
+
+    const giftCard = service.createGiftCard({
+      buyerName: 'Diego Arana',
+      buyerPhone: '2381110000',
+      recipientName: 'Mamá Lupita',
+      amountMXN: 500,
+      paymentMethod: 'transferencia',
+      status: 'entregada'
+    });
+
+    expect(giftCard.deliveredAtISO).toBe('2026-04-25T11:00:00.000Z');
+  });
+
+  it('sets usedAtISO when creating a used gift card', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-04-25T12:00:00.000Z'));
+
+    const giftCard = service.createGiftCard({
+      buyerName: 'Diego Arana',
+      buyerPhone: '2381110000',
+      recipientName: 'Mamá Lupita',
+      amountMXN: 500,
+      paymentMethod: 'transferencia',
+      status: 'usada'
+    });
+
+    expect(giftCard.usedAtISO).toBe('2026-04-25T12:00:00.000Z');
+  });
+
+  it('does not overwrite provided status timestamps when creating gift cards', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-04-25T12:00:00.000Z'));
+
+    const paid = service.createGiftCard({
+      buyerName: 'Diego Arana',
+      buyerPhone: '2381110000',
+      recipientName: 'Mamá Lupita',
+      amountMXN: 500,
+      paymentMethod: 'transferencia',
+      status: 'pagada',
+      confirmedAtISO: '2026-04-20T09:00:00.000Z'
+    });
+    const delivered = service.createGiftCard({
+      buyerName: 'Ana',
+      buyerPhone: '2381110001',
+      recipientName: 'Sofía',
+      amountMXN: 700,
+      paymentMethod: 'transferencia',
+      status: 'entregada',
+      deliveredAtISO: '2026-04-21T09:00:00.000Z'
+    });
+    const used = service.createGiftCard({
+      buyerName: 'María',
+      buyerPhone: '2381110002',
+      recipientName: 'Carolina',
+      amountMXN: 1000,
+      paymentMethod: 'transferencia',
+      status: 'usada',
+      usedAtISO: '2026-04-22T09:00:00.000Z'
+    });
+
+    expect(paid.confirmedAtISO).toBe('2026-04-20T09:00:00.000Z');
+    expect(delivered.deliveredAtISO).toBe('2026-04-21T09:00:00.000Z');
+    expect(used.usedAtISO).toBe('2026-04-22T09:00:00.000Z');
+  });
+
   it('updates gift card status', () => {
     const giftCard = service.createGiftCard({
       buyerName: 'Diego Arana',
@@ -230,7 +315,7 @@ describe('GiftCardService', () => {
       pendingCount: 1,
       paidCount: 1,
       usedCount: 1,
-      totalPaidAmountMXN: 500,
+      totalPaidAmountMXN: 1200,
       availableBalanceMXN: 500
     });
   });
