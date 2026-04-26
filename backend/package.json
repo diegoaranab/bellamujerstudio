@@ -1,0 +1,25 @@
+{
+  "name": "bella-mujer-backend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "synth": "npm run build && cdk synth",
+    "diff": "npm run build && cdk diff"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.946.0",
+    "aws-cdk-lib": "^2.232.1",
+    "constructs": "^10.4.4"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.159",
+    "@types/node": "^24.10.1",
+    "aws-cdk": "^2.1033.0",
+    "esbuild": "^0.27.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.15"
+  }
+}
