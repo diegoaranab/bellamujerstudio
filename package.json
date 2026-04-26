@@ -10,7 +10,10 @@
     "test": "ng test",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
-    "test:e2e:ui": "playwright test --ui"
+    "test:e2e:ui": "playwright test --ui",
+    "backend:build": "npm --prefix backend run build",
+    "backend:test": "npm --prefix backend test",
+    "backend:synth": "npm --prefix backend run synth"
   },
   "prettier": {
     "printWidth": 100,
