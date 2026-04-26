@@ -34,8 +34,7 @@ export class BellaMujerApiStack extends cdk.Stack {
       bundling: {
         minify: true,
         sourceMap: true,
-        target: 'node22',
-        externalModules: ['@aws-sdk/*']
+        target: 'node22'
       }
     };
 
@@ -80,6 +79,10 @@ export class BellaMujerApiStack extends cdk.Stack {
         ]
       }
     });
+
+    const defaultStage = api.defaultStage?.node.defaultChild as apigwv2.CfnStage | undefined;
+    defaultStage?.addPropertyOverride('DefaultRouteSettings.ThrottlingRateLimit', 5);
+    defaultStage?.addPropertyOverride('DefaultRouteSettings.ThrottlingBurstLimit', 20);
 
     api.addRoutes({
       path: '/health',

@@ -45,6 +45,16 @@ describe('BellaMujerApiStack', () => {
     template.resourcePropertiesCountIs('AWS::Lambda::Function', {}, 2);
   });
 
+  it('configures conservative default API throttling', () => {
+    template.hasResourceProperties('AWS::ApiGatewayV2::Stage', {
+      StageName: '$default',
+      DefaultRouteSettings: {
+        ThrottlingRateLimit: 5,
+        ThrottlingBurstLimit: 20
+      }
+    });
+  });
+
   it('does not create VPC, NAT, EC2, or RDS resources', () => {
     template.resourceCountIs('AWS::EC2::VPC', 0);
     template.resourceCountIs('AWS::EC2::NatGateway', 0);

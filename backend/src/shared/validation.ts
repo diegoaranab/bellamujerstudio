@@ -107,8 +107,12 @@ export const validatePublicGiftCardRequest = (body: unknown): ValidationResult =
   );
   const message = optionalString(input.message, 'message', MAX_LENGTHS.message, issues);
 
-  if (typeof input.amountMXN !== 'number' || !Number.isFinite(input.amountMXN)) {
-    issues.push('amountMXN debe ser un número.');
+  if (
+    typeof input.amountMXN !== 'number' ||
+    !Number.isFinite(input.amountMXN) ||
+    !Number.isInteger(input.amountMXN)
+  ) {
+    issues.push('amountMXN debe ser un número entero.');
   } else if (input.amountMXN < MIN_AMOUNT_MXN) {
     issues.push('amountMXN debe ser de al menos 300.');
   }

@@ -6,12 +6,15 @@ Phase 3B adds an AWS serverless scaffold for gift-card requests only. It is inte
 
 - AWS CDK v2 TypeScript app.
 - API Gateway HTTP API.
+- Conservative API Gateway throttling for the public endpoint surface.
 - Lambda handlers for:
   - `GET /health`
   - `POST /gift-cards/request`
 - DynamoDB gift-card table with on-demand billing.
 - Short CloudWatch log retention.
 - Local Vitest tests for validation, handlers, and stack assertions.
+
+The DynamoDB AWS SDK client is bundled into the gift-card Lambda intentionally so runtime behavior is predictable and does not depend on the Lambda runtime's preinstalled SDK contents.
 
 This scaffold does not include Cognito, Mercado Pago, frontend API integration, deployment automation, or any changes to the existing assistant Worker.
 
@@ -53,7 +56,7 @@ The synth command should not require AWS credentials because it only generates t
 
 ## Deployment Notes
 
-Deployment is intentionally not part of this PR. Before deploying:
+Deployment is intentionally not part of this PR and no deploy is performed here. Before deploying:
 
 - Configure an AWS Budget and billing alert.
 - Review the synthesized CloudFormation template.

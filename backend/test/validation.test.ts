@@ -43,6 +43,12 @@ describe('validatePublicGiftCardRequest', () => {
     expect(result.ok).toBe(false);
   });
 
+  it('rejects decimal amountMXN values', () => {
+    const result = validatePublicGiftCardRequest({ ...validBody, amountMXN: 300.5 });
+
+    expect(result.ok).toBe(false);
+  });
+
   it('trims strings', () => {
     const result = validatePublicGiftCardRequest({
       ...validBody,
