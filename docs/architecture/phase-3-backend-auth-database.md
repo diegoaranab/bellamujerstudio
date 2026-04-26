@@ -162,6 +162,17 @@ Suggested deployment boundaries:
 - CDK owns API Gateway, Lambda, DynamoDB, Cognito, IAM, and environment outputs.
 - Frontend environment config receives the API base URL and Cognito settings per environment.
 
+### AWS Cost Controls and Guardrails
+
+- Create an AWS Budget and billing alert before deploying resources.
+- Start with one dev environment before adding production.
+- Use DynamoDB on-demand capacity for low and unpredictable traffic.
+- Configure short CloudWatch log retention, such as 7 or 14 days.
+- Avoid NAT Gateway, EC2, RDS, and VPC Lambdas unless they are truly needed.
+- Use least-privilege IAM for every Lambda, deploy role, and service integration.
+- Keep public API request limits and payload validation conservative.
+- Review expected cost before adding Mercado Pago, file storage, analytics, or other new backend capabilities.
+
 ## 7. Proposed Data Model
 
 The first backend table/entity should be `GiftCard`.
