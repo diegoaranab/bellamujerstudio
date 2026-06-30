@@ -67,6 +67,22 @@ async function seedGiftCards(page: Page): Promise<void> {
   }, seededGiftCards);
 }
 
+test('public home route loads without the admin shell', async ({ page }) => {
+  await page.goto('/#/');
+
+  await expect(page.getByTestId('public-home-page')).toBeVisible();
+  await expect(
+    page.getByRole('heading', {
+      name: 'Estamos preparando nuestro sitio público.'
+    })
+  ).toBeVisible();
+  await expect(page.getByTestId('public-home-whatsapp-link')).toBeVisible();
+  await expect(page.getByTestId('public-shell')).toBeVisible();
+  await expect(page.getByTestId('admin-shell')).toHaveCount(0);
+  await expect(page.getByText('Panel Bella Mujer')).toHaveCount(0);
+  await expect(page.getByText('Nueva cita')).toHaveCount(0);
+});
+
 test('public gift card route loads with transfer explanation', async ({ page }) => {
   await page.goto('/#/tarjeta-regalo');
 
@@ -92,6 +108,7 @@ test('public gift card route does not render admin shell on desktop or mobile', 
   await page.goto('/#/tarjeta-regalo');
 
   await expect(page.getByTestId('public-gift-card-page')).toBeVisible();
+  await expect(page.getByTestId('public-shell')).toBeVisible();
   await expect(page.getByTestId('admin-shell')).toHaveCount(0);
   await expect(page.getByText('Panel Bella Mujer')).toHaveCount(0);
   await expect(page.getByText('Operación diaria del estudio')).toHaveCount(0);
@@ -108,7 +125,6 @@ test('public gift card route does not render admin shell on desktop or mobile', 
 
   await expect(page.getByTestId('public-gift-card-page')).toBeVisible();
   await expect(page.locator('.bottom-nav')).toHaveCount(0);
-  await expect(page.getByText('Inicio', { exact: true })).toHaveCount(0);
   await expect(page.getByText('Servicios', { exact: true })).toHaveCount(0);
   await expect(page.getByText('Clientes', { exact: true })).toHaveCount(0);
   await expect(page.getByText('Inventario', { exact: true })).toHaveCount(0);
@@ -143,8 +159,48 @@ test('public gift card route has no horizontal overflow on mobile viewports', as
   }
 });
 
+test('public home route has no horizontal overflow on mobile viewports', async ({ page }) => {
+  const mobileViewports = [
+    { width: 390, height: 844 },
+    { width: 375, height: 812 },
+    { width: 360, height: 800 }
+  ];
+
+  for (const viewport of mobileViewports) {
+    await page.setViewportSize(viewport);
+    await page.goto('/#/');
+    await expect(page.getByTestId('public-home-page')).toBeVisible();
+
+    const metrics = await page.evaluate(() => ({
+      bodyScrollWidth: document.body.scrollWidth,
+      clientWidth: document.documentElement.clientWidth,
+      documentScrollWidth: document.documentElement.scrollWidth,
+      innerWidth: window.innerWidth
+    }));
+
+    expect(metrics.documentScrollWidth).toBeLessThanOrEqual(metrics.clientWidth);
+    expect(metrics.bodyScrollWidth).toBeLessThanOrEqual(metrics.innerWidth);
+  }
+});
+
+test('admin dashboard route renders the admin shell', async ({ page }) => {
+  await page.goto('/#/admin/inicio');
+
+  await expect(page.getByTestId('admin-shell')).toBeVisible();
+  await expect(page.getByText('Panel Bella Mujer')).toBeVisible();
+  await expect(page.getByRole('link', { name: /Inicio/ })).toBeVisible();
+});
+
+test('legacy admin route redirects to the admin namespace', async ({ page }) => {
+  await page.goto('/#/inicio');
+
+  await expect(page).toHaveURL(/#\/admin\/inicio$/);
+  await expect(page.getByTestId('admin-shell')).toBeVisible();
+  await expect(page.getByText('Panel Bella Mujer')).toBeVisible();
+});
+
 test('admin gift card route keeps the admin shell', async ({ page }) => {
-  await page.goto('/#/tarjetas-regalo');
+  await page.goto('/#/admin/tarjetas-regalo');
 
   await expect(page.getByTestId('admin-gift-card-page')).toBeVisible();
   await expect(page.getByTestId('admin-shell')).toBeVisible();
@@ -217,7 +273,7 @@ test('created request appears in admin and status can change', async ({ page }) 
   await page.locator('[data-testid="amount-preset-button"][data-amount="500"]').click();
   await page.getByTestId('submit-whatsapp-button').click();
 
-  await page.goto('/#/tarjetas-regalo');
+  await page.goto('/#/admin/tarjetas-regalo');
   const row = page.getByTestId('admin-gift-card-row').first();
   await expect(row).toContainText('Mamá Lupita');
   await expect(row).toContainText('Diego Arana');
@@ -230,7 +286,7 @@ test('created request appears in admin and status can change', async ({ page }) 
 
 test('admin gift card search and status filters update visible rows', async ({ page }) => {
   await seedGiftCards(page);
-  await page.goto('/#/tarjetas-regalo');
+  await page.goto('/#/admin/tarjetas-regalo');
 
   await expect(page.getByTestId('admin-gift-card-row')).toHaveCount(3);
 
@@ -252,7 +308,7 @@ test('admin gift card search and status filters update visible rows', async ({ p
 
 test('admin quick actions expose copy, WhatsApp, and detail controls', async ({ page }) => {
   await seedGiftCards(page);
-  await page.goto('/#/tarjetas-regalo');
+  await page.goto('/#/admin/tarjetas-regalo');
   await page.evaluate(() => {
     window.open = (url?: string | URL) => {
       window.localStorage.setItem('__last_open_url__', String(url));
@@ -279,7 +335,7 @@ test('admin quick actions expose copy, WhatsApp, and detail controls', async ({ 
 
 test('admin detail route displays preview and not-found state', async ({ page }) => {
   await seedGiftCards(page);
-  await page.goto('/#/tarjetas-regalo/gc-ana');
+  await page.goto('/#/admin/tarjetas-regalo/gc-ana');
 
   await expect(page.getByTestId('admin-shell')).toBeVisible();
   await expect(page.getByTestId('admin-gift-card-detail-page')).toBeVisible();
@@ -292,14 +348,14 @@ test('admin detail route displays preview and not-found state', async ({ page })
   await expect(page.getByTestId('detail-status')).toContainText('Pagada');
   await expect(page.getByTestId('print-gift-card-button')).toBeVisible();
 
-  await page.goto('/#/tarjetas-regalo/no-existe');
+  await page.goto('/#/admin/tarjetas-regalo/no-existe');
   await expect(page.getByTestId('gift-card-not-found')).toContainText(
     'No encontramos esta tarjeta regalo.'
   );
 });
 
 test('admin empty state appears in a clean browser context', async ({ page }) => {
-  await page.goto('/#/tarjetas-regalo');
+  await page.goto('/#/admin/tarjetas-regalo');
 
   await expect(page.getByTestId('admin-gift-card-page')).toBeVisible();
   await expect(page.getByTestId('admin-empty-state')).toContainText(

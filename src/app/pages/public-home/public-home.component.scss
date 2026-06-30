@@ -1,0 +1,49 @@
+.public-home {
+  min-height: calc(100vh - 120px);
+  display: grid;
+  align-items: center;
+  padding: 3rem 0;
+  box-sizing: border-box;
+}
+
+.public-home__content {
+  max-width: 720px;
+}
+
+.eyebrow {
+  margin: 0 0 0.75rem;
+  color: #8a1e3f;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+h1 {
+  color: #4b1026;
+  font-size: 4.75rem;
+  line-height: 1;
+}
+
+.intro {
+  max-width: 620px;
+  margin: 1.25rem 0 1.75rem;
+  color: var(--mat-sys-on-surface-variant, #6b5b66);
+  font-size: 1.08rem;
+  line-height: 1.7;
+}
+
+.contact-link {
+  min-height: 48px;
+}
+
+@media (max-width: 720px) {
+  .public-home {
+    min-height: calc(100vh - 150px);
+    padding: 2rem 0;
+  }
+
+  h1 {
+    font-size: 2.45rem;
+  }
+}
