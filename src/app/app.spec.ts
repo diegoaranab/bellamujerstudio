@@ -3,6 +3,8 @@ import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { App } from './app';
+import { AdminLayoutComponent } from './layouts/admin-layout/admin-layout.component';
+import { PublicLayoutComponent } from './layouts/public-layout/public-layout.component';
 
 @Component({
   template: '<p>Ruta de prueba</p>'
@@ -15,9 +17,23 @@ describe('App', () => {
       imports: [App],
       providers: [
         provideRouter([
-          { path: 'inicio', component: TestRouteComponent },
-          { path: 'tarjeta-regalo', component: TestRouteComponent },
-          { path: 'tarjetas-regalo', component: TestRouteComponent }
+          {
+            path: 'admin',
+            component: AdminLayoutComponent,
+            children: [
+              { path: 'inicio', component: TestRouteComponent },
+              { path: 'tarjetas-regalo', component: TestRouteComponent }
+            ]
+          },
+          { path: 'inicio', redirectTo: 'admin/inicio', pathMatch: 'full' },
+          {
+            path: '',
+            component: PublicLayoutComponent,
+            children: [
+              { path: '', component: TestRouteComponent },
+              { path: 'tarjeta-regalo', component: TestRouteComponent }
+            ]
+          }
         ]),
         provideNoopAnimations()
       ]
@@ -26,9 +42,9 @@ describe('App', () => {
 
   async function renderAt(path: string) {
     const router = TestBed.inject(Router);
-    await router.navigateByUrl(path);
-
     const fixture = TestBed.createComponent(App);
+
+    await router.navigateByUrl(path);
     fixture.detectChanges();
     await fixture.whenStable();
 
@@ -42,7 +58,7 @@ describe('App', () => {
   });
 
   it('renders the admin shell for an admin route', async () => {
-    const fixture = await renderAt('/inicio');
+    const fixture = await renderAt('/admin/inicio');
 
     const compiled = fixture.nativeElement as HTMLElement;
 
@@ -75,7 +91,7 @@ describe('App', () => {
   });
 
   it('should render the main navigation labels for admin routes', async () => {
-    const fixture = await renderAt('/tarjetas-regalo');
+    const fixture = await renderAt('/admin/tarjetas-regalo');
 
     const compiled = fixture.nativeElement as HTMLElement;
     const navText = compiled.textContent ?? '';
@@ -90,7 +106,7 @@ describe('App', () => {
   });
 
   it('should render the main shell header content', async () => {
-    const fixture = await renderAt('/inicio');
+    const fixture = await renderAt('/admin/inicio');
 
     const compiled = fixture.nativeElement as HTMLElement;
     const pageTitle = compiled.querySelector('.page-title')?.textContent ?? '';
@@ -100,5 +116,13 @@ describe('App', () => {
     expect(pageTitle).toContain('Panel Bella Mujer');
     expect(pageSubtitle).toContain('Operación diaria del estudio');
     expect(brandName).toContain('Bella Mujer Studio');
+  });
+
+  it('redirects legacy admin routes under /admin', async () => {
+    await renderAt('/inicio');
+
+    const router = TestBed.inject(Router);
+
+    expect(router.url).toBe('/admin/inicio');
   });
 });
