@@ -3,8 +3,9 @@ import {
   GiftCardStatus,
   GiftCardSummary
 } from '../models/gift-card.model';
+import { BELLA_MUJER_WHATSAPP_NUMBER } from '../constants/contact.constants';
 
-export const GIFT_CARD_WHATSAPP_NUMBER = '522381117950';
+export const GIFT_CARD_WHATSAPP_NUMBER = BELLA_MUJER_WHATSAPP_NUMBER;
 export const GIFT_CARD_MIN_AMOUNT_MXN = 300;
 export const GIFT_CARD_PRESET_AMOUNTS_MXN = [300, 500, 700, 1000] as const;
 export type GiftCardStatusFilter = GiftCardStatus | 'todas';

@@ -9,7 +9,13 @@
     </a>
     <nav class="public-nav" aria-label="Navegación pública">
       <a routerLink="/">Inicio</a>
+      <button type="button" (click)="scrollToHomeSection('servicios')">Servicios</button>
+      <button type="button" (click)="scrollToHomeSection('galeria')">Galería</button>
+      <button type="button" (click)="scrollToHomeSection('contacto')">Contacto</button>
       <a routerLink="/tarjeta-regalo">Tarjeta de regalo</a>
+      <a class="public-nav__whatsapp" [href]="whatsappUrl" target="_blank" rel="noopener">
+        WhatsApp
+      </a>
     </nav>
   </header>
 

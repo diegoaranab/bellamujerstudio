@@ -67,16 +67,39 @@ async function seedGiftCards(page: Page): Promise<void> {
   }, seededGiftCards);
 }
 
-test('public home route loads without the admin shell', async ({ page }) => {
+async function expectNoHorizontalOverflow(page: Page): Promise<void> {
+  const metrics = await page.evaluate(() => ({
+    bodyScrollWidth: document.body.scrollWidth,
+    clientWidth: document.documentElement.clientWidth,
+    documentScrollWidth: document.documentElement.scrollWidth,
+    innerWidth: window.innerWidth
+  }));
+
+  expect(metrics.documentScrollWidth).toBeLessThanOrEqual(metrics.clientWidth);
+  expect(metrics.bodyScrollWidth).toBeLessThanOrEqual(metrics.innerWidth);
+}
+
+test('public home route renders the homepage MVP without the admin shell', async ({ page }) => {
   await page.goto('/#/');
 
   await expect(page.getByTestId('public-home-page')).toBeVisible();
   await expect(
     page.getByRole('heading', {
-      name: 'Estamos preparando nuestro sitio público.'
+      name: 'Belleza cuidada, con cita y atención cercana.'
     })
   ).toBeVisible();
-  await expect(page.getByTestId('public-home-whatsapp-link')).toBeVisible();
+  await expect(page.getByTestId('public-home-hero')).toBeVisible();
+  await expect(page.getByTestId('public-home-services')).toBeVisible();
+  await expect(page.getByTestId('public-home-gallery')).toBeVisible();
+  await expect(page.getByTestId('public-home-why')).toBeVisible();
+  await expect(page.getByTestId('public-home-booking')).toBeVisible();
+  await expect(page.getByTestId('public-home-contact')).toBeVisible();
+  await expect(page.getByTestId('public-home-faq')).toBeVisible();
+
+  const whatsappLink = page.getByTestId('public-home-whatsapp-link');
+  await expect(whatsappLink).toBeVisible();
+  await expect(whatsappLink).toHaveAttribute('href', /https:\/\/wa\.me\/522381117950/);
+
   await expect(page.getByTestId('public-shell')).toBeVisible();
   await expect(page.getByTestId('admin-shell')).toHaveCount(0);
   await expect(page.getByText('Panel Bella Mujer')).toHaveCount(0);
@@ -125,7 +148,6 @@ test('public gift card route does not render admin shell on desktop or mobile', 
 
   await expect(page.getByTestId('public-gift-card-page')).toBeVisible();
   await expect(page.locator('.bottom-nav')).toHaveCount(0);
-  await expect(page.getByText('Servicios', { exact: true })).toHaveCount(0);
   await expect(page.getByText('Clientes', { exact: true })).toHaveCount(0);
   await expect(page.getByText('Inventario', { exact: true })).toHaveCount(0);
   await expect(page.getByText('Tarjetas regalo', { exact: true })).toHaveCount(0);
@@ -147,15 +169,7 @@ test('public gift card route has no horizontal overflow on mobile viewports', as
     await page.goto('/#/tarjeta-regalo');
     await expect(page.getByTestId('public-gift-card-page')).toBeVisible();
 
-    const metrics = await page.evaluate(() => ({
-      bodyScrollWidth: document.body.scrollWidth,
-      clientWidth: document.documentElement.clientWidth,
-      documentScrollWidth: document.documentElement.scrollWidth,
-      innerWidth: window.innerWidth
-    }));
-
-    expect(metrics.documentScrollWidth).toBeLessThanOrEqual(metrics.clientWidth);
-    expect(metrics.bodyScrollWidth).toBeLessThanOrEqual(metrics.innerWidth);
+    await expectNoHorizontalOverflow(page);
   }
 });
 
@@ -171,15 +185,7 @@ test('public home route has no horizontal overflow on mobile viewports', async (
     await page.goto('/#/');
     await expect(page.getByTestId('public-home-page')).toBeVisible();
 
-    const metrics = await page.evaluate(() => ({
-      bodyScrollWidth: document.body.scrollWidth,
-      clientWidth: document.documentElement.clientWidth,
-      documentScrollWidth: document.documentElement.scrollWidth,
-      innerWidth: window.innerWidth
-    }));
-
-    expect(metrics.documentScrollWidth).toBeLessThanOrEqual(metrics.clientWidth);
-    expect(metrics.bodyScrollWidth).toBeLessThanOrEqual(metrics.innerWidth);
+    await expectNoHorizontalOverflow(page);
   }
 });
 
