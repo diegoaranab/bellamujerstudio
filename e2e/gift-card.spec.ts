@@ -199,6 +199,16 @@ test('legacy admin route redirects to the admin namespace', async ({ page }) => 
   await expect(page.getByText('Panel Bella Mujer')).toBeVisible();
 });
 
+test('legacy gift card detail route redirects to the admin namespace', async ({ page }) => {
+  await seedGiftCards(page);
+  await page.goto('/#/tarjetas-regalo/gc-ana');
+
+  await expect(page).toHaveURL(/#\/admin\/tarjetas-regalo\/gc-ana$/);
+  await expect(page.getByTestId('admin-shell')).toBeVisible();
+  await expect(page.getByTestId('admin-gift-card-detail-page')).toBeVisible();
+  await expect(page.getByTestId('detail-recipient')).toContainText('Ana Sofía');
+});
+
 test('admin gift card route keeps the admin shell', async ({ page }) => {
   await page.goto('/#/admin/tarjetas-regalo');
 
