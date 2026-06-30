@@ -1,22 +1,222 @@
-<section class="public-home" data-testid="public-home-page">
-  <div class="public-home__content">
-    <p class="eyebrow">Bella Mujer Studio</p>
-    <h1>Estamos preparando nuestro sitio público.</h1>
-    <p class="intro">
-      Pronto encontrarás aquí servicios, galería e información para agendar tu visita.
-      Mientras tanto, puedes contactarnos por WhatsApp.
-    </p>
+<div class="public-home" data-testid="public-home-page">
+  <section class="hero section-shell" data-testid="public-home-hero" aria-labelledby="hero-title">
+    <div class="hero__copy">
+      <p class="eyebrow">Bella Mujer Studio · Tehuacán, Puebla</p>
+      <h1 id="hero-title">Belleza cuidada, con cita y atención cercana.</h1>
+      <p class="intro">
+        Uñas, pestañas, maquillaje, peinado, cejas y cabello en un estudio local pensado
+        para verte y sentirte lista sin prisas.
+      </p>
+      <div class="hero__actions" aria-label="Acciones principales">
+        <a
+          mat-flat-button
+          color="primary"
+          class="cta-button cta-button--primary"
+          [href]="whatsappUrl"
+          target="_blank"
+          rel="noopener"
+          data-testid="public-home-whatsapp-link"
+          aria-label="Contactar a Bella Mujer Studio por WhatsApp"
+        >
+          <mat-icon>chat</mat-icon>
+          Agendar por WhatsApp
+        </a>
+        <button
+          mat-stroked-button
+          type="button"
+          class="cta-button"
+          (click)="scrollToSection('servicios')"
+          aria-label="Ver servicios de Bella Mujer Studio"
+        >
+          Ver servicios
+        </button>
+      </div>
+    </div>
+
+    <div class="hero-card" aria-label="Vista previa visual de servicios Bella Mujer">
+      <div class="hero-card__topline">
+        <span>Atención con cita</span>
+        <span>Tehuacán</span>
+      </div>
+      <div class="hero-card__canvas">
+        <div class="polish-swatch polish-swatch--wine"></div>
+        <div class="polish-swatch polish-swatch--blush"></div>
+        <div class="polish-swatch polish-swatch--cream"></div>
+      </div>
+      <div class="hero-card__services">
+        <span>Uñas</span>
+        <span>Pestañas</span>
+        <span>Cabello</span>
+      </div>
+    </div>
+  </section>
+
+  <section
+    id="servicios"
+    class="services section-shell"
+    data-testid="public-home-services"
+    aria-labelledby="services-title"
+  >
+    <div class="section-heading">
+      <p class="eyebrow">Servicios</p>
+      <h2 id="services-title">Lo más pedido en el estudio</h2>
+      <p>
+        Una vista rápida para que sepas por dónde empezar. Los detalles, disponibilidad
+        y cotización se confirman por WhatsApp.
+      </p>
+    </div>
+
+    <div class="service-grid">
+      @for (service of services; track service.title) {
+        <article class="service-card">
+          <p class="service-card__note">{{ service.note }}</p>
+          <h3>{{ service.title }}</h3>
+          <p>{{ service.description }}</p>
+        </article>
+      }
+    </div>
+  </section>
+
+  <section
+    id="galeria"
+    class="gallery section-shell"
+    data-testid="public-home-gallery"
+    aria-labelledby="gallery-title"
+  >
+    <div class="section-heading section-heading--center">
+      <p class="eyebrow">Portafolio</p>
+      <h2 id="gallery-title">Galería de trabajos</h2>
+      <p>
+        Aquí se mostrará una selección curada de trabajos reales de Bella Mujer Studio.
+        Por ahora dejamos este espacio listo para reemplazarlo con fotos propias.
+      </p>
+    </div>
+
+    <div class="gallery-chips" aria-label="Categorías de galería">
+      @for (chip of galleryChips; track chip) {
+        <span>{{ chip }}</span>
+      }
+    </div>
+
+    <div class="gallery-grid">
+      @for (preview of galleryPreviews; track preview.title) {
+        <article class="gallery-card">
+          <div class="gallery-card__shine" aria-hidden="true"></div>
+          <p>{{ preview.label }}</p>
+          <h3>{{ preview.title }}</h3>
+        </article>
+      }
+    </div>
+  </section>
+
+  <section
+    id="por-que"
+    class="why section-shell"
+    data-testid="public-home-why"
+    aria-labelledby="why-title"
+  >
+    <div class="section-heading">
+      <p class="eyebrow">Por qué Bella Mujer</p>
+      <h2 id="why-title">Detalles que se sienten desde la cita</h2>
+    </div>
+
+    <div class="why-grid">
+      @for (item of whyItems; track item.title) {
+        <article class="why-card">
+          <h3>{{ item.title }}</h3>
+          <p>{{ item.description }}</p>
+        </article>
+      }
+    </div>
+  </section>
+
+  <section
+    id="agendar"
+    class="booking section-shell"
+    data-testid="public-home-booking"
+    aria-labelledby="booking-title"
+  >
+    <div class="section-heading">
+      <p class="eyebrow">Agendar</p>
+      <h2 id="booking-title">Así funciona por WhatsApp</h2>
+    </div>
+
+    <div class="booking-steps">
+      @for (step of bookingSteps; track step.title; let index = $index) {
+        <article class="booking-step">
+          <span class="booking-step__number">{{ index + 1 }}</span>
+          <div>
+            <h3>{{ step.title }}</h3>
+            <p>{{ step.description }}</p>
+          </div>
+        </article>
+      }
+    </div>
+  </section>
+
+  <section
+    id="contacto"
+    class="contact section-shell"
+    data-testid="public-home-contact"
+    aria-labelledby="contact-title"
+  >
+    <div class="contact-panel">
+      <div>
+        <p class="eyebrow">Contacto y ubicación</p>
+        <h2 id="contact-title">Atención con cita previa en Tehuacán, Puebla</h2>
+        <p>
+          Escríbenos por WhatsApp para resolver dudas, revisar disponibilidad o pedir
+          una cotización antes de confirmar tu visita.
+        </p>
+      </div>
+      <a
+        mat-flat-button
+        color="primary"
+        class="cta-button cta-button--primary"
+        [href]="whatsappUrl"
+        target="_blank"
+        rel="noopener"
+        aria-label="Escribir a Bella Mujer Studio por WhatsApp"
+      >
+        <mat-icon>chat</mat-icon>
+        Escribir por WhatsApp
+      </a>
+    </div>
+  </section>
+
+  <section
+    id="preguntas"
+    class="faq section-shell"
+    data-testid="public-home-faq"
+    aria-labelledby="faq-title"
+  >
+    <div class="section-heading section-heading--center">
+      <p class="eyebrow">Preguntas frecuentes</p>
+      <h2 id="faq-title">Antes de escribirnos</h2>
+    </div>
+
+    <div class="faq-list">
+      @for (item of faqItems; track item.question) {
+        <article class="faq-item">
+          <h3>{{ item.question }}</h3>
+          <p>{{ item.answer }}</p>
+        </article>
+      }
+    </div>
+  </section>
+
+  <div class="sticky-whatsapp" aria-label="Contacto rápido por WhatsApp">
     <a
       mat-flat-button
       color="primary"
-      class="contact-link"
+      class="sticky-whatsapp__link"
       [href]="whatsappUrl"
       target="_blank"
       rel="noopener"
-      data-testid="public-home-whatsapp-link"
+      aria-label="Agendar por WhatsApp con Bella Mujer Studio"
     >
       <mat-icon>chat</mat-icon>
-      Contactar por WhatsApp
+      WhatsApp
     </a>
   </div>
-</section>
+</div>
