@@ -129,6 +129,98 @@ test('public home route renders the homepage MVP without the admin shell', async
   await expect(page.getByText('Nueva cita')).toHaveCount(0);
 });
 
+test('public home exposes homepage SEO metadata and BeautySalon structured data', async ({
+  page
+}) => {
+  await page.goto('/');
+
+  await expect(page).toHaveTitle(
+    'Bella Mujer Studio | Uñas, pestañas, maquillaje y cabello en Tehuacán'
+  );
+
+  const metadata = await page.evaluate(() => {
+    const getMetaContent = (selector: string) =>
+      document.head.querySelector(selector)?.getAttribute('content') ?? null;
+    const jsonLdScripts = [...document.querySelectorAll('script[type="application/ld+json"]')]
+      .map((script) => script.textContent ?? '')
+      .filter(Boolean);
+
+    return {
+      description: getMetaContent('meta[name="description"]'),
+      ogTitle: getMetaContent('meta[property="og:title"]'),
+      ogDescription: getMetaContent('meta[property="og:description"]'),
+      ogImage: getMetaContent('meta[property="og:image"]'),
+      twitterCard: getMetaContent('meta[name="twitter:card"]'),
+      twitterTitle: getMetaContent('meta[name="twitter:title"]'),
+      twitterDescription: getMetaContent('meta[name="twitter:description"]'),
+      twitterImage: getMetaContent('meta[name="twitter:image"]'),
+      canonical: document.head.querySelector('link[rel="canonical"]')?.getAttribute('href') ?? null,
+      jsonLdScripts
+    };
+  });
+
+  expect(metadata.description).toBe(
+    'Estudio de belleza en Tehuacán, Puebla. Uñas, pestañas, maquillaje, peinado, cejas y cabello con atención por cita y contacto por WhatsApp.'
+  );
+  expect(metadata.ogTitle).toBe('Bella Mujer Studio | Belleza con cita en Tehuacán');
+  expect(metadata.ogDescription).toBe(
+    'Uñas, pestañas, maquillaje, peinado, cejas y cabello en Bella Mujer Studio Tehuacán.'
+  );
+  expect(metadata.ogImage).toBe(
+    'https://diegoaranab.github.io/bellamujerstudio/assets/gallery/maquillaje-peinado-glam-01.webp'
+  );
+  expect(metadata.twitterCard).toBe('summary_large_image');
+  expect(metadata.twitterTitle).toBe(metadata.ogTitle);
+  expect(metadata.twitterDescription).toBe(metadata.ogDescription);
+  expect(metadata.twitterImage).toBe(metadata.ogImage);
+  expect(metadata.canonical).toBe('https://diegoaranab.github.io/bellamujerstudio/');
+  expect(metadata.jsonLdScripts.length).toBeGreaterThan(0);
+
+  const structuredData = metadata.jsonLdScripts.map((script) => JSON.parse(script));
+  const salonData = structuredData.find(
+    (data: Record<string, unknown>) => data['@type'] === 'BeautySalon'
+  ) as Record<string, unknown> | undefined;
+
+  expect(salonData).toBeTruthy();
+
+  if (!salonData) {
+    throw new Error('BeautySalon JSON-LD was not found.');
+  }
+
+  const address = salonData['address'] as Record<string, unknown>;
+  const serializedSalonData = JSON.stringify(salonData);
+
+  expect(salonData['name']).toBe('Bella Mujer Studio');
+  expect(address['addressLocality']).toBe('Tehuacán');
+  expect(address['addressRegion']).toBe('Puebla');
+  expect(address['addressCountry']).toBe('MX');
+  expect(address['streetAddress']).toBeUndefined();
+  expect(address['postalCode']).toBeUndefined();
+  expect(salonData['openingHours']).toBeUndefined();
+  expect(salonData['aggregateRating']).toBeUndefined();
+  expect(salonData['review']).toBeUndefined();
+  expect(serializedSalonData).not.toContain('streetAddress');
+  expect(serializedSalonData).not.toContain('openingHours');
+  expect(serializedSalonData).not.toContain('aggregateRating');
+  expect(serializedSalonData).not.toContain('review');
+});
+
+test('public crawl files expose only safe public URLs', async ({ page }) => {
+  const robotsResponse = await page.request.get('/robots.txt');
+  const sitemapResponse = await page.request.get('/sitemap.xml');
+
+  expect(robotsResponse.ok()).toBeTruthy();
+  expect(sitemapResponse.ok()).toBeTruthy();
+
+  const robots = await robotsResponse.text();
+  const sitemap = await sitemapResponse.text();
+
+  expect(robots).toContain('Sitemap: https://diegoaranab.github.io/bellamujerstudio/sitemap.xml');
+  expect(sitemap).toContain('<loc>https://diegoaranab.github.io/bellamujerstudio/</loc>');
+  expect(sitemap).not.toContain('admin');
+  expect(sitemap).not.toContain('#/admin');
+});
+
 test('public gift card route loads with transfer explanation', async ({ page }) => {
   await page.goto('/#/tarjeta-regalo');
 

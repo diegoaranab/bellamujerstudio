@@ -11,6 +11,7 @@ import { ServiciosComponent } from './pages/servicios/servicios.component';
 import { TarjetaRegaloDetalleComponent } from './pages/tarjeta-regalo-detalle/tarjeta-regalo-detalle.component';
 import { TarjetaRegaloComponent } from './pages/tarjeta-regalo/tarjeta-regalo.component';
 import { TarjetasRegaloComponent } from './pages/tarjetas-regalo/tarjetas-regalo.component';
+import { GIFT_CARD_SEO_METADATA, HOME_SEO_METADATA } from './core/constants/seo.constants';
 
 export const routes: Routes = [
   {
@@ -55,8 +56,12 @@ export const routes: Routes = [
     path: '',
     component: PublicLayoutComponent,
     children: [
-      { path: '', component: PublicHomeComponent },
-      { path: 'tarjeta-regalo', component: TarjetaRegaloComponent }
+      { path: '', component: PublicHomeComponent, data: { seo: HOME_SEO_METADATA } },
+      {
+        path: 'tarjeta-regalo',
+        component: TarjetaRegaloComponent,
+        data: { seo: GIFT_CARD_SEO_METADATA }
+      }
     ]
   }
 ];
