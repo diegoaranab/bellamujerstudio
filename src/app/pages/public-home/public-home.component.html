@@ -33,20 +33,25 @@
       </div>
     </div>
 
-    <div class="hero-card" aria-label="Vista previa visual de servicios Bella Mujer">
-      <div class="hero-card__topline">
-        <span>Atención con cita</span>
-        <span>Tehuacán</span>
-      </div>
-      <div class="hero-card__canvas">
-        <div class="polish-swatch polish-swatch--wine"></div>
-        <div class="polish-swatch polish-swatch--blush"></div>
-        <div class="polish-swatch polish-swatch--cream"></div>
-      </div>
-      <div class="hero-card__services">
-        <span>Uñas</span>
-        <span>Pestañas</span>
-        <span>Cabello</span>
+    <div class="hero-collage" aria-label="Trabajos destacados de Bella Mujer Studio">
+      @for (image of heroImages; track image.src; let index = $index) {
+        <figure class="hero-collage__item hero-collage__item--{{ index + 1 }}">
+          <img
+            [src]="image.src"
+            [alt]="image.alt"
+            [attr.width]="image.width"
+            [attr.height]="image.height"
+            [attr.loading]="index === 0 ? 'eager' : 'lazy'"
+            [attr.fetchpriority]="index === 0 ? 'high' : 'auto'"
+            decoding="async"
+            data-testid="public-hero-image"
+          />
+          <figcaption>{{ image.category }}</figcaption>
+        </figure>
+      }
+      <div class="hero-collage__badge" aria-hidden="true">
+        <span>Trabajo real</span>
+        <strong>Bella Mujer</strong>
       </div>
     </div>
   </section>
@@ -69,9 +74,22 @@
     <div class="service-grid">
       @for (service of services; track service.title) {
         <article class="service-card">
-          <p class="service-card__note">{{ service.note }}</p>
-          <h3>{{ service.title }}</h3>
-          <p>{{ service.description }}</p>
+          @if (service.accentImage) {
+            <img
+              class="service-card__image"
+              [src]="service.accentImage.src"
+              [alt]="service.accentImage.alt"
+              [attr.width]="service.accentImage.width"
+              [attr.height]="service.accentImage.height"
+              loading="lazy"
+              decoding="async"
+            />
+          }
+          <div class="service-card__body">
+            <p class="service-card__note">{{ service.note }}</p>
+            <h3>{{ service.title }}</h3>
+            <p>{{ service.description }}</p>
+          </div>
         </article>
       }
     </div>
@@ -87,8 +105,8 @@
       <p class="eyebrow">Portafolio</p>
       <h2 id="gallery-title">Galería de trabajos</h2>
       <p>
-        Aquí se mostrará una selección curada de trabajos reales de Bella Mujer Studio.
-        Por ahora dejamos este espacio listo para reemplazarlo con fotos propias.
+        Una selección curada de trabajos reales de Bella Mujer Studio para inspirar
+        tu próxima cita.
       </p>
     </div>
 
@@ -99,11 +117,22 @@
     </div>
 
     <div class="gallery-grid">
-      @for (preview of galleryPreviews; track preview.title) {
-        <article class="gallery-card">
-          <div class="gallery-card__shine" aria-hidden="true"></div>
-          <p>{{ preview.label }}</p>
-          <h3>{{ preview.title }}</h3>
+      @for (preview of galleryPreviews; track preview.src) {
+        <article class="gallery-card" data-testid="public-gallery-card">
+          <img
+            [src]="preview.src"
+            [alt]="preview.alt"
+            [attr.width]="preview.width"
+            [attr.height]="preview.height"
+            loading="lazy"
+            decoding="async"
+            data-testid="public-gallery-image"
+          />
+          <div class="gallery-card__overlay" aria-hidden="true"></div>
+          <div class="gallery-card__content">
+            <p>{{ preview.category }}</p>
+            <h3>{{ preview.title }}</h3>
+          </div>
         </article>
       }
     </div>

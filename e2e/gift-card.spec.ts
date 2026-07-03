@@ -80,7 +80,7 @@ async function expectNoHorizontalOverflow(page: Page): Promise<void> {
 }
 
 test('public home route renders the homepage MVP without the admin shell', async ({ page }) => {
-  await page.goto('/#/');
+  await page.goto('/');
 
   await expect(page.getByTestId('public-home-page')).toBeVisible();
   await expect(
@@ -95,6 +95,29 @@ test('public home route renders the homepage MVP without the admin shell', async
   await expect(page.getByTestId('public-home-booking')).toBeVisible();
   await expect(page.getByTestId('public-home-contact')).toBeVisible();
   await expect(page.getByTestId('public-home-faq')).toBeVisible();
+
+  await expect(page.getByTestId('public-hero-image')).toHaveCount(4);
+  await expect(page.getByTestId('public-hero-image').first()).toHaveAttribute(
+    'src',
+    /assets\/gallery\/maquillaje-peinado-glam-01\.webp/
+  );
+  await expect(page.getByTestId('public-hero-image').first()).toHaveAttribute(
+    'alt',
+    /Maquillaje glam y peinado/
+  );
+  await expect(page.getByTestId('public-gallery-card')).toHaveCount(8);
+  await expect(page.getByTestId('public-gallery-image')).toHaveCount(8);
+  await expect(
+    page.locator(
+      '[data-testid="public-gallery-image"][src*="cabello-alisado-tratamiento-01.webp"]'
+    )
+  ).toHaveCount(0);
+  await expect(page.getByTestId('public-gallery-image').first()).toHaveAttribute(
+    'src',
+    /assets\/gallery\/maquillaje-peinado-glam-01\.webp/
+  );
+  await expect(page.getByText('Glam completo para evento')).toBeVisible();
+  await expect(page.getByText('Uñas coloridas en acrílico')).toBeVisible();
 
   const whatsappLink = page.getByTestId('public-home-whatsapp-link');
   await expect(whatsappLink).toBeVisible();

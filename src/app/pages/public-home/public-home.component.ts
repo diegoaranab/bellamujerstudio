@@ -8,11 +8,23 @@ interface HomeService {
   title: string;
   description: string;
   note: string;
+  accentImage?: {
+    src: string;
+    alt: string;
+    width: number;
+    height: number;
+  };
 }
 
-interface GalleryPreview {
+interface PublicGalleryImage {
+  src: string;
+  alt: string;
+  category: string;
   title: string;
-  label: string;
+  featured: boolean;
+  hero?: boolean;
+  width: number;
+  height: number;
 }
 
 interface WhyItem {
@@ -37,6 +49,98 @@ interface FaqItem {
   styleUrl: './public-home.component.scss'
 })
 export class PublicHomeComponent {
+  protected readonly galleryImages: readonly PublicGalleryImage[] = [
+    {
+      src: 'assets/gallery/maquillaje-peinado-glam-01.webp',
+      alt: 'Maquillaje glam y peinado con ondas realizado en Bella Mujer Studio Tehuacán.',
+      category: 'Maquillaje y peinado',
+      title: 'Glam completo para evento',
+      featured: true,
+      hero: true,
+      width: 1200,
+      height: 1600
+    },
+    {
+      src: 'assets/gallery/cabello-ondas-largas-01.webp',
+      alt: 'Peinado con ondas largas visto de espalda en Bella Mujer Studio Tehuacán.',
+      category: 'Cabello',
+      title: 'Ondas largas con movimiento',
+      featured: true,
+      hero: true,
+      width: 1200,
+      height: 1600
+    },
+    {
+      src: 'assets/gallery/pestanas-efecto-natural-01.webp',
+      alt: 'Extensiones de pestañas con efecto natural realizadas en Bella Mujer Studio Tehuacán.',
+      category: 'Pestañas',
+      title: 'Mirada natural definida',
+      featured: true,
+      hero: true,
+      width: 1200,
+      height: 1600
+    },
+    {
+      src: 'assets/gallery/unas-coloridas-acrilico-01.webp',
+      alt: 'Uñas de colores con acabado brillante realizadas en Bella Mujer Studio Tehuacán.',
+      category: 'Uñas',
+      title: 'Uñas coloridas en acrílico',
+      featured: true,
+      hero: true,
+      width: 1200,
+      height: 1600
+    },
+    {
+      src: 'assets/gallery/maquillaje-social-glam-01.webp',
+      alt: 'Maquillaje social glam realizado en Bella Mujer Studio Tehuacán.',
+      category: 'Maquillaje',
+      title: 'Maquillaje social luminoso',
+      featured: true,
+      width: 1200,
+      height: 1600
+    },
+    {
+      src: 'assets/gallery/peinado-evento-ondas-01.webp',
+      alt: 'Peinado para evento con ondas realizado en Bella Mujer Studio Tehuacán.',
+      category: 'Peinado',
+      title: 'Peinado con ondas para evento',
+      featured: true,
+      width: 1200,
+      height: 1600
+    },
+    {
+      src: 'assets/gallery/cejas-diseno-laminado-01.webp',
+      alt: 'Diseño de cejas realizado en Bella Mujer Studio Tehuacán.',
+      category: 'Cejas',
+      title: 'Diseño de cejas cuidado',
+      featured: true,
+      width: 1200,
+      height: 1600
+    },
+    {
+      src: 'assets/gallery/cabello-corte-peinado-01.webp',
+      alt: 'Corte y peinado de cabello largo visto de espalda en Bella Mujer Studio Tehuacán.',
+      category: 'Cabello',
+      title: 'Corte y peinado pulido',
+      featured: true,
+      width: 1200,
+      height: 1600
+    },
+    {
+      src: 'assets/gallery/cabello-alisado-tratamiento-01.webp',
+      alt: 'Resultado de alisado con cabello lacio y brillante en Bella Mujer Studio Tehuacán.',
+      category: 'Cabello',
+      title: 'Alisado y tratamiento',
+      featured: false,
+      width: 576,
+      height: 1024
+    }
+  ];
+
+  protected readonly heroImages = this.galleryImages.filter((image) => image.hero);
+
+  protected readonly galleryPreviews = this.galleryImages.filter((image) => image.featured);
+
   protected readonly whatsappUrl = buildBellaMujerWhatsAppUrl(
     'Hola Bella Mujer Studio, quiero información para agendar una cita.'
   );
@@ -45,27 +149,57 @@ export class PublicHomeComponent {
     {
       title: 'Uñas',
       description: 'Manicure, aplicación y diseño con acabados limpios para tu estilo diario o evento.',
-      note: 'Diseños a elegir en cita'
+      note: 'Diseños a elegir en cita',
+      accentImage: {
+        src: 'assets/gallery/unas-coloridas-acrilico-01.webp',
+        alt: 'Detalle de uñas coloridas con acabado brillante en Bella Mujer Studio.',
+        width: 1200,
+        height: 1600
+      }
     },
     {
       title: 'Pestañas',
       description: 'Realce y mirada cuidada con atención al resultado que buscas.',
-      note: 'Valoración según servicio'
+      note: 'Valoración según servicio',
+      accentImage: {
+        src: 'assets/gallery/pestanas-efecto-natural-01.webp',
+        alt: 'Detalle de extensiones de pestañas con efecto natural en Bella Mujer Studio.',
+        width: 1200,
+        height: 1600
+      }
     },
     {
       title: 'Maquillaje y peinado',
       description: 'Preparación para eventos, sesiones o momentos especiales.',
-      note: 'Agenda con anticipación'
+      note: 'Agenda con anticipación',
+      accentImage: {
+        src: 'assets/gallery/maquillaje-peinado-glam-01.webp',
+        alt: 'Maquillaje glam con peinado de ondas para evento en Bella Mujer Studio.',
+        width: 1200,
+        height: 1600
+      }
     },
     {
       title: 'Cejas',
       description: 'Diseño y mantenimiento para enmarcar tu rostro con naturalidad.',
-      note: 'Atención personalizada'
+      note: 'Atención personalizada',
+      accentImage: {
+        src: 'assets/gallery/cejas-diseno-laminado-01.webp',
+        alt: 'Diseño de cejas con acabado natural realizado en Bella Mujer Studio.',
+        width: 1200,
+        height: 1600
+      }
     },
     {
       title: 'Cabello / color',
       description: 'Color, cambios de look y correcciones con diagnóstico antes de confirmar.',
-      note: 'Cotización previa'
+      note: 'Cotización previa',
+      accentImage: {
+        src: 'assets/gallery/cabello-ondas-largas-01.webp',
+        alt: 'Peinado de cabello largo con ondas visto de espalda en Bella Mujer Studio.',
+        width: 1200,
+        height: 1600
+      }
     },
     {
       title: 'Faciales / spa',
@@ -74,13 +208,13 @@ export class PublicHomeComponent {
     }
   ];
 
-  protected readonly galleryChips = ['Uñas', 'Pestañas', 'Maquillaje', 'Peinado', 'Cabello'];
-
-  protected readonly galleryPreviews: readonly GalleryPreview[] = [
-    { title: 'Diseños de uñas', label: 'Próximamente trabajo real' },
-    { title: 'Miradas y pestañas', label: 'Galería curada en camino' },
-    { title: 'Eventos y peinados', label: 'Fotos reales por agregar' },
-    { title: 'Color y cabello', label: 'Antes y después pronto' }
+  protected readonly galleryChips = [
+    'Uñas',
+    'Pestañas',
+    'Maquillaje',
+    'Peinado',
+    'Cejas',
+    'Cabello'
   ];
 
   protected readonly whyItems: readonly WhyItem[] = [
