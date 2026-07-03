@@ -3,6 +3,7 @@ import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { App } from './app';
+import { GIFT_CARD_SEO_METADATA, HOME_SEO_METADATA } from './core/constants/seo.constants';
 import { AdminLayoutComponent } from './layouts/admin-layout/admin-layout.component';
 import { PublicLayoutComponent } from './layouts/public-layout/public-layout.component';
 
@@ -30,8 +31,12 @@ describe('App', () => {
             path: '',
             component: PublicLayoutComponent,
             children: [
-              { path: '', component: TestRouteComponent },
-              { path: 'tarjeta-regalo', component: TestRouteComponent }
+              { path: '', component: TestRouteComponent, data: { seo: HOME_SEO_METADATA } },
+              {
+                path: 'tarjeta-regalo',
+                component: TestRouteComponent,
+                data: { seo: GIFT_CARD_SEO_METADATA }
+              }
             ]
           }
         ]),
@@ -124,5 +129,21 @@ describe('App', () => {
     const router = TestBed.inject(Router);
 
     expect(router.url).toBe('/admin/inicio');
+  });
+
+  it('updates public route title and description metadata', async () => {
+    await renderAt('/');
+
+    expect(document.title).toBe(HOME_SEO_METADATA.title);
+    expect(document.querySelector('meta[name="description"]')?.getAttribute('content')).toBe(
+      HOME_SEO_METADATA.description
+    );
+
+    await renderAt('/tarjeta-regalo');
+
+    expect(document.title).toBe(GIFT_CARD_SEO_METADATA.title);
+    expect(document.querySelector('meta[name="description"]')?.getAttribute('content')).toBe(
+      GIFT_CARD_SEO_METADATA.description
+    );
   });
 });

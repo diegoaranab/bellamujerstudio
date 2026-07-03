@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://diegoaranab.github.io/bellamujerstudio/sitemap.xml
