@@ -13,8 +13,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  min-height: 72px;
-  padding: 0.85rem max(1.25rem, calc((100vw - 1180px) / 2 + 1.25rem));
+  min-height: 68px;
+  padding: 0.7rem max(1.25rem, calc((100vw - 1180px) / 2 + 1.25rem));
   background: #ffffff;
   border-bottom: 1px solid color-mix(in srgb, var(--mat-sys-primary) 12%, transparent);
   box-sizing: border-box;
@@ -63,41 +63,83 @@
 .public-nav {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
+  gap: 0.95rem;
+  flex: 1 1 auto;
+  flex-wrap: nowrap;
   justify-content: flex-end;
   min-width: 0;
 }
 
 .public-nav a,
 .public-nav button {
-  border-radius: 999px;
-  color: #8a1e3f;
-  background: color-mix(in srgb, var(--mat-sys-primary) 8%, #ffffff);
-  border: 1px solid color-mix(in srgb, var(--mat-sys-primary) 16%, transparent);
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  border-radius: 0;
+  color: var(--mat-sys-on-surface, #2a1b22);
+  background: transparent;
+  border: 0;
   cursor: pointer;
   font-family: inherit;
-  font-size: 0.82rem;
+  font-size: 0.86rem;
   font-weight: 600;
-  line-height: 1.2;
-  padding: 0.4rem 0.7rem;
+  line-height: 1;
+  padding: 0.35rem 0;
+  position: relative;
   text-decoration: none;
+  transition:
+    color 160ms ease,
+    background-color 160ms ease,
+    border-color 160ms ease;
+  white-space: nowrap;
+}
+
+.public-nav a:not(.public-nav__whatsapp)::after,
+.public-nav button::after {
+  position: absolute;
+  right: 0;
+  bottom: 0.35rem;
+  left: 0;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+  content: '';
+  opacity: 0;
+  transform: scaleX(0.35);
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease;
 }
 
 .public-nav a:hover,
 .public-nav__link--active {
-  background: color-mix(in srgb, var(--mat-sys-primary) 14%, #ffffff);
-  border-color: color-mix(in srgb, var(--mat-sys-primary) 32%, transparent);
-  color: #6f1632;
+  color: #8a1e3f;
 }
 
 .public-nav__link--active {
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--mat-sys-primary) 18%, transparent);
+  color: #6f1632;
+}
+
+.public-nav a:not(.public-nav__whatsapp):hover::after,
+.public-nav__link--active::after {
+  opacity: 1;
+  transform: scaleX(1);
 }
 
 .public-nav__whatsapp {
-  background: #8a1e3f !important;
+  min-height: 40px;
+  border-radius: 999px !important;
+  background: #8a1e3f;
+  box-shadow: 0 8px 18px color-mix(in srgb, #8a1e3f 18%, transparent);
   color: #ffffff !important;
+  padding: 0.35rem 0.9rem !important;
+}
+
+.public-nav__whatsapp:hover {
+  background: #6f1632;
+  color: #ffffff;
 }
 
 .public-content {
@@ -108,13 +150,31 @@
 
 @media (max-width: 900px) {
   .public-header {
-    align-items: flex-start;
-    flex-direction: column;
-    padding: 0.85rem 1rem;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.35rem;
+    min-height: 0;
+    padding: 0.65rem 1rem 0.55rem;
   }
 
   .public-nav {
+    box-sizing: border-box;
+    gap: 0.95rem;
     justify-content: flex-start;
+    margin: 0 -1rem;
+    width: calc(100% + 2rem);
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0 1rem 0.1rem;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .public-nav a,
+  .public-nav button {
+    flex: 0 0 auto;
+    min-height: 38px;
+    font-size: 0.84rem;
   }
 }
 

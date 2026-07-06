@@ -116,6 +116,57 @@ async function expectNoHorizontalOverflow(page: Page): Promise<void> {
   expect(metrics.bodyScrollWidth).toBeLessThanOrEqual(metrics.innerWidth);
 }
 
+async function expectMobilePublicNavUsability(page: Page): Promise<void> {
+  const metrics = await page.evaluate(() => {
+    const header = document.querySelector('.public-header');
+    const nav = document.querySelector<HTMLElement>('[data-testid="public-nav"]');
+    const publicNavLinks = Array.from(
+      document.querySelectorAll<HTMLElement>(
+        '[data-testid^="public-nav-"][data-testid$="-link"]:not([data-testid="public-nav-whatsapp-link"])'
+      )
+    );
+
+    const navStyles = nav ? getComputedStyle(nav) : null;
+    const headerRect = header?.getBoundingClientRect();
+    const navRect = nav?.getBoundingClientRect();
+    const linkRects = publicNavLinks.map((link) => {
+      const rect = link.getBoundingClientRect();
+
+      return {
+        height: rect.height,
+        top: rect.top
+      };
+    });
+
+    return {
+      headerHeight: headerRect?.height ?? 0,
+      linkCount: linkRects.length,
+      maxLinkHeight: Math.max(...linkRects.map((rect) => rect.height)),
+      maxLinkTop: Math.max(...linkRects.map((rect) => rect.top)),
+      minLinkHeight: Math.min(...linkRects.map((rect) => rect.height)),
+      minLinkTop: Math.min(...linkRects.map((rect) => rect.top)),
+      navClientWidth: nav?.clientWidth ?? 0,
+      navFlexWrap: navStyles?.flexWrap ?? null,
+      navOverflowX: navStyles?.overflowX ?? null,
+      navScrollWidth: nav?.scrollWidth ?? 0,
+      navWidth: navRect?.width ?? 0,
+      viewportWidth: window.innerWidth
+    };
+  });
+
+  expect(metrics.headerHeight).toBeGreaterThan(0);
+  expect(metrics.headerHeight).toBeLessThan(150);
+  expect(metrics.linkCount).toBe(navLinks.length);
+  expect(metrics.navFlexWrap).toBe('nowrap');
+  expect(['auto', 'scroll']).toContain(metrics.navOverflowX);
+  expect(metrics.navWidth).toBeLessThanOrEqual(metrics.viewportWidth + 1);
+  expect(metrics.navClientWidth).toBeLessThanOrEqual(metrics.viewportWidth);
+  expect(metrics.navScrollWidth).toBeGreaterThanOrEqual(metrics.navClientWidth);
+  expect(metrics.maxLinkTop - metrics.minLinkTop).toBeLessThan(4);
+  expect(metrics.minLinkHeight).toBeGreaterThanOrEqual(34);
+  expect(metrics.maxLinkHeight).toBeLessThanOrEqual(48);
+}
+
 async function expectAdminShellAbsent(page: Page): Promise<void> {
   await expect(page.getByTestId('admin-shell')).toHaveCount(0);
   await expect(page.locator('.topbar')).toHaveCount(0);
@@ -228,6 +279,7 @@ test('public routes keep usable mobile nav and avoid horizontal overflow', async
         'page'
       );
       await expectAdminShellAbsent(page);
+      await expectMobilePublicNavUsability(page);
       await expectNoHorizontalOverflow(page);
     }
   }
