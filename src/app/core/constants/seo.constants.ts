@@ -26,3 +26,9 @@ export const SERVICES_SEO_METADATA: RouteSeoMetadata = {
   description:
     'Conoce los servicios de Bella Mujer Studio en Tehuacán: uñas, pestañas, maquillaje, peinado, cejas, cabello y cuidado personal con atención por cita.'
 };
+
+export const CONTACT_SEO_METADATA: RouteSeoMetadata = {
+  title: 'Contacto Bella Mujer Studio | Agenda por WhatsApp en Tehuacán',
+  description:
+    'Contacta a Bella Mujer Studio en Tehuacán por WhatsApp para resolver dudas, revisar disponibilidad y cotizar servicios de belleza con cita previa.'
+};

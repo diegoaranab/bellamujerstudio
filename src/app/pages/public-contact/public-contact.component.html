@@ -1,0 +1,114 @@
+<div class="public-contact" data-testid="public-contact-page">
+  <section class="contact-hero section-shell" aria-labelledby="contact-page-title">
+    <div class="contact-hero__copy">
+      <p class="eyebrow">Contacto</p>
+      <h1 id="contact-page-title">Agenda tu cita en Bella Mujer Studio</h1>
+      <p class="intro">
+        WhatsApp es nuestro canal principal para resolver dudas, revisar disponibilidad,
+        recibir referencias, cotizar servicios y confirmar tu cita con calma.
+      </p>
+      <div class="contact-hero__actions" aria-label="Acciones de contacto">
+        <a
+          mat-flat-button
+          color="primary"
+          class="cta-button cta-button--primary"
+          [href]="whatsappUrl"
+          target="_blank"
+          rel="noopener"
+          data-testid="public-contact-whatsapp-link"
+          aria-label="Escribir por WhatsApp a Bella Mujer Studio"
+        >
+          <mat-icon>chat</mat-icon>
+          Escribir por WhatsApp
+        </a>
+        <a
+          mat-stroked-button
+          class="cta-button"
+          routerLink="/servicios"
+          aria-label="Ver servicios de Bella Mujer Studio"
+        >
+          Ver servicios
+        </a>
+        <a mat-button class="gallery-link" routerLink="/galeria">Ver galería</a>
+      </div>
+    </div>
+
+    <figure class="contact-hero__image">
+      <img
+        src="assets/gallery/maquillaje-peinado-glam-01.webp"
+        alt="Maquillaje y peinado para evento realizado en Bella Mujer Studio Tehuacán."
+        width="1200"
+        height="1600"
+        decoding="async"
+        fetchpriority="high"
+      />
+      <figcaption>Atención por cita en {{ locationLabel }}</figcaption>
+    </figure>
+  </section>
+
+  <section class="contact-options section-shell" aria-labelledby="contact-options-title">
+    <div class="section-heading">
+      <p class="eyebrow">Datos de contacto</p>
+      <h2 id="contact-options-title">Todo se coordina por mensaje</h2>
+      <p>
+        Antes de apartar tu espacio revisamos el servicio, tiempos y detalles necesarios
+        para orientarte de forma clara.
+      </p>
+    </div>
+
+    <div class="option-grid" data-testid="public-contact-options">
+      @for (option of contactOptions; track option.title) {
+        <article class="option-card">
+          <mat-icon aria-hidden="true">{{ option.icon }}</mat-icon>
+          <p class="option-card__label">{{ option.label }}</p>
+          <h3>{{ option.title }}</h3>
+          <p>{{ option.description }}</p>
+        </article>
+      }
+    </div>
+  </section>
+
+  <section class="send-guide section-shell" aria-labelledby="send-guide-title">
+    <div class="section-heading">
+      <p class="eyebrow">Qué enviar</p>
+      <h2 id="send-guide-title">Información que ayuda a confirmar tu cita</h2>
+      <p>
+        Con estos datos podemos revisar mejor tu solicitud y darte una respuesta más precisa.
+      </p>
+    </div>
+
+    <div class="send-guide__grid" data-testid="public-contact-send-guide">
+      @for (item of sendGuidance; track item.title) {
+        <article class="send-guide__item">
+          <h3>{{ item.title }}</h3>
+          <p>{{ item.description }}</p>
+        </article>
+      }
+    </div>
+  </section>
+
+  <section class="contact-cta section-shell" aria-labelledby="contact-cta-title">
+    <div class="contact-cta__panel">
+      <div>
+        <p class="eyebrow">Agenda por WhatsApp</p>
+        <h2 id="contact-cta-title">Mándanos tu idea y revisamos disponibilidad</h2>
+        <p>
+          Puedes iniciar con un mensaje sencillo: servicio que buscas, fecha tentativa
+          y cualquier referencia que ya tengas.
+        </p>
+      </div>
+      <a
+        mat-flat-button
+        color="primary"
+        class="cta-button cta-button--primary"
+        [href]="whatsappUrl"
+        target="_blank"
+        rel="noopener"
+        aria-label="Enviar mensaje de WhatsApp para agendar cita"
+      >
+        <mat-icon>chat</mat-icon>
+        Escribir por WhatsApp
+      </a>
+    </div>
+  </section>
+</div>

@@ -4,6 +4,7 @@ import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { App } from './app';
 import {
+  CONTACT_SEO_METADATA,
   GALLERY_SEO_METADATA,
   GIFT_CARD_SEO_METADATA,
   HOME_SEO_METADATA,
@@ -46,6 +47,11 @@ describe('App', () => {
                 path: 'galeria',
                 component: TestRouteComponent,
                 data: { seo: GALLERY_SEO_METADATA }
+              },
+              {
+                path: 'contacto',
+                component: TestRouteComponent,
+                data: { seo: CONTACT_SEO_METADATA }
               },
               {
                 path: 'tarjeta-regalo',
@@ -157,6 +163,23 @@ describe('App', () => {
     expect(compiled.querySelector('[data-testid="admin-shell"]')).toBeFalsy();
   });
 
+  it('keeps /contacto as a public route under the public shell', async () => {
+    const fixture = await renderAt('/contacto');
+    const router = TestBed.inject(Router);
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const text = compiled.textContent ?? '';
+
+    expect(router.url).toBe('/contacto');
+    expect(compiled.querySelector('[data-testid="public-shell"]')).toBeTruthy();
+    expect(compiled.querySelector('[data-testid="admin-shell"]')).toBeFalsy();
+    expect(text).toContain('Bella Mujer Studio');
+    expect(text).toContain('Contacto');
+    expect(text).not.toContain('Panel Bella Mujer');
+    expect(text).not.toContain('Operación diaria del estudio');
+    expect(text).not.toContain('Nueva cita');
+  });
+
   it('updates public route title and description metadata', async () => {
     await renderAt('/');
 
@@ -177,6 +200,13 @@ describe('App', () => {
     expect(document.title).toBe(GALLERY_SEO_METADATA.title);
     expect(document.querySelector('meta[name="description"]')?.getAttribute('content')).toBe(
       GALLERY_SEO_METADATA.description
+    );
+
+    await renderAt('/contacto');
+
+    expect(document.title).toBe(CONTACT_SEO_METADATA.title);
+    expect(document.querySelector('meta[name="description"]')?.getAttribute('content')).toBe(
+      CONTACT_SEO_METADATA.description
     );
 
     await renderAt('/tarjeta-regalo');
