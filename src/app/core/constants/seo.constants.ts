@@ -14,3 +14,9 @@ export const GIFT_CARD_SEO_METADATA: RouteSeoMetadata = {
   description:
     'Regala una experiencia de belleza en Bella Mujer Studio Tehuacán con tarjeta de regalo y coordinación por WhatsApp.'
 };
+
+export const SERVICES_SEO_METADATA: RouteSeoMetadata = {
+  title: 'Servicios Bella Mujer Studio | Uñas, pestañas, maquillaje y cabello',
+  description:
+    'Conoce los servicios de Bella Mujer Studio en Tehuacán: uñas, pestañas, maquillaje, peinado, cejas, cabello y cuidado personal con atención por cita.'
+};

@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { RouterLink } from '@angular/router';
 
 import { buildBellaMujerWhatsAppUrl } from '../../core/constants/contact.constants';
 
@@ -44,7 +45,7 @@ interface FaqItem {
 
 @Component({
   selector: 'app-public-home',
-  imports: [MatButtonModule, MatIconModule],
+  imports: [MatButtonModule, MatIconModule, RouterLink],
   templateUrl: './public-home.component.html',
   styleUrl: './public-home.component.scss'
 })

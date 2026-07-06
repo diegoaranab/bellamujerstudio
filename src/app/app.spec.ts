@@ -3,7 +3,11 @@ import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { App } from './app';
-import { GIFT_CARD_SEO_METADATA, HOME_SEO_METADATA } from './core/constants/seo.constants';
+import {
+  GIFT_CARD_SEO_METADATA,
+  HOME_SEO_METADATA,
+  SERVICES_SEO_METADATA
+} from './core/constants/seo.constants';
 import { AdminLayoutComponent } from './layouts/admin-layout/admin-layout.component';
 import { PublicLayoutComponent } from './layouts/public-layout/public-layout.component';
 
@@ -32,6 +36,11 @@ describe('App', () => {
             component: PublicLayoutComponent,
             children: [
               { path: '', component: TestRouteComponent, data: { seo: HOME_SEO_METADATA } },
+              {
+                path: 'servicios',
+                component: TestRouteComponent,
+                data: { seo: SERVICES_SEO_METADATA }
+              },
               {
                 path: 'tarjeta-regalo',
                 component: TestRouteComponent,
@@ -131,12 +140,30 @@ describe('App', () => {
     expect(router.url).toBe('/admin/inicio');
   });
 
+  it('keeps /servicios as a public route instead of redirecting to admin services', async () => {
+    const fixture = await renderAt('/servicios');
+    const router = TestBed.inject(Router);
+
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    expect(router.url).toBe('/servicios');
+    expect(compiled.querySelector('[data-testid="public-shell"]')).toBeTruthy();
+    expect(compiled.querySelector('[data-testid="admin-shell"]')).toBeFalsy();
+  });
+
   it('updates public route title and description metadata', async () => {
     await renderAt('/');
 
     expect(document.title).toBe(HOME_SEO_METADATA.title);
     expect(document.querySelector('meta[name="description"]')?.getAttribute('content')).toBe(
       HOME_SEO_METADATA.description
+    );
+
+    await renderAt('/servicios');
+
+    expect(document.title).toBe(SERVICES_SEO_METADATA.title);
+    expect(document.querySelector('meta[name="description"]')?.getAttribute('content')).toBe(
+      SERVICES_SEO_METADATA.description
     );
 
     await renderAt('/tarjeta-regalo');
