@@ -1,0 +1,127 @@
+<div class="public-gallery" data-testid="public-gallery-page">
+  <section class="gallery-hero section-shell" aria-labelledby="gallery-page-title">
+    <div class="gallery-hero__copy">
+      <p class="eyebrow">Galería</p>
+      <h1 id="gallery-page-title">Trabajos reales de Bella Mujer Studio</h1>
+      <p class="intro">
+        Una selección curada de uñas, pestañas, maquillaje, peinado, cejas y cabello
+        realizada en el estudio. Las referencias nos ayudan a entender el estilo que buscas
+        y guiar mejor tu cita en Tehuacán.
+      </p>
+      <div class="gallery-hero__actions" aria-label="Acciones de galería">
+        <a
+          mat-flat-button
+          color="primary"
+          class="cta-button cta-button--primary"
+          [href]="whatsappUrl"
+          target="_blank"
+          rel="noopener"
+          data-testid="public-gallery-whatsapp-link"
+          aria-label="Agendar por WhatsApp con Bella Mujer Studio"
+        >
+          <mat-icon>chat</mat-icon>
+          Agendar por WhatsApp
+        </a>
+        <a
+          mat-stroked-button
+          class="cta-button"
+          routerLink="/servicios"
+          aria-label="Ver servicios de Bella Mujer Studio"
+        >
+          Ver servicios
+        </a>
+        <a mat-button class="home-link" routerLink="/">Volver al inicio</a>
+      </div>
+    </div>
+
+    <figure class="gallery-hero__image">
+      <img
+        src="assets/gallery/maquillaje-peinado-glam-01.webp"
+        alt="Maquillaje glam con peinado de ondas realizado en Bella Mujer Studio Tehuacán."
+        width="1200"
+        height="1600"
+        decoding="async"
+        fetchpriority="high"
+      />
+      <figcaption>Portafolio curado</figcaption>
+    </figure>
+  </section>
+
+  <section class="gallery-work section-shell" aria-labelledby="gallery-work-title">
+    <div class="section-heading section-heading--center">
+      <p class="eyebrow">Portafolio</p>
+      <h2 id="gallery-work-title">Ideas para tu próxima cita</h2>
+      <p>
+        Usa estas imágenes como punto de partida. Cada servicio se confirma según
+        disponibilidad, diagnóstico y el resultado que quieras lograr.
+      </p>
+    </div>
+
+    <div class="gallery-chips" aria-label="Categorías de galería">
+      @for (label of categoryLabels; track label) {
+        <span data-testid="public-gallery-category">{{ label }}</span>
+      }
+    </div>
+
+    <div class="gallery-grid">
+      @for (image of galleryImages; track image.src) {
+        <article class="gallery-card" data-testid="public-gallery-card">
+          <img
+            [src]="image.src"
+            [alt]="image.alt"
+            [attr.width]="image.width"
+            [attr.height]="image.height"
+            loading="lazy"
+            decoding="async"
+            data-testid="public-gallery-image"
+          />
+          <div class="gallery-card__body">
+            <p>{{ image.category }}</p>
+            <h3>{{ image.title }}</h3>
+          </div>
+        </article>
+      }
+    </div>
+  </section>
+
+  <section class="gallery-guidance section-shell" aria-labelledby="gallery-guidance-title">
+    <div class="section-heading">
+      <p class="eyebrow">Antes de agendar</p>
+      <h2 id="gallery-guidance-title">Cómo usar la galería como referencia</h2>
+    </div>
+
+    <div class="guidance-list">
+      @for (item of guidanceItems; track item.title) {
+        <article class="guidance-item">
+          <h3>{{ item.title }}</h3>
+          <p>{{ item.description }}</p>
+        </article>
+      }
+    </div>
+  </section>
+
+  <section class="gallery-cta section-shell" aria-labelledby="gallery-cta-title">
+    <div class="gallery-cta__panel">
+      <div>
+        <p class="eyebrow">Agenda por WhatsApp</p>
+        <h2 id="gallery-cta-title">Mándanos la referencia que te gustó</h2>
+        <p>
+          Comparte la captura o cuéntanos qué imagen viste para revisar opciones,
+          disponibilidad y cotización por mensaje.
+        </p>
+      </div>
+      <a
+        mat-flat-button
+        color="primary"
+        class="cta-button cta-button--primary"
+        [href]="whatsappUrl"
+        target="_blank"
+        rel="noopener"
+        aria-label="Enviar referencia de galería por WhatsApp"
+      >
+        <mat-icon>chat</mat-icon>
+        Escribir por WhatsApp
+      </a>
+    </div>
+  </section>
+</div>

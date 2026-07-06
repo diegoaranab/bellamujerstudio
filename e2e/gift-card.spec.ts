@@ -43,6 +43,45 @@ const seededGiftCards = [
   }
 ];
 
+const expectedGalleryImages = [
+  {
+    fileName: 'maquillaje-peinado-glam-01.webp',
+    alt: 'Maquillaje glam con peinado de ondas realizado en Bella Mujer Studio Tehuacán.'
+  },
+  {
+    fileName: 'cabello-ondas-largas-01.webp',
+    alt: 'Cabello largo con ondas suaves visto de espalda en Bella Mujer Studio Tehuacán.'
+  },
+  {
+    fileName: 'pestanas-efecto-natural-01.webp',
+    alt: 'Pestañas con efecto natural aplicadas en Bella Mujer Studio Tehuacán.'
+  },
+  {
+    fileName: 'unas-coloridas-acrilico-01.webp',
+    alt: 'Uñas acrílicas coloridas con acabado brillante realizadas en Bella Mujer Studio Tehuacán.'
+  },
+  {
+    fileName: 'maquillaje-social-glam-01.webp',
+    alt: 'Maquillaje social glam con acabado luminoso en Bella Mujer Studio Tehuacán.'
+  },
+  {
+    fileName: 'peinado-evento-ondas-01.webp',
+    alt: 'Peinado para evento con ondas definidas realizado en Bella Mujer Studio Tehuacán.'
+  },
+  {
+    fileName: 'cejas-diseno-laminado-01.webp',
+    alt: 'Diseño de cejas con acabado cuidado en Bella Mujer Studio Tehuacán.'
+  },
+  {
+    fileName: 'cabello-corte-peinado-01.webp',
+    alt: 'Corte y peinado de cabello largo realizado en Bella Mujer Studio Tehuacán.'
+  },
+  {
+    fileName: 'cabello-alisado-tratamiento-01.webp',
+    alt: 'Cabello lacio y brillante después de alisado en Bella Mujer Studio Tehuacán.'
+  }
+];
+
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
   await page.evaluate(() => window.localStorage.clear());
@@ -118,6 +157,10 @@ test('public home route renders the homepage MVP without the admin shell', async
   );
   await expect(page.getByText('Glam completo para evento')).toBeVisible();
   await expect(page.getByText('Uñas coloridas en acrílico')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Ver galería completa' })).toHaveAttribute(
+    'href',
+    '#/galeria'
+  );
 
   const whatsappLink = page.getByTestId('public-home-whatsapp-link');
   await expect(whatsappLink).toBeVisible();
@@ -244,6 +287,62 @@ test('public services route renders customer-facing services without the admin s
   await expect(categories.getByText('Agenda con anticipación')).toBeVisible();
 });
 
+test('public gallery route renders the full portfolio without the admin shell', async ({
+  page
+}) => {
+  await page.goto('/#/galeria');
+
+  await expect(page.getByTestId('public-gallery-page')).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Trabajos reales de Bella Mujer Studio' })
+  ).toBeVisible();
+  await expect(page.getByTestId('public-shell')).toBeVisible();
+  await expect(page.getByTestId('admin-shell')).toHaveCount(0);
+  await expect(page.locator('.topbar')).toHaveCount(0);
+  await expect(page.getByText('Panel Bella Mujer')).toHaveCount(0);
+  await expect(page.getByText('Operación diaria del estudio')).toHaveCount(0);
+  await expect(page.getByText('Nueva cita')).toHaveCount(0);
+  await expect(page.getByText('Define paquetes, precios y duración')).toHaveCount(0);
+  await expect(page.getByText('+ Agregar servicio')).toHaveCount(0);
+
+  await expect(page.getByTestId('public-gallery-card')).toHaveCount(9);
+  await expect(page.getByTestId('public-gallery-image')).toHaveCount(9);
+
+  for (const image of expectedGalleryImages) {
+    await expect(
+      page.locator(`[data-testid="public-gallery-image"][src*="${image.fileName}"]`)
+    ).toHaveAttribute('alt', image.alt);
+  }
+
+  for (const category of ['Uñas', 'Pestañas', 'Maquillaje', 'Peinado', 'Cejas', 'Cabello']) {
+    await expect(page.getByTestId('public-gallery-category').filter({ hasText: category })).toBeVisible();
+  }
+
+  await expect(page.getByText('Envía tu referencia')).toBeVisible();
+  await expect(page.getByText('fotos actuales y referencias')).toBeVisible();
+  await expect(page.getByText('Maquillaje y peinado para evento')).toBeVisible();
+
+  const whatsappLink = page.getByTestId('public-gallery-whatsapp-link');
+  await expect(whatsappLink).toBeVisible();
+  await expect(whatsappLink).toHaveAttribute('href', /https:\/\/wa\.me\/522381117950/);
+});
+
+test('public gallery route exposes gallery SEO metadata', async ({ page }) => {
+  await page.goto('/#/galeria');
+
+  await expect(page).toHaveTitle(
+    'Galería Bella Mujer Studio | Trabajos de uñas, maquillaje y cabello'
+  );
+
+  const description = await page.evaluate(
+    () => document.head.querySelector('meta[name="description"]')?.getAttribute('content') ?? null
+  );
+
+  expect(description).toBe(
+    'Explora trabajos reales de Bella Mujer Studio en Tehuacán: uñas, pestañas, maquillaje, peinado, cejas y cabello con atención por cita.'
+  );
+});
+
 test('public services route exposes services SEO metadata', async ({ page }) => {
   await page.goto('/#/servicios');
 
@@ -289,6 +388,24 @@ test('public services route has no horizontal overflow on mobile viewports', asy
   }
 });
 
+test('public gallery route has no horizontal overflow on mobile viewports', async ({
+  page
+}) => {
+  const mobileViewports = [
+    { width: 390, height: 844 },
+    { width: 375, height: 812 },
+    { width: 360, height: 800 }
+  ];
+
+  for (const viewport of mobileViewports) {
+    await page.setViewportSize(viewport);
+    await page.goto('/#/galeria');
+    await expect(page.getByTestId('public-gallery-page')).toBeVisible();
+
+    await expectNoHorizontalOverflow(page);
+  }
+});
+
 test('public nav services link routes to the services page from the homepage', async ({
   page
 }) => {
@@ -303,6 +420,22 @@ test('public nav services link routes to the services page from the homepage', a
   await expect(page.getByTestId('public-services-page')).toBeVisible();
 });
 
+test('public nav gallery link routes to the gallery page from public routes', async ({
+  page
+}) => {
+  for (const route of ['/#/', '/#/servicios', '/#/galeria', '/#/tarjeta-regalo']) {
+    await page.goto(route);
+
+    await page
+      .getByRole('banner', { name: 'Bella Mujer Studio' })
+      .getByRole('link', { name: 'Galería' })
+      .click();
+
+    await expect(page).toHaveURL(/#\/galeria$/);
+    await expect(page.getByTestId('public-gallery-page')).toBeVisible();
+  }
+});
+
 test('public crawl files expose only safe public URLs', async ({ page }) => {
   const robotsResponse = await page.request.get('/robots.txt');
   const sitemapResponse = await page.request.get('/sitemap.xml');
@@ -315,9 +448,8 @@ test('public crawl files expose only safe public URLs', async ({ page }) => {
 
   expect(robots).toContain('Sitemap: https://diegoaranab.github.io/bellamujerstudio/sitemap.xml');
   expect(sitemap).toContain('<loc>https://diegoaranab.github.io/bellamujerstudio/</loc>');
-  expect(sitemap).toContain(
-    '<loc>https://diegoaranab.github.io/bellamujerstudio/servicios</loc>'
-  );
+  expect(sitemap).not.toContain('/servicios');
+  expect(sitemap).not.toContain('/galeria');
   expect(sitemap).not.toContain('admin');
   expect(sitemap).not.toContain('#/admin');
 });

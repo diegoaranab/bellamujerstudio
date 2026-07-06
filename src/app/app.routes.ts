@@ -6,6 +6,7 @@ import { ClientesComponent } from './pages/clientes/clientes.component';
 import { ConfiguracionComponent } from './pages/configuracion/configuracion.component';
 import { DashboardComponent } from './pages/dashboard/dashboard.component';
 import { InventarioComponent } from './pages/inventario/inventario.component';
+import { PublicGalleryComponent } from './pages/public-gallery/public-gallery.component';
 import { PublicHomeComponent } from './pages/public-home/public-home.component';
 import { PublicServicesComponent } from './pages/public-services/public-services.component';
 import { ServiciosComponent } from './pages/servicios/servicios.component';
@@ -13,6 +14,7 @@ import { TarjetaRegaloDetalleComponent } from './pages/tarjeta-regalo-detalle/ta
 import { TarjetaRegaloComponent } from './pages/tarjeta-regalo/tarjeta-regalo.component';
 import { TarjetasRegaloComponent } from './pages/tarjetas-regalo/tarjetas-regalo.component';
 import {
+  GALLERY_SEO_METADATA,
   GIFT_CARD_SEO_METADATA,
   HOME_SEO_METADATA,
   SERVICES_SEO_METADATA
@@ -65,6 +67,11 @@ export const routes: Routes = [
         path: 'servicios',
         component: PublicServicesComponent,
         data: { seo: SERVICES_SEO_METADATA }
+      },
+      {
+        path: 'galeria',
+        component: PublicGalleryComponent,
+        data: { seo: GALLERY_SEO_METADATA }
       },
       {
         path: 'tarjeta-regalo',
