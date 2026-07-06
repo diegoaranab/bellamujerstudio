@@ -7,13 +7,59 @@
         <p class="brand-subtitle">Tehuacán, Puebla</p>
       </div>
     </a>
-    <nav class="public-nav" aria-label="Navegación pública">
-      <a routerLink="/">Inicio</a>
-      <a routerLink="/servicios">Servicios</a>
-      <a routerLink="/galeria">Galería</a>
-      <a routerLink="/contacto">Contacto</a>
-      <a routerLink="/tarjeta-regalo">Tarjeta de regalo</a>
-      <a class="public-nav__whatsapp" [href]="whatsappUrl" target="_blank" rel="noopener">
+    <nav class="public-nav" aria-label="Navegación pública" data-testid="public-nav">
+      <a
+        routerLink="/"
+        routerLinkActive="public-nav__link--active"
+        [routerLinkActiveOptions]="{ exact: true }"
+        ariaCurrentWhenActive="page"
+        data-testid="public-nav-home-link"
+      >
+        Inicio
+      </a>
+      <a
+        routerLink="/servicios"
+        routerLinkActive="public-nav__link--active"
+        [routerLinkActiveOptions]="{ exact: true }"
+        ariaCurrentWhenActive="page"
+        data-testid="public-nav-services-link"
+      >
+        Servicios
+      </a>
+      <a
+        routerLink="/galeria"
+        routerLinkActive="public-nav__link--active"
+        [routerLinkActiveOptions]="{ exact: true }"
+        ariaCurrentWhenActive="page"
+        data-testid="public-nav-gallery-link"
+      >
+        Galería
+      </a>
+      <a
+        routerLink="/contacto"
+        routerLinkActive="public-nav__link--active"
+        [routerLinkActiveOptions]="{ exact: true }"
+        ariaCurrentWhenActive="page"
+        data-testid="public-nav-contact-link"
+      >
+        Contacto
+      </a>
+      <a
+        routerLink="/tarjeta-regalo"
+        routerLinkActive="public-nav__link--active"
+        [routerLinkActiveOptions]="{ exact: true }"
+        ariaCurrentWhenActive="page"
+        data-testid="public-nav-gift-card-link"
+      >
+        Tarjeta de regalo
+      </a>
+      <a
+        class="public-nav__whatsapp"
+        [href]="whatsappUrl"
+        target="_blank"
+        rel="noopener"
+        data-testid="public-nav-whatsapp-link"
+      >
         WhatsApp
       </a>
     </nav>
