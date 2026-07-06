@@ -4,6 +4,7 @@ import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { App } from './app';
 import {
+  GALLERY_SEO_METADATA,
   GIFT_CARD_SEO_METADATA,
   HOME_SEO_METADATA,
   SERVICES_SEO_METADATA
@@ -40,6 +41,11 @@ describe('App', () => {
                 path: 'servicios',
                 component: TestRouteComponent,
                 data: { seo: SERVICES_SEO_METADATA }
+              },
+              {
+                path: 'galeria',
+                component: TestRouteComponent,
+                data: { seo: GALLERY_SEO_METADATA }
               },
               {
                 path: 'tarjeta-regalo',
@@ -164,6 +170,13 @@ describe('App', () => {
     expect(document.title).toBe(SERVICES_SEO_METADATA.title);
     expect(document.querySelector('meta[name="description"]')?.getAttribute('content')).toBe(
       SERVICES_SEO_METADATA.description
+    );
+
+    await renderAt('/galeria');
+
+    expect(document.title).toBe(GALLERY_SEO_METADATA.title);
+    expect(document.querySelector('meta[name="description"]')?.getAttribute('content')).toBe(
+      GALLERY_SEO_METADATA.description
     );
 
     await renderAt('/tarjeta-regalo');
