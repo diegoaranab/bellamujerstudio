@@ -1,0 +1,134 @@
+<div class="public-services" data-testid="public-services-page">
+  <section class="services-hero section-shell" aria-labelledby="services-page-title">
+    <div class="services-hero__copy">
+      <p class="eyebrow">Servicios</p>
+      <h1 id="services-page-title">Servicios de belleza en Bella Mujer Studio</h1>
+      <p class="intro">
+        Elige el servicio que tienes en mente y escríbenos por WhatsApp. Confirmamos
+        disponibilidad, tiempos y cotización antes de agendar; algunos servicios requieren
+        diagnóstico o fotos de referencia.
+      </p>
+      <div class="services-hero__actions" aria-label="Acciones de servicios">
+        <a
+          mat-flat-button
+          color="primary"
+          class="cta-button cta-button--primary"
+          [href]="whatsappUrl"
+          target="_blank"
+          rel="noopener"
+          data-testid="public-services-whatsapp-link"
+          aria-label="Agendar un servicio por WhatsApp con Bella Mujer Studio"
+        >
+          <mat-icon>chat</mat-icon>
+          Agendar por WhatsApp
+        </a>
+        <button
+          mat-stroked-button
+          type="button"
+          class="cta-button"
+          (click)="scrollToGuidance()"
+          aria-label="Ver cómo agendar un servicio"
+        >
+          Ver cómo agendar
+        </button>
+        <a mat-button class="home-link" routerLink="/">Volver al inicio</a>
+      </div>
+    </div>
+
+    <figure class="services-hero__image">
+      <img
+        src="assets/gallery/maquillaje-social-glam-01.webp"
+        alt="Maquillaje social glam realizado en Bella Mujer Studio Tehuacán."
+        width="1200"
+        height="1600"
+        decoding="async"
+        fetchpriority="high"
+      />
+      <figcaption>Servicios con cita previa</figcaption>
+    </figure>
+  </section>
+
+  <section class="service-categories section-shell" aria-labelledby="categories-title">
+    <div class="section-heading">
+      <p class="eyebrow">Categorías</p>
+      <h2 id="categories-title">Cuéntanos qué quieres lograr</h2>
+      <p>
+        Cada cita se confirma por mensaje para revisar detalles importantes antes de apartar
+        tu espacio.
+      </p>
+    </div>
+
+    <div class="category-grid" data-testid="public-services-categories">
+      @for (category of serviceCategories; track category.title) {
+        <article class="category-card">
+          @if (category.image) {
+            <img
+              class="category-card__image"
+              [src]="category.image.src"
+              [alt]="category.image.alt"
+              [attr.width]="category.image.width"
+              [attr.height]="category.image.height"
+              loading="lazy"
+              decoding="async"
+            />
+          }
+          <div class="category-card__body">
+            <p class="category-card__note">{{ category.note }}</p>
+            <h3>{{ category.title }}</h3>
+            <p>{{ category.description }}</p>
+            <div class="category-card__guidance">
+              <mat-icon aria-hidden="true">forum</mat-icon>
+              <span>{{ category.guidance }}</span>
+            </div>
+          </div>
+        </article>
+      }
+    </div>
+  </section>
+
+  <section
+    id="como-agendar"
+    class="guidance section-shell"
+    data-testid="public-services-guidance"
+    aria-labelledby="guidance-title"
+  >
+    <div class="section-heading">
+      <p class="eyebrow">Antes de agendar</p>
+      <h2 id="guidance-title">Información útil para tu cita</h2>
+    </div>
+
+    <div class="guidance-list">
+      @for (item of guidanceItems; track item.title) {
+        <article class="guidance-item">
+          <h3>{{ item.title }}</h3>
+          <p>{{ item.description }}</p>
+        </article>
+      }
+    </div>
+  </section>
+
+  <section class="services-cta section-shell" aria-labelledby="services-cta-title">
+    <div class="services-cta__panel">
+      <div>
+        <p class="eyebrow">Agenda por WhatsApp</p>
+        <h2 id="services-cta-title">Mándanos el servicio que quieres y tus referencias</h2>
+        <p>
+          Escríbenos con la categoría de servicio, fecha tentativa y cualquier foto que nos
+          ayude a orientarte mejor.
+        </p>
+      </div>
+      <a
+        mat-flat-button
+        color="primary"
+        class="cta-button cta-button--primary"
+        [href]="whatsappUrl"
+        target="_blank"
+        rel="noopener"
+        aria-label="Enviar mensaje por WhatsApp para cotizar un servicio"
+      >
+        <mat-icon>chat</mat-icon>
+        Escribir por WhatsApp
+      </a>
+    </div>
+  </section>
+</div>

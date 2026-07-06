@@ -7,11 +7,16 @@ import { ConfiguracionComponent } from './pages/configuracion/configuracion.comp
 import { DashboardComponent } from './pages/dashboard/dashboard.component';
 import { InventarioComponent } from './pages/inventario/inventario.component';
 import { PublicHomeComponent } from './pages/public-home/public-home.component';
+import { PublicServicesComponent } from './pages/public-services/public-services.component';
 import { ServiciosComponent } from './pages/servicios/servicios.component';
 import { TarjetaRegaloDetalleComponent } from './pages/tarjeta-regalo-detalle/tarjeta-regalo-detalle.component';
 import { TarjetaRegaloComponent } from './pages/tarjeta-regalo/tarjeta-regalo.component';
 import { TarjetasRegaloComponent } from './pages/tarjetas-regalo/tarjetas-regalo.component';
-import { GIFT_CARD_SEO_METADATA, HOME_SEO_METADATA } from './core/constants/seo.constants';
+import {
+  GIFT_CARD_SEO_METADATA,
+  HOME_SEO_METADATA,
+  SERVICES_SEO_METADATA
+} from './core/constants/seo.constants';
 
 export const routes: Routes = [
   {
@@ -33,7 +38,6 @@ export const routes: Routes = [
     ]
   },
   { path: 'inicio', redirectTo: 'admin/inicio', pathMatch: 'full' },
-  { path: 'servicios', redirectTo: 'admin/servicios', pathMatch: 'full' },
   { path: 'clientes', redirectTo: 'admin/clientes', pathMatch: 'full' },
   { path: 'inventario', redirectTo: 'admin/inventario', pathMatch: 'full' },
   {
@@ -57,6 +61,11 @@ export const routes: Routes = [
     component: PublicLayoutComponent,
     children: [
       { path: '', component: PublicHomeComponent, data: { seo: HOME_SEO_METADATA } },
+      {
+        path: 'servicios',
+        component: PublicServicesComponent,
+        data: { seo: SERVICES_SEO_METADATA }
+      },
       {
         path: 'tarjeta-regalo',
         component: TarjetaRegaloComponent,
