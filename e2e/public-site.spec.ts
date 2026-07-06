@@ -65,31 +65,36 @@ const navLinks = [
     testId: 'public-nav-home-link',
     name: 'Inicio',
     expectedUrl: /#\/$/,
-    expectedPageTestId: 'public-home-page'
+    expectedPageTestId: 'public-home-page',
+    heading: 'Belleza cuidada, con cita y atención cercana.'
   },
   {
     testId: 'public-nav-services-link',
     name: 'Servicios',
     expectedUrl: /#\/servicios$/,
-    expectedPageTestId: 'public-services-page'
+    expectedPageTestId: 'public-services-page',
+    heading: 'Servicios de belleza en Bella Mujer Studio'
   },
   {
     testId: 'public-nav-gallery-link',
     name: 'Galería',
     expectedUrl: /#\/galeria$/,
-    expectedPageTestId: 'public-gallery-page'
+    expectedPageTestId: 'public-gallery-page',
+    heading: 'Trabajos reales de Bella Mujer Studio'
   },
   {
     testId: 'public-nav-contact-link',
     name: 'Contacto',
     expectedUrl: /#\/contacto$/,
-    expectedPageTestId: 'public-contact-page'
+    expectedPageTestId: 'public-contact-page',
+    heading: 'Agenda tu cita en Bella Mujer Studio'
   },
   {
     testId: 'public-nav-gift-card-link',
     name: 'Tarjeta de regalo',
     expectedUrl: /#\/tarjeta-regalo$/,
-    expectedPageTestId: 'public-gift-card-page'
+    expectedPageTestId: 'public-gift-card-page',
+    heading: 'Tarjeta regalo Bella Mujer'
   }
 ];
 
@@ -144,6 +149,22 @@ async function expectPublicNav(page: Page): Promise<Locator> {
   await expect(whatsappLink).not.toHaveAttribute('aria-current', 'page');
 
   return nav;
+}
+
+async function expectPageNearTop(page: Page, heading: string): Promise<void> {
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeLessThan(120);
+
+  const headingLocator = page.getByRole('heading', { level: 1, name: heading });
+  await expect(headingLocator).toBeVisible();
+
+  const headingTop = await headingLocator.evaluate((element) => element.getBoundingClientRect().top);
+  expect(headingTop).toBeLessThan(450);
+  expect(headingTop).toBeGreaterThanOrEqual(0);
+}
+
+async function scrollNearBottom(page: Page): Promise<void> {
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(300);
 }
 
 test('public routes render the public shell, current nav state, metadata, and no desktop overflow', async ({
@@ -205,6 +226,75 @@ test('public nav routes between all public pages without opening WhatsApp', asyn
       await expect(page.getByTestId(link.expectedPageTestId)).toBeVisible();
       await expect(page.getByTestId(link.testId)).toHaveAttribute('aria-current', 'page');
     }
+  }
+});
+
+test('public nav route changes reset scroll to the destination page top', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+
+  for (const link of navLinks.filter((link) => link.testId !== 'public-nav-home-link')) {
+    await page.goto('/#/');
+    await expect(page.getByTestId('public-home-page')).toBeVisible();
+    await scrollNearBottom(page);
+    await page.getByTestId(link.testId).click();
+
+    await expect(page).toHaveURL(link.expectedUrl);
+    await expect(page.getByTestId(link.expectedPageTestId)).toBeVisible();
+    await expectPageNearTop(page, link.heading);
+  }
+
+  await page.goto('/#/galeria');
+  await expect(page.getByTestId('public-gallery-page')).toBeVisible();
+  await scrollNearBottom(page);
+  const homeLink = navLinks.find((link) => link.testId === 'public-nav-home-link');
+
+  if (!homeLink) {
+    throw new Error('Home nav link configuration was not found.');
+  }
+
+  await page.getByTestId(homeLink.testId).click();
+
+  await expect(page).toHaveURL(homeLink.expectedUrl);
+  await expect(page.getByTestId(homeLink.expectedPageTestId)).toBeVisible();
+  await expectPageNearTop(page, homeLink.heading);
+});
+
+test('homepage CTA route changes reset scroll to the destination page top', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+
+  const ctaLinks = [
+    {
+      sectionTestId: 'public-home-contact',
+      name: 'Ver contacto',
+      expectedUrl: /#\/contacto$/,
+      expectedPageTestId: 'public-contact-page',
+      heading: 'Agenda tu cita en Bella Mujer Studio'
+    },
+    {
+      sectionTestId: 'public-home-gallery',
+      name: 'Ver galería completa',
+      expectedUrl: /#\/galeria$/,
+      expectedPageTestId: 'public-gallery-page',
+      heading: 'Trabajos reales de Bella Mujer Studio'
+    },
+    {
+      sectionTestId: 'public-home-services',
+      name: 'Ver todos los servicios',
+      expectedUrl: /#\/servicios$/,
+      expectedPageTestId: 'public-services-page',
+      heading: 'Servicios de belleza en Bella Mujer Studio'
+    }
+  ];
+
+  for (const cta of ctaLinks) {
+    await page.goto('/#/');
+    await page.getByTestId(cta.sectionTestId).scrollIntoViewIfNeeded();
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(300);
+    await page.getByRole('link', { name: cta.name }).click();
+
+    await expect(page).toHaveURL(cta.expectedUrl);
+    await expect(page.getByTestId(cta.expectedPageTestId)).toBeVisible();
+    await expectPageNearTop(page, cta.heading);
   }
 });
 
