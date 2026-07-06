@@ -169,6 +169,10 @@ test('public home route renders the homepage MVP without the admin shell', async
     'href',
     '#/servicios'
   );
+  await expect(page.getByRole('link', { name: 'Ver contacto' })).toHaveAttribute(
+    'href',
+    '#/contacto'
+  );
 
   await expect(page.getByTestId('public-shell')).toBeVisible();
   await expect(page.getByTestId('admin-shell')).toHaveCount(0);
@@ -343,6 +347,70 @@ test('public gallery route exposes gallery SEO metadata', async ({ page }) => {
   );
 });
 
+test('public contact route renders customer-facing contact details without the admin shell', async ({
+  page
+}) => {
+  await page.goto('/#/contacto');
+
+  await expect(page.getByTestId('public-contact-page')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Agenda tu cita en Bella Mujer Studio' })).toBeVisible();
+  await expect(page.getByTestId('public-shell')).toBeVisible();
+  await expect(page.getByTestId('admin-shell')).toHaveCount(0);
+  await expect(page.locator('.topbar')).toHaveCount(0);
+  await expect(page.getByText('Panel Bella Mujer')).toHaveCount(0);
+  await expect(page.getByText('Operación diaria del estudio')).toHaveCount(0);
+  await expect(page.getByText('Nueva cita')).toHaveCount(0);
+  await expect(page.getByText('Define paquetes, precios y duración')).toHaveCount(0);
+  await expect(page.getByText('+ Agregar servicio')).toHaveCount(0);
+
+  const whatsappLink = page.getByTestId('public-contact-whatsapp-link');
+  await expect(whatsappLink).toBeVisible();
+  await expect(whatsappLink).toHaveAttribute('href', /https:\/\/wa\.me\/522381117950/);
+  expect(decodeURIComponent((await whatsappLink.getAttribute('href')) ?? '')).toContain(
+    'Hola Bella Mujer Studio, quiero información para agendar una cita.'
+  );
+
+  await expect(page.getByText('Tehuacán, Puebla').first()).toBeVisible();
+  await expect(page.getByText('La ubicación exacta se comparte al confirmar la cita')).toBeVisible();
+  await expect(page.getByTestId('public-contact-options')).toContainText('WhatsApp principal');
+  await expect(page.getByTestId('public-contact-options')).toContainText(
+    'Algunas fechas o servicios pueden requerir anticipo'
+  );
+
+  const bodyText = await page.locator('body').innerText();
+  expect(bodyText).not.toMatch(/\b(Calle|Avenida|Av\.|Colonia|C\.P\.|CP)\b/i);
+  expect(bodyText).not.toMatch(/\b\d{5}\b/);
+});
+
+test('public contact route explains what to send before scheduling', async ({ page }) => {
+  await page.goto('/#/contacto');
+
+  const sendGuide = page.getByTestId('public-contact-send-guide');
+  await expect(sendGuide).toContainText('Servicio');
+  await expect(sendGuide).toContainText('fecha y hora tentativa');
+  await expect(sendGuide).toContainText('Fotos de referencia');
+  await expect(sendGuide).toContainText('fotos actuales de tu cabello con luz natural');
+  await expect(sendGuide).toContainText('fecha, hora, tipo de evento');
+  await expect(sendGuide).toContainText('maquillaje o peinado');
+  await expect(sendGuide).toContainText('Uñas, pestañas o cejas');
+});
+
+test('public contact route exposes contact SEO metadata', async ({ page }) => {
+  await page.goto('/#/contacto');
+
+  await expect(page).toHaveTitle(
+    'Contacto Bella Mujer Studio | Agenda por WhatsApp en Tehuacán'
+  );
+
+  const description = await page.evaluate(
+    () => document.head.querySelector('meta[name="description"]')?.getAttribute('content') ?? null
+  );
+
+  expect(description).toBe(
+    'Contacta a Bella Mujer Studio en Tehuacán por WhatsApp para resolver dudas, revisar disponibilidad y cotizar servicios de belleza con cita previa.'
+  );
+});
+
 test('public services route exposes services SEO metadata', async ({ page }) => {
   await page.goto('/#/servicios');
 
@@ -406,6 +474,24 @@ test('public gallery route has no horizontal overflow on mobile viewports', asyn
   }
 });
 
+test('public contact route has no horizontal overflow on mobile viewports', async ({
+  page
+}) => {
+  const mobileViewports = [
+    { width: 390, height: 844 },
+    { width: 375, height: 812 },
+    { width: 360, height: 800 }
+  ];
+
+  for (const viewport of mobileViewports) {
+    await page.setViewportSize(viewport);
+    await page.goto('/#/contacto');
+    await expect(page.getByTestId('public-contact-page')).toBeVisible();
+
+    await expectNoHorizontalOverflow(page);
+  }
+});
+
 test('public nav services link routes to the services page from the homepage', async ({
   page
 }) => {
@@ -436,6 +522,22 @@ test('public nav gallery link routes to the gallery page from public routes', as
   }
 });
 
+test('public nav contact link routes to the contact page from public routes', async ({
+  page
+}) => {
+  for (const route of ['/#/', '/#/servicios', '/#/galeria', '/#/contacto', '/#/tarjeta-regalo']) {
+    await page.goto(route);
+
+    await page
+      .getByRole('banner', { name: 'Bella Mujer Studio' })
+      .getByRole('link', { name: 'Contacto' })
+      .click();
+
+    await expect(page).toHaveURL(/#\/contacto$/);
+    await expect(page.getByTestId('public-contact-page')).toBeVisible();
+  }
+});
+
 test('public crawl files expose only safe public URLs', async ({ page }) => {
   const robotsResponse = await page.request.get('/robots.txt');
   const sitemapResponse = await page.request.get('/sitemap.xml');
@@ -450,6 +552,7 @@ test('public crawl files expose only safe public URLs', async ({ page }) => {
   expect(sitemap).toContain('<loc>https://diegoaranab.github.io/bellamujerstudio/</loc>');
   expect(sitemap).not.toContain('/servicios');
   expect(sitemap).not.toContain('/galeria');
+  expect(sitemap).not.toContain('/contacto');
   expect(sitemap).not.toContain('admin');
   expect(sitemap).not.toContain('#/admin');
 });
