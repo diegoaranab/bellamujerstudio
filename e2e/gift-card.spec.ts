@@ -448,12 +448,8 @@ test('public crawl files expose only safe public URLs', async ({ page }) => {
 
   expect(robots).toContain('Sitemap: https://diegoaranab.github.io/bellamujerstudio/sitemap.xml');
   expect(sitemap).toContain('<loc>https://diegoaranab.github.io/bellamujerstudio/</loc>');
-  expect(sitemap).toContain(
-    '<loc>https://diegoaranab.github.io/bellamujerstudio/servicios</loc>'
-  );
-  expect(sitemap).toContain(
-    '<loc>https://diegoaranab.github.io/bellamujerstudio/galeria</loc>'
-  );
+  expect(sitemap).not.toContain('/servicios');
+  expect(sitemap).not.toContain('/galeria');
   expect(sitemap).not.toContain('admin');
   expect(sitemap).not.toContain('#/admin');
 });
