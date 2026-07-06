@@ -1,11 +1,11 @@
 import { Component } from '@angular/core';
-import { RouterLink, RouterOutlet } from '@angular/router';
+import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
 import { buildBellaMujerWhatsAppUrl } from '../../core/constants/contact.constants';
 
 @Component({
   selector: 'app-public-layout',
-  imports: [RouterLink, RouterOutlet],
+  imports: [RouterLink, RouterLinkActive, RouterOutlet],
   templateUrl: './public-layout.component.html',
   styleUrl: './public-layout.component.scss'
 })
