@@ -1,5 +1,12 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
+type BoundingBox = {
+  bottom: number;
+  left: number;
+  right: number;
+  top: number;
+};
+
 const adminOnlyCopy = [
   'Panel Bella Mujer',
   'Operación diaria del estudio',
@@ -132,6 +139,14 @@ const mobileViewports = [
   { width: 360, height: 800 }
 ];
 
+const heroCollageRegressionViewports = [
+  { width: 1280, height: 900 },
+  { width: 1024, height: 768 },
+  { width: 768, height: 900 },
+  { width: 512, height: 720 },
+  ...mobileViewports
+];
+
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
   await page.evaluate(() => window.localStorage.clear());
@@ -147,6 +162,10 @@ async function expectNoHorizontalOverflow(page: Page): Promise<void> {
 
   expect(metrics.documentScrollWidth).toBeLessThanOrEqual(metrics.clientWidth);
   expect(metrics.bodyScrollWidth).toBeLessThanOrEqual(metrics.innerWidth);
+}
+
+function boxesOverlap(a: BoundingBox, b: BoundingBox): boolean {
+  return !(a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom);
 }
 
 async function expectAdminShellAbsent(page: Page): Promise<void> {
@@ -345,6 +364,64 @@ test('homepage CTA route changes reset scroll to the destination page top', asyn
     await expect(page).toHaveURL(cta.expectedUrl);
     await expect(page.getByTestId(cta.expectedPageTestId)).toBeVisible();
     await expectPageNearTop(page, cta.heading);
+  }
+});
+
+test('homepage hero collage badge does not overlap category labels across layouts', async ({
+  page
+}) => {
+  for (const viewport of heroCollageRegressionViewports) {
+    await page.setViewportSize(viewport);
+    await page.goto('/#/');
+
+    await expect(page.getByTestId('public-home-page')).toBeVisible();
+
+    const heroImages = page.getByTestId('public-hero-image');
+    await expect(heroImages).toHaveCount(4);
+
+    for (let index = 0; index < 4; index += 1) {
+      await expect(heroImages.nth(index)).toBeVisible();
+    }
+
+    const maquillajeLabel = page.locator('.hero-collage__item figcaption', {
+      hasText: 'Maquillaje y peinado'
+    });
+    await expect(maquillajeLabel).toBeVisible();
+
+    const badge = page.locator('.hero-collage__badge');
+    await expect(badge).toBeVisible();
+
+    const badgeBox = await badge.boundingBox();
+    expect(badgeBox).not.toBeNull();
+
+    const badgeBounds: BoundingBox = {
+      left: badgeBox!.x,
+      right: badgeBox!.x + badgeBox!.width,
+      top: badgeBox!.y,
+      bottom: badgeBox!.y + badgeBox!.height
+    };
+
+    const labels = page.locator('.hero-collage__item figcaption');
+    await expect(labels).toHaveCount(4);
+
+    for (let index = 0; index < 4; index += 1) {
+      const label = labels.nth(index);
+      await expect(label).toBeVisible();
+
+      const labelBox = await label.boundingBox();
+      expect(labelBox).not.toBeNull();
+
+      const labelBounds: BoundingBox = {
+        left: labelBox!.x,
+        right: labelBox!.x + labelBox!.width,
+        top: labelBox!.y,
+        bottom: labelBox!.y + labelBox!.height
+      };
+
+      expect(boxesOverlap(badgeBounds, labelBounds)).toBe(false);
+    }
+
+    await expectNoHorizontalOverflow(page);
   }
 });
 
