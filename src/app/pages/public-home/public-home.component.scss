@@ -414,8 +414,12 @@ h2 {
   }
 
   .hero-collage__badge {
+    top: 0.75rem;
+    right: 0.75rem;
+    left: auto;
     min-width: 132px;
     padding: 0.7rem 0.8rem;
+    transform: none;
   }
 
   .contact-panel {
@@ -430,6 +434,21 @@ h2 {
 @media (max-width: 430px) {
   h1 {
     font-size: 2.55rem;
+  }
+
+  .hero-collage__badge {
+    top: 0.65rem;
+    right: 0.65rem;
+    min-width: 116px;
+    padding: 0.55rem 0.65rem;
+  }
+
+  .hero-collage__badge span {
+    font-size: 0.66rem;
+  }
+
+  .hero-collage__badge strong {
+    font-size: 0.9rem;
   }
 
   .sticky-whatsapp {
