@@ -98,6 +98,34 @@ const navLinks = [
   }
 ];
 
+const publicRoutesWithQueryParams = [
+  {
+    path: '/#/servicios?utm_source=instagram',
+    expectedUrl: /#\/servicios\?utm_source=instagram$/,
+    activeNavTestId: 'public-nav-services-link'
+  },
+  {
+    path: '/#/galeria?utm_source=instagram',
+    expectedUrl: /#\/galeria\?utm_source=instagram$/,
+    activeNavTestId: 'public-nav-gallery-link'
+  },
+  {
+    path: '/#/contacto?utm_source=instagram',
+    expectedUrl: /#\/contacto\?utm_source=instagram$/,
+    activeNavTestId: 'public-nav-contact-link'
+  },
+  {
+    path: '/#/tarjeta-regalo?utm_source=instagram',
+    expectedUrl: /#\/tarjeta-regalo\?utm_source=instagram$/,
+    activeNavTestId: 'public-nav-gift-card-link'
+  },
+  {
+    path: '/#/?utm_source=instagram',
+    expectedUrl: /#\/\?utm_source=instagram$/,
+    activeNavTestId: 'public-nav-home-link'
+  }
+];
+
 const mobileViewports = [
   { width: 390, height: 844 },
   { width: 375, height: 812 },
@@ -211,6 +239,28 @@ test('public routes render the public shell, current nav state, metadata, and no
     }
 
     await expectNoHorizontalOverflow(page);
+  }
+});
+
+test('public nav active state ignores query params while keeping exact paths', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+
+  for (const route of publicRoutesWithQueryParams) {
+    await page.goto(route.path);
+
+    await expect(page).toHaveURL(route.expectedUrl);
+    await expectPublicNav(page);
+
+    await expect(page.getByTestId(route.activeNavTestId)).toHaveAttribute('aria-current', 'page');
+
+    for (const link of navLinks.filter((link) => link.testId !== route.activeNavTestId)) {
+      await expect(page.getByTestId(link.testId)).not.toHaveAttribute('aria-current', 'page');
+    }
+
+    await expect(page.getByTestId('public-nav-whatsapp-link')).not.toHaveAttribute(
+      'aria-current',
+      'page'
+    );
   }
 });
 

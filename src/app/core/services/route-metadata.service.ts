@@ -3,7 +3,7 @@ import { Meta, Title } from '@angular/platform-browser';
 import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
 import { filter } from 'rxjs';
 
-import { RouteSeoMetadata } from '../constants/seo.constants';
+import { DEFAULT_ROUTE_SEO_METADATA, RouteSeoMetadata } from '../constants/seo.constants';
 
 @Injectable({
   providedIn: 'root'
@@ -28,11 +28,7 @@ export class RouteMetadataService {
   }
 
   private applyRouteMetadata(): void {
-    const metadata = this.findDeepestRouteMetadata();
-
-    if (!metadata) {
-      return;
-    }
+    const metadata = this.findDeepestRouteMetadata() ?? DEFAULT_ROUTE_SEO_METADATA;
 
     this.title.setTitle(metadata.title);
     this.meta.updateTag({ name: 'description', content: metadata.description });

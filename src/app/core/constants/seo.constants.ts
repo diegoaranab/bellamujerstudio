@@ -15,6 +15,11 @@ export const GIFT_CARD_SEO_METADATA: RouteSeoMetadata = {
     'Regala una experiencia de belleza en Bella Mujer Studio Tehuacán con tarjeta de regalo y coordinación por WhatsApp.'
 };
 
+export const DEFAULT_ROUTE_SEO_METADATA: RouteSeoMetadata = {
+  title: 'Bella Mujer Studio | Panel de administración',
+  description: 'Panel interno de Bella Mujer Studio para gestionar la operación del estudio.'
+};
+
 export const GALLERY_SEO_METADATA: RouteSeoMetadata = {
   title: 'Galería Bella Mujer Studio | Trabajos de uñas, maquillaje y cabello',
   description:

@@ -5,6 +5,7 @@ import { Router, provideRouter } from '@angular/router';
 import { App } from './app';
 import {
   CONTACT_SEO_METADATA,
+  DEFAULT_ROUTE_SEO_METADATA,
   GALLERY_SEO_METADATA,
   GIFT_CARD_SEO_METADATA,
   HOME_SEO_METADATA,
@@ -214,6 +215,31 @@ describe('App', () => {
     expect(document.title).toBe(GIFT_CARD_SEO_METADATA.title);
     expect(document.querySelector('meta[name="description"]')?.getAttribute('content')).toBe(
       GIFT_CARD_SEO_METADATA.description
+    );
+  });
+
+  it('resets metadata to the default when navigating from a public route to an admin route without SEO data', async () => {
+    await renderAt('/tarjeta-regalo');
+
+    expect(document.title).toBe(GIFT_CARD_SEO_METADATA.title);
+    expect(document.querySelector('meta[name="description"]')?.getAttribute('content')).toBe(
+      GIFT_CARD_SEO_METADATA.description
+    );
+
+    await renderAt('/admin/inicio');
+
+    expect(document.title).toBe(DEFAULT_ROUTE_SEO_METADATA.title);
+    expect(document.querySelector('meta[name="description"]')?.getAttribute('content')).toBe(
+      DEFAULT_ROUTE_SEO_METADATA.description
+    );
+  });
+
+  it('uses default metadata when loading an admin route directly', async () => {
+    await renderAt('/admin/inicio');
+
+    expect(document.title).toBe(DEFAULT_ROUTE_SEO_METADATA.title);
+    expect(document.querySelector('meta[name="description"]')?.getAttribute('content')).toBe(
+      DEFAULT_ROUTE_SEO_METADATA.description
     );
   });
 });

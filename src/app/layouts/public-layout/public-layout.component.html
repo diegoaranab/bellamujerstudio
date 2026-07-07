@@ -11,7 +11,12 @@
       <a
         routerLink="/"
         routerLinkActive="public-nav__link--active"
-        [routerLinkActiveOptions]="{ exact: true }"
+        [routerLinkActiveOptions]="{
+          paths: 'exact',
+          queryParams: 'ignored',
+          matrixParams: 'ignored',
+          fragment: 'ignored'
+        }"
         ariaCurrentWhenActive="page"
         data-testid="public-nav-home-link"
       >
@@ -20,7 +25,12 @@
       <a
         routerLink="/servicios"
         routerLinkActive="public-nav__link--active"
-        [routerLinkActiveOptions]="{ exact: true }"
+        [routerLinkActiveOptions]="{
+          paths: 'exact',
+          queryParams: 'ignored',
+          matrixParams: 'ignored',
+          fragment: 'ignored'
+        }"
         ariaCurrentWhenActive="page"
         data-testid="public-nav-services-link"
       >
@@ -29,7 +39,12 @@
       <a
         routerLink="/galeria"
         routerLinkActive="public-nav__link--active"
-        [routerLinkActiveOptions]="{ exact: true }"
+        [routerLinkActiveOptions]="{
+          paths: 'exact',
+          queryParams: 'ignored',
+          matrixParams: 'ignored',
+          fragment: 'ignored'
+        }"
         ariaCurrentWhenActive="page"
         data-testid="public-nav-gallery-link"
       >
@@ -38,7 +53,12 @@
       <a
         routerLink="/contacto"
         routerLinkActive="public-nav__link--active"
-        [routerLinkActiveOptions]="{ exact: true }"
+        [routerLinkActiveOptions]="{
+          paths: 'exact',
+          queryParams: 'ignored',
+          matrixParams: 'ignored',
+          fragment: 'ignored'
+        }"
         ariaCurrentWhenActive="page"
         data-testid="public-nav-contact-link"
       >
@@ -47,7 +67,12 @@
       <a
         routerLink="/tarjeta-regalo"
         routerLinkActive="public-nav__link--active"
-        [routerLinkActiveOptions]="{ exact: true }"
+        [routerLinkActiveOptions]="{
+          paths: 'exact',
+          queryParams: 'ignored',
+          matrixParams: 'ignored',
+          fragment: 'ignored'
+        }"
         ariaCurrentWhenActive="page"
         data-testid="public-nav-gift-card-link"
       >
