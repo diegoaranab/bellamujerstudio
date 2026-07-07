@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
-type Box = {
+type BoundingBox = {
   bottom: number;
   left: number;
   right: number;
@@ -140,6 +140,9 @@ const mobileViewports = [
 ];
 
 const heroCollageRegressionViewports = [
+  { width: 1280, height: 900 },
+  { width: 1024, height: 768 },
+  { width: 768, height: 900 },
   { width: 512, height: 720 },
   ...mobileViewports
 ];
@@ -161,7 +164,7 @@ async function expectNoHorizontalOverflow(page: Page): Promise<void> {
   expect(metrics.bodyScrollWidth).toBeLessThanOrEqual(metrics.innerWidth);
 }
 
-function boxesOverlap(a: Box, b: Box): boolean {
+function boxesOverlap(a: BoundingBox, b: BoundingBox): boolean {
   return !(a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom);
 }
 
@@ -364,7 +367,7 @@ test('homepage CTA route changes reset scroll to the destination page top', asyn
   }
 });
 
-test('homepage hero collage badge does not overlap category labels on narrow layouts', async ({
+test('homepage hero collage badge does not overlap category labels across layouts', async ({
   page
 }) => {
   for (const viewport of heroCollageRegressionViewports) {
@@ -391,7 +394,7 @@ test('homepage hero collage badge does not overlap category labels on narrow lay
     const badgeBox = await badge.boundingBox();
     expect(badgeBox).not.toBeNull();
 
-    const badgeBounds: Box = {
+    const badgeBounds: BoundingBox = {
       left: badgeBox!.x,
       right: badgeBox!.x + badgeBox!.width,
       top: badgeBox!.y,
@@ -408,7 +411,7 @@ test('homepage hero collage badge does not overlap category labels on narrow lay
       const labelBox = await label.boundingBox();
       expect(labelBox).not.toBeNull();
 
-      const labelBounds: Box = {
+      const labelBounds: BoundingBox = {
         left: labelBox!.x,
         right: labelBox!.x + labelBox!.width,
         top: labelBox!.y,

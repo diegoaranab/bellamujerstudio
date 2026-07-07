@@ -150,8 +150,9 @@ h2 {
 
 .hero-collage__badge {
   position: absolute;
-  left: 50%;
-  top: 52%;
+  top: 0.85rem;
+  right: 0.85rem;
+  left: auto;
   display: grid;
   gap: 0.15rem;
   min-width: 150px;
@@ -161,7 +162,7 @@ h2 {
   background: rgba(255, 255, 255, 0.92);
   box-shadow: 0 16px 38px rgba(75, 16, 38, 0.18);
   color: var(--dark);
-  transform: translate(-50%, -50%);
+  transform: none;
 }
 
 .hero-collage__badge span {
@@ -414,12 +415,8 @@ h2 {
   }
 
   .hero-collage__badge {
-    top: 0.75rem;
-    right: 0.75rem;
-    left: auto;
     min-width: 132px;
     padding: 0.7rem 0.8rem;
-    transform: none;
   }
 
   .contact-panel {
