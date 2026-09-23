@@ -139,6 +139,18 @@ const mobileViewports = [
   { width: 360, height: 800 }
 ];
 
+// Covers the 380, 430, 620, 720, 760, and 900px public CSS transitions.
+const responsiveViewports = [
+  { width: 320, height: 700 },
+  { width: 375, height: 812 },
+  { width: 390, height: 844 },
+  { width: 430, height: 932 },
+  { width: 768, height: 1024 },
+  { width: 1024, height: 768 },
+  { width: 1280, height: 900 },
+  { width: 1920, height: 1080 }
+];
+
 const heroCollageRegressionViewports = [
   { width: 1280, height: 900 },
   { width: 1024, height: 768 },
@@ -425,8 +437,8 @@ test('homepage hero collage badge does not overlap category labels across layout
   }
 });
 
-test('public routes keep usable mobile nav and avoid horizontal overflow', async ({ page }) => {
-  for (const viewport of mobileViewports) {
+test('public routes remain usable across the responsive viewport matrix', async ({ page }) => {
+  for (const viewport of responsiveViewports) {
     await page.setViewportSize(viewport);
 
     for (const route of publicRoutes) {
@@ -436,6 +448,36 @@ test('public routes keep usable mobile nav and avoid horizontal overflow', async
       await expect(page.getByTestId(route.pageTestId)).toBeVisible();
       await expect(page.getByTestId('public-nav')).toBeVisible();
 
+      const content = page.getByTestId(route.pageTestId);
+      const heading = content.getByRole('heading', { level: 1 });
+      const customerAction = route.ctaTestId
+        ? page.getByTestId(route.ctaTestId).first()
+        : page.getByTestId('submit-whatsapp-button');
+      await expect(heading).toBeVisible();
+      await expect(heading).toHaveCount(1);
+      await expect(customerAction).toBeVisible();
+
+      for (const element of [heading, content, customerAction]) {
+        const bounds = await element.boundingBox();
+        expect(bounds).not.toBeNull();
+        expect(bounds!.width).toBeGreaterThan(0);
+        expect(bounds!.x).toBeGreaterThanOrEqual(-1);
+        expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(viewport.width + 1);
+      }
+
+      await customerAction.scrollIntoViewIfNeeded();
+      await expect(customerAction).toBeInViewport();
+
+      if (route.pageTestId === 'public-home-page' && viewport.width <= 720) {
+        const sticky = page.locator('.sticky-whatsapp__link');
+        await expect(sticky).toBeVisible();
+        const bounds = await sticky.boundingBox();
+        expect(bounds).not.toBeNull();
+        expect(bounds!.x).toBeGreaterThanOrEqual(0);
+        expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(viewport.width);
+        expect(bounds!.width).toBeLessThan(viewport.width / 2);
+      }
+
       for (const link of navLinks) {
         await expect(page.getByTestId(link.testId)).toBeVisible();
       }
@@ -444,6 +486,11 @@ test('public routes keep usable mobile nav and avoid horizontal overflow', async
         'aria-current',
         'page'
       );
+      for (const link of navLinks.filter((link) => link.testId !== route.activeNavTestId)) {
+        await expect(page.getByTestId(link.testId)).not.toHaveAttribute('aria-current', 'page');
+      }
+      await page.getByTestId(route.activeNavTestId).click();
+      await expect(page).toHaveURL(route.expectedUrl);
       await expectAdminShellAbsent(page);
       await expectNoHorizontalOverflow(page);
     }
