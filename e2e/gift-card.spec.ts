@@ -576,6 +576,41 @@ test('public gift card route loads with transfer explanation', async ({ page }) 
   await expect(page.getByText('Bella Mujer confirma el pago y activa la tarjeta.')).toBeVisible();
 });
 
+test('gift card labels stay readable and the form precedes the preview on narrow screens', async ({ page }) => {
+  for (const width of [360, 390, 759, 760]) {
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto('/#/tarjeta-regalo');
+
+    const form = page.locator('.gift-form');
+    const preview = page.getByRole('complementary', { name: 'Vista previa de tarjeta regalo' });
+    await expect(page.getByTestId('recipient-name-input')).toHaveAccessibleName('Nombre de quien recibe');
+    await expect(page.getByTestId('preview-recipient')).toHaveText('Para alguien especial');
+    await expect(page.getByText('Día de las madres')).toHaveCount(0);
+
+    for (const name of [
+      'Nombre de quien regala',
+      'WhatsApp de quien regala',
+      'Nombre de quien recibe',
+      'WhatsApp de quien recibe (opcional)',
+      'Mensaje para la tarjeta (opcional)'
+    ]) {
+      const label = page.locator('.labeled-field label').filter({ hasText: name });
+      await expect(label).toBeVisible();
+      expect(await label.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+    }
+
+    const formBox = await form.boundingBox();
+    const previewBox = await preview.boundingBox();
+    expect(formBox).not.toBeNull();
+    expect(previewBox).not.toBeNull();
+    if (width < 760) {
+      expect(previewBox!.y).toBeGreaterThanOrEqual(formBox!.y + formBox!.height);
+    } else {
+      expect(Math.abs(previewBox!.y - formBox!.y)).toBeLessThan(2);
+    }
+  }
+});
+
 test('public gift card route does not render admin shell on desktop or mobile', async ({
   page
 }) => {

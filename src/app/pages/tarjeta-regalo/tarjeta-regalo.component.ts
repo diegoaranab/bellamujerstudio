@@ -72,7 +72,7 @@ export class TarjetaRegaloComponent {
   });
 
   previewRecipient(): string {
-    return this.form.controls.recipientName.value.trim() || 'Para mamá';
+    return this.form.controls.recipientName.value.trim() || 'Para alguien especial';
   }
 
   previewBuyer(): string {

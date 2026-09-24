@@ -1,7 +1,7 @@
 <section class="gift-page" data-testid="public-gift-card-page">
   <header class="gift-hero">
     <div>
-      <p class="eyebrow">Día de las madres</p>
+      <p class="eyebrow">Tarjeta regalo</p>
       <h1>Tarjeta regalo Bella Mujer</h1>
       <p class="subtitle">
         Regala belleza, calma y un momento especial en Bella Mujer Studio.
@@ -17,31 +17,37 @@
           <mat-card-subtitle>Usaremos estos datos para confirmar la solicitud.</mat-card-subtitle>
         </mat-card-header>
         <mat-card-content class="form-grid">
-          <mat-form-field appearance="outline">
-            <mat-label>Nombre de quien regala</mat-label>
-            <input
-              matInput
-              data-testid="buyer-name-input"
-              formControlName="buyerName"
-              [attr.aria-invalid]="form.controls.buyerName.touched && form.controls.buyerName.invalid ? 'true' : null"
-            />
-            <mat-error *ngIf="form.controls.buyerName.hasError('required')">
-              Este nombre es obligatorio.
-            </mat-error>
-          </mat-form-field>
+          <div class="labeled-field">
+            <label for="buyer-name">Nombre de quien regala</label>
+            <mat-form-field appearance="outline">
+              <input
+                matInput
+                id="buyer-name"
+                data-testid="buyer-name-input"
+                formControlName="buyerName"
+                [attr.aria-invalid]="form.controls.buyerName.touched && form.controls.buyerName.invalid ? 'true' : null"
+              />
+              <mat-error *ngIf="form.controls.buyerName.hasError('required')">
+                Este nombre es obligatorio.
+              </mat-error>
+            </mat-form-field>
+          </div>
 
-          <mat-form-field appearance="outline">
-            <mat-label>WhatsApp de quien regala</mat-label>
-            <input
-              matInput
-              data-testid="buyer-phone-input"
-              formControlName="buyerPhone"
-              [attr.aria-invalid]="form.controls.buyerPhone.touched && form.controls.buyerPhone.invalid ? 'true' : null"
-            />
-            <mat-error *ngIf="form.controls.buyerPhone.hasError('required')">
-              El WhatsApp es obligatorio.
-            </mat-error>
-          </mat-form-field>
+          <div class="labeled-field">
+            <label for="buyer-phone">WhatsApp de quien regala</label>
+            <mat-form-field appearance="outline">
+              <input
+                matInput
+                id="buyer-phone"
+                data-testid="buyer-phone-input"
+                formControlName="buyerPhone"
+                [attr.aria-invalid]="form.controls.buyerPhone.touched && form.controls.buyerPhone.invalid ? 'true' : null"
+              />
+              <mat-error *ngIf="form.controls.buyerPhone.hasError('required')">
+                El WhatsApp es obligatorio.
+              </mat-error>
+            </mat-form-field>
+          </div>
 
           <mat-form-field appearance="outline">
             <mat-label>Email opcional</mat-label>
@@ -59,37 +65,46 @@
           <mat-card-subtitle>Personaliza la tarjeta con su nombre y mensaje.</mat-card-subtitle>
         </mat-card-header>
         <mat-card-content class="form-grid">
-          <mat-form-field appearance="outline">
-            <mat-label>Nombre de mamá o persona que recibe</mat-label>
-            <input
-              matInput
-              data-testid="recipient-name-input"
-              formControlName="recipientName"
-              [attr.aria-invalid]="form.controls.recipientName.touched && form.controls.recipientName.invalid ? 'true' : null"
-            />
-            <mat-error *ngIf="form.controls.recipientName.hasError('required')">
-              Este nombre es obligatorio.
-            </mat-error>
-          </mat-form-field>
+          <div class="labeled-field">
+            <label for="recipient-name">Nombre de quien recibe</label>
+            <mat-form-field appearance="outline">
+              <input
+                matInput
+                id="recipient-name"
+                data-testid="recipient-name-input"
+                formControlName="recipientName"
+                [attr.aria-invalid]="form.controls.recipientName.touched && form.controls.recipientName.invalid ? 'true' : null"
+              />
+              <mat-error *ngIf="form.controls.recipientName.hasError('required')">
+                Este nombre es obligatorio.
+              </mat-error>
+            </mat-form-field>
+          </div>
 
-          <mat-form-field appearance="outline">
-            <mat-label>WhatsApp de quien recibe opcional</mat-label>
-            <input
-              matInput
-              data-testid="recipient-phone-input"
-              formControlName="recipientPhone"
-            />
-          </mat-form-field>
+          <div class="labeled-field">
+            <label for="recipient-phone">WhatsApp de quien recibe (opcional)</label>
+            <mat-form-field appearance="outline">
+              <input
+                matInput
+                id="recipient-phone"
+                data-testid="recipient-phone-input"
+                formControlName="recipientPhone"
+              />
+            </mat-form-field>
+          </div>
 
-          <mat-form-field appearance="outline" class="span-2">
-            <mat-label>Mensaje para la tarjeta opcional</mat-label>
-            <textarea
-              matInput
-              rows="3"
-              data-testid="message-input"
-              formControlName="message"
-            ></textarea>
-          </mat-form-field>
+          <div class="labeled-field span-2">
+            <label for="gift-message">Mensaje para la tarjeta (opcional)</label>
+            <mat-form-field appearance="outline">
+              <textarea
+                matInput
+                id="gift-message"
+                rows="3"
+                data-testid="message-input"
+                formControlName="message"
+              ></textarea>
+            </mat-form-field>
+          </div>
         </mat-card-content>
       </mat-card>
 

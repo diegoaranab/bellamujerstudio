@@ -58,8 +58,8 @@ test('gift-card controls have names and keyboard interaction reaches the submit 
   await page.goto('/#/tarjeta-regalo');
   const fields = [
     'Nombre de quien regala', 'WhatsApp de quien regala', 'Email opcional',
-    'Nombre de mamá o persona que recibe', 'WhatsApp de quien recibe opcional',
-    'Mensaje para la tarjeta opcional'
+    'Nombre de quien recibe', 'WhatsApp de quien recibe (opcional)',
+    'Mensaje para la tarjeta (opcional)'
   ];
   for (const name of fields) {
     const field = page.getByLabel(name, { exact: true });
@@ -85,7 +85,7 @@ test('gift-card controls have names and keyboard interaction reaches the submit 
 test('empty gift-card submission exposes required errors and invalid inputs', async ({ page }) => {
   await page.goto('/#/tarjeta-regalo');
   await page.getByRole('button', { name: 'Enviar solicitud por WhatsApp' }).click();
-  for (const name of ['Nombre de quien regala', 'WhatsApp de quien regala', 'Nombre de mamá o persona que recibe']) {
+  for (const name of ['Nombre de quien regala', 'WhatsApp de quien regala', 'Nombre de quien recibe']) {
     await expect(page.getByLabel(name, { exact: true })).toHaveAttribute('aria-invalid', 'true');
   }
   await expect(page.getByText('Este nombre es obligatorio.')).toHaveCount(2);

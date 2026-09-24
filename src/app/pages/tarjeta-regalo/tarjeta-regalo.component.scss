@@ -72,6 +72,21 @@ mat-form-field {
   gap: 0.75rem;
 }
 
+.labeled-field {
+  min-width: 0;
+}
+
+.labeled-field label {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: var(--mat-sys-on-surface);
+  line-height: 1.4;
+}
+
+.labeled-field mat-form-field {
+  width: 100%;
+}
+
 .span-2 {
   grid-column: 1 / -1;
 }
@@ -136,7 +151,6 @@ mat-form-field {
   box-sizing: border-box;
   max-width: 100%;
   min-width: 0;
-  order: -1;
 }
 
 .gift-preview {
@@ -204,7 +218,6 @@ mat-form-field {
   .preview-wrap {
     position: sticky;
     top: 5.5rem;
-    order: 0;
   }
 
   .form-grid {
