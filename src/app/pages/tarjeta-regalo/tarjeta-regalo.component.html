@@ -19,7 +19,12 @@
         <mat-card-content class="form-grid">
           <mat-form-field appearance="outline">
             <mat-label>Nombre de quien regala</mat-label>
-            <input matInput data-testid="buyer-name-input" formControlName="buyerName" />
+            <input
+              matInput
+              data-testid="buyer-name-input"
+              formControlName="buyerName"
+              [attr.aria-invalid]="form.controls.buyerName.touched && form.controls.buyerName.invalid ? 'true' : null"
+            />
             <mat-error *ngIf="form.controls.buyerName.hasError('required')">
               Este nombre es obligatorio.
             </mat-error>
@@ -27,7 +32,12 @@
 
           <mat-form-field appearance="outline">
             <mat-label>WhatsApp de quien regala</mat-label>
-            <input matInput data-testid="buyer-phone-input" formControlName="buyerPhone" />
+            <input
+              matInput
+              data-testid="buyer-phone-input"
+              formControlName="buyerPhone"
+              [attr.aria-invalid]="form.controls.buyerPhone.touched && form.controls.buyerPhone.invalid ? 'true' : null"
+            />
             <mat-error *ngIf="form.controls.buyerPhone.hasError('required')">
               El WhatsApp es obligatorio.
             </mat-error>
@@ -55,6 +65,7 @@
               matInput
               data-testid="recipient-name-input"
               formControlName="recipientName"
+              [attr.aria-invalid]="form.controls.recipientName.touched && form.controls.recipientName.invalid ? 'true' : null"
             />
             <mat-error *ngIf="form.controls.recipientName.hasError('required')">
               Este nombre es obligatorio.
