@@ -35,6 +35,12 @@
       <button mat-icon-button aria-label="Notificaciones">
         <mat-icon>notifications</mat-icon>
       </button>
+      @if (auth.isCognitoMode && auth.isAuthenticated()) {
+        <button class="logout-button" mat-stroked-button (click)="logout()">
+          <mat-icon>logout</mat-icon>
+          Cerrar sesión
+        </button>
+      }
       <button mat-flat-button color="primary" (click)="openNuevaCita()">
         Nueva cita
       </button>

@@ -6,4 +6,12 @@ export const environment: AppEnvironment = {
   assistantApiBaseUrl: 'https://REPLACE_ME.workers.dev',
   giftCardDataMode: 'local',
   bellaMujerApiBaseUrl: '',
+  // Keep GitHub Pages usable until Cognito is deployed and these public identifiers are set.
+  // Transitional local mode is not production authentication.
+  authMode: 'local',
+  cognito: {
+    authority: '',
+    clientId: '',
+    hostedUiDomain: '',
+  },
 };

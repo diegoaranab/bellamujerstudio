@@ -300,6 +300,28 @@ creates a request only through the API and does not add it to localStorage; the
 existing admin pages continue to read localStorage. A missing base URL produces
 a configuration error. No AWS endpoint is bundled into the frontend.
 
+Phase 3D adds a Cognito user pool, a secretless SPA client, and an Angular
+OIDC abstraction backed by `oidc-client-ts`. Cognito login uses authorization
+code flow with PKCE. Tokens are held in session storage by the OIDC library;
+passwords are handled by Cognito's hosted UI, and the application does not parse
+or log JWTs. The auth service exposes the access token for a future
+`Authorization: Bearer <token>` interceptor or API client. Logout clears the
+frontend session first and then uses Cognito's `/logout` endpoint to end the
+managed-login browser session.
+
+The `/admin` route tree is guarded once at its parent. `/admin/login` is a
+separate, unguarded route and preserves a validated internal admin return URL.
+Both checked-in environments deliberately use `authMode: 'local'`, so the
+current GitHub Pages admin demo remains reachable. This local mode is a
+transitional compatibility switch, not authentication or authorization, and
+must not be used to protect production data. After the Phase 3F deployment,
+copy the public `AdminCognitoAuthority`, `AdminUserPoolClientId`, and
+`AdminCognitoHostedUiDomain` stack outputs into the target environment and
+change its mode to `cognito`.
+
+No Cognito resources have been deployed, no real user or credential is present,
+and no API Gateway admin authorizer or protected admin endpoint is included yet.
+
 ## 14. Open Questions
 
 - What is the final production domain name?
