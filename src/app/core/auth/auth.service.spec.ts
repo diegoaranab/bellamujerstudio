@@ -1,4 +1,6 @@
+import { DOCUMENT } from '@angular/common';
 import { TestBed } from '@angular/core/testing';
+import { Router } from '@angular/router';
 import { vi } from 'vitest';
 
 import { AUTH_CONFIG, AuthConfig } from './auth-config';
@@ -11,6 +13,15 @@ const cognitoConfig: AuthConfig = {
     authority: 'https://cognito-idp.us-east-1.amazonaws.com/us-east-1_example',
     clientId: 'spa-client',
     hostedUiDomain: 'https://example.auth.us-east-1.amazoncognito.com'
+  }
+};
+
+const localConfig: AuthConfig = {
+  mode: 'local',
+  cognito: {
+    authority: '',
+    clientId: '',
+    hostedUiDomain: ''
   }
 };
 
@@ -29,16 +40,43 @@ function createClient(user: OidcUser | null): OidcClient {
   };
 }
 
-function configure(client: OidcClient): AuthService {
+function configure(
+  client: OidcClient,
+  options: {
+    config?: AuthConfig;
+    documentUrl?: string;
+    routerUrl?: string;
+  } = {}
+) {
+  const documentUrl = options.documentUrl ?? 'https://studio.example/app/';
+  const parsedUrl = new URL(documentUrl);
+  const replaceState = vi.fn();
+  const document = {
+    baseURI: 'https://studio.example/app/',
+    location: {
+      href: documentUrl,
+      search: parsedUrl.search
+    },
+    defaultView: {
+      history: { replaceState }
+    }
+  } as unknown as Document;
+  const router = {
+    url: options.routerUrl ?? '/',
+    navigate: vi.fn().mockResolvedValue(true)
+  };
+
   TestBed.configureTestingModule({
     providers: [
       AuthService,
-      { provide: AUTH_CONFIG, useValue: cognitoConfig },
-      { provide: OIDC_CLIENT_FACTORY, useValue: async () => client }
+      { provide: AUTH_CONFIG, useValue: options.config ?? cognitoConfig },
+      { provide: OIDC_CLIENT_FACTORY, useValue: vi.fn(async () => client) },
+      { provide: DOCUMENT, useValue: document },
+      { provide: Router, useValue: router }
     ]
   });
 
-  return TestBed.inject(AuthService);
+  return { service: TestBed.inject(AuthService), router, replaceState };
 }
 
 describe('AuthService', () => {
@@ -46,7 +84,7 @@ describe('AuthService', () => {
 
   it('restores a valid Cognito session and returns its access token', async () => {
     const client = createClient({ access_token: 'access-token', expired: false });
-    const service = configure(client);
+    const { service } = configure(client);
 
     await service.initialize();
 
@@ -56,7 +94,7 @@ describe('AuthService', () => {
 
   it('treats expired persisted auth state as unauthenticated and removes it', async () => {
     const client = createClient({ access_token: 'expired-token', expired: true });
-    const service = configure(client);
+    const { service } = configure(client);
 
     await service.initialize();
 
@@ -68,7 +106,7 @@ describe('AuthService', () => {
   it('treats malformed persisted auth state as unauthenticated', async () => {
     const client = createClient(null);
     vi.mocked(client.getUser).mockRejectedValue(new Error('Malformed storage'));
-    const service = configure(client);
+    const { service } = configure(client);
 
     await service.initialize();
 
@@ -77,9 +115,97 @@ describe('AuthService', () => {
     expect(client.removeUser).toHaveBeenCalled();
   });
 
+  it('evicts an authenticated Cognito session from an active admin child route', async () => {
+    const client = createClient({ access_token: 'access-token', expired: false });
+    const { service, router } = configure(client, {
+      routerUrl: '/admin/clientes?tab=recientes'
+    });
+    await service.initialize();
+
+    expect(service.isAuthenticated()).toBe(true);
+
+    const expiredCallback = vi.mocked(client.events.addAccessTokenExpired).mock.calls[0][0];
+    expiredCallback();
+
+    expect(service.isAuthenticated()).toBe(false);
+    expect(service.status()).toBe('unauthenticated');
+    expect(client.removeUser).toHaveBeenCalled();
+    expect(router.navigate).toHaveBeenCalledWith(['/admin/login'], {
+      queryParams: { returnUrl: '/admin/clientes?tab=recientes' },
+      replaceUrl: true
+    });
+  });
+
+  it('does not install Cognito expiry handling or redirect in local mode', async () => {
+    const client = createClient(null);
+    const { service, router } = configure(client, {
+      config: localConfig,
+      routerUrl: '/admin/clientes'
+    });
+
+    await service.initialize();
+
+    expect(service.status()).toBe('local');
+    expect(client.events.addAccessTokenExpired).not.toHaveBeenCalled();
+    expect(router.navigate).not.toHaveBeenCalled();
+  });
+
+  it('keeps OAuth errors on a clean admin login URL with the error available', async () => {
+    const client = createClient(null);
+    vi.mocked(client.signinRedirectCallback).mockRejectedValue(new Error('access_denied'));
+    const { service, replaceState } = configure(client, {
+      documentUrl:
+        'https://studio.example/app/?error=access_denied&error_description=Denied&state=opaque#/admin/clientes'
+    });
+
+    await service.initialize();
+
+    expect(client.signinRedirectCallback).toHaveBeenCalled();
+    expect(replaceState).toHaveBeenCalledWith({}, '', '/app/#/admin/login');
+    expect(service.isAuthenticated()).toBe(false);
+    expect(service.status()).toBe('error');
+    expect(service.errorMessage()).toMatch(/sesión no es válida/i);
+  });
+
+  it('keeps failed authorization-code exchanges on a clean admin login URL', async () => {
+    const client = createClient(null);
+    vi.mocked(client.signinRedirectCallback).mockRejectedValue(new Error('Token exchange failed'));
+    const { service, replaceState } = configure(client, {
+      documentUrl: 'https://studio.example/app/?code=temporary-code&state=opaque'
+    });
+
+    await service.initialize();
+
+    expect(replaceState).toHaveBeenCalledWith({}, '', '/app/#/admin/login');
+    expect(service.status()).toBe('error');
+    expect(service.errorMessage()).not.toBeNull();
+  });
+
+  it('preserves successful callback behavior and restores the safe admin destination', async () => {
+    const user: OidcUser = {
+      access_token: 'access-token',
+      expired: false,
+      state: { returnUrl: '/admin/tarjetas-regalo/abc?tab=notas' }
+    };
+    const client = createClient(user);
+    const { service, replaceState } = configure(client, {
+      documentUrl: 'https://studio.example/app/?code=temporary-code&state=opaque'
+    });
+
+    await service.initialize();
+
+    expect(service.isAuthenticated()).toBe(true);
+    expect(service.errorMessage()).toBeNull();
+    expect(replaceState).toHaveBeenCalledWith(
+      {},
+      '',
+      '/app/#/admin/tarjetas-regalo/abc?tab=notas'
+    );
+  });
+
   it('clears frontend auth state on logout', async () => {
     const client = createClient({ access_token: 'access-token', expired: false });
-    const service = configure(client);
+    const { service } = configure(client);
     await service.initialize();
 
     await service.logout();

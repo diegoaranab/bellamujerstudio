@@ -1,5 +1,6 @@
 import { DOCUMENT } from '@angular/common';
 import { computed, inject, Injectable, signal } from '@angular/core';
+import { Router } from '@angular/router';
 
 import { AUTH_CONFIG } from './auth-config';
 import { OIDC_CLIENT_FACTORY, OidcClient, OidcUser } from './oidc-client';
@@ -26,6 +27,7 @@ export class AuthService {
   private readonly config = inject(AUTH_CONFIG);
   private readonly clientFactory = inject(OIDC_CLIENT_FACTORY);
   private readonly document = inject(DOCUMENT);
+  private readonly router = inject(Router);
   private readonly currentUser = signal<OidcUser | null>(null);
   private readonly authStatus = signal<AuthStatus>('checking');
   private readonly authError = signal<string | null>(null);
@@ -125,14 +127,15 @@ export class AuthService {
       return;
     }
 
+    const hasAuthorizationResponse = this.hasAuthorizationResponse();
+
     try {
       const client = await this.getClient();
       client.events.addAccessTokenExpired(() => {
-        this.currentUser.set(null);
-        this.authStatus.set('unauthenticated');
+        this.handleAccessTokenExpired(client);
       });
 
-      const user = this.hasAuthorizationResponse()
+      const user = hasAuthorizationResponse
         ? await client.signinRedirectCallback(this.document.location.href)
         : await client.getUser();
 
@@ -145,12 +148,14 @@ export class AuthService {
       this.authStatus.set('authenticated');
       this.authError.set(null);
 
-      if (this.hasAuthorizationResponse()) {
+      if (hasAuthorizationResponse) {
         this.finishAuthorizationRedirect(user.state);
       }
     } catch {
       await this.clearInvalidUser();
-      this.clearAuthorizationResponse();
+      if (hasAuthorizationResponse) {
+        this.finishFailedAuthorizationRedirect();
+      }
       this.authStatus.set('error');
       this.authError.set(
         'La sesión no es válida o no pudo completarse. Inicia sesión nuevamente.'
@@ -184,7 +189,31 @@ export class AuthService {
 
   private hasAuthorizationResponse(): boolean {
     const search = new URLSearchParams(this.document.location.search);
-    return search.has('state') && (search.has('code') || search.has('error'));
+    return search.has('code') || search.has('error');
+  }
+
+  private handleAccessTokenExpired(client: OidcClient): void {
+    this.currentUser.set(null);
+    this.authStatus.set('unauthenticated');
+
+    void client.removeUser().catch(() => undefined);
+
+    const returnUrl = this.router.url;
+    const path = returnUrl.split(/[?#]/, 1)[0];
+    if (path !== '/admin' && !path.startsWith('/admin/')) {
+      return;
+    }
+
+    if (path === '/admin/login') {
+      return;
+    }
+
+    void this.router
+      .navigate(['/admin/login'], {
+        queryParams: { returnUrl: normalizeAdminReturnUrl(returnUrl) },
+        replaceUrl: true
+      })
+      .catch(() => undefined);
   }
 
   private isValidUser(user: OidcUser | null): user is OidcUser {
@@ -215,12 +244,10 @@ export class AuthService {
     this.document.defaultView?.history.replaceState({}, '', cleanUrl);
   }
 
-  private clearAuthorizationResponse(): void {
-    if (!this.hasAuthorizationResponse()) {
-      return;
-    }
-
+  private finishFailedAuthorizationRedirect(): void {
     const baseUrl = new URL(this.document.baseURI);
-    this.document.defaultView?.history.replaceState({}, '', `${baseUrl.pathname}${baseUrl.search}`);
+    const cleanUrl = `${baseUrl.pathname}${baseUrl.search}#/admin/login`;
+
+    this.document.defaultView?.history.replaceState({}, '', cleanUrl);
   }
 }
