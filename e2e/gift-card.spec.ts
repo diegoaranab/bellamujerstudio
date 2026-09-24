@@ -719,6 +719,28 @@ test('validation prevents empty gift card requests', async ({ page }) => {
   await expect(page.getByText('El WhatsApp es obligatorio.')).toBeVisible();
 });
 
+test('fractional pesos show an error without creating a gift card request', async ({ page }) => {
+  await page.goto('/#/tarjeta-regalo');
+  await page.evaluate(() => {
+    window.open = () => {
+      window.localStorage.setItem('__popup_opened__', 'true');
+      return null;
+    };
+  });
+  await page.getByTestId('buyer-name-input').fill('Diego Arana');
+  await page.getByTestId('buyer-phone-input').fill('2381110000');
+  await page.getByTestId('recipient-name-input').fill('Mamá Lupita');
+  await page.getByTestId('custom-amount-input').fill('300.5');
+  const storedBefore = await page.evaluate(() => window.localStorage.getItem('bm_state_v1'));
+
+  await page.getByTestId('submit-whatsapp-button').click();
+
+  await expect(page.getByText('Ingresa un monto en pesos enteros, sin centavos.')).toBeVisible();
+  await expect(page.getByTestId('success-state')).toBeHidden();
+  expect(await page.evaluate(() => window.localStorage.getItem('bm_state_v1'))).toBe(storedBefore);
+  expect(await page.evaluate(() => window.localStorage.getItem('__popup_opened__'))).toBeNull();
+});
+
 test('gift card preview updates from form values', async ({ page }) => {
   await page.goto('/#/tarjeta-regalo');
 
@@ -737,10 +759,11 @@ test('gift card preview updates from form values', async ({ page }) => {
 test('submit creates WhatsApp URL without navigating externally', async ({ page }) => {
   await page.goto('/#/tarjeta-regalo');
   await page.evaluate(() => {
-    window.open = (url?: string | URL) => {
-      window.localStorage.setItem('__last_open_url__', String(url));
-      return null;
-    };
+    window.open = () => ({
+      opener: null,
+      location: { replace: (url: string) => window.localStorage.setItem('__last_open_url__', url) },
+      close: () => {}
+    }) as unknown as Window;
   });
   await page.getByTestId('buyer-name-input').fill('Diego Arana');
   await page.getByTestId('buyer-phone-input').fill('2381110000');
@@ -764,10 +787,11 @@ test('submit creates WhatsApp URL without navigating externally', async ({ page 
 test('created request appears in admin and status can change', async ({ page }) => {
   await page.goto('/#/tarjeta-regalo');
   await page.evaluate(() => {
-    window.open = (url?: string | URL) => {
-      window.localStorage.setItem('__last_open_url__', String(url));
-      return null;
-    };
+    window.open = () => ({
+      opener: null,
+      location: { replace: (url: string) => window.localStorage.setItem('__last_open_url__', url) },
+      close: () => {}
+    }) as unknown as Window;
   });
   await page.getByTestId('buyer-name-input').fill('Diego Arana');
   await page.getByTestId('buyer-phone-input').fill('2381110000');

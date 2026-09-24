@@ -4,4 +4,6 @@ export const environment: AppEnvironment = {
   production: true,
   // Replace with the deployed Worker URL for production builds.
   assistantApiBaseUrl: 'https://REPLACE_ME.workers.dev',
+  giftCardDataMode: 'local',
+  bellaMujerApiBaseUrl: '',
 };
