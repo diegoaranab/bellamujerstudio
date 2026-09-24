@@ -135,12 +135,15 @@
               matInput
               type="number"
               min="300"
-              step="50"
+              step="1"
               data-testid="custom-amount-input"
               formControlName="amountMXN"
             />
             <mat-error *ngIf="form.controls.amountMXN.hasError('min')">
               El monto mínimo es de $300 MXN.
+            </mat-error>
+            <mat-error *ngIf="form.controls.amountMXN.hasError('wholePeso')">
+              Ingresa un monto en pesos enteros, sin centavos.
             </mat-error>
           </mat-form-field>
         </mat-card-content>
@@ -193,6 +196,11 @@
         <div>
           <strong>Solicitud creada</strong>
           <p>{{ successMessage() }}</p>
+          <p *ngIf="whatsappFallbackUrl()">
+            <a [href]="whatsappFallbackUrl()" target="_blank" rel="noopener noreferrer">
+              Abrir WhatsApp
+            </a>
+          </p>
           <p *ngIf="dataMode === 'local'">
             Esta solicitud queda guardada solo en este navegador para el MVP; Bella
             Mujer la confirma con el mensaje y comprobante enviados por WhatsApp.

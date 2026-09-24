@@ -4,6 +4,7 @@ import {
   FormControl,
   FormGroup,
   ReactiveFormsModule,
+  ValidatorFn,
   Validators
 } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -22,6 +23,9 @@ import {
   buildGiftCardWhatsAppUrl,
   generateGiftCardFolio
 } from '../../core/services/gift-card.utils';
+
+const wholePesoAmount: ValidatorFn = (control) =>
+  Number.isInteger(control.value) ? null : { wholePeso: true };
 
 @Component({
   selector: 'app-tarjeta-regalo',
@@ -48,6 +52,7 @@ export class TarjetaRegaloComponent {
   readonly minAmount = GIFT_CARD_MIN_AMOUNT_MXN;
   readonly previewFolio = signal(generateGiftCardFolio());
   readonly successMessage = signal('');
+  readonly whatsappFallbackUrl = signal('');
   readonly errorMessage = signal('');
   readonly isSubmitting = signal(false);
 
@@ -72,7 +77,7 @@ export class TarjetaRegaloComponent {
     message: new FormControl('', { nonNullable: true }),
     amountMXN: new FormControl(500, {
       nonNullable: true,
-      validators: [Validators.required, Validators.min(GIFT_CARD_MIN_AMOUNT_MXN)]
+      validators: [Validators.required, Validators.min(GIFT_CARD_MIN_AMOUNT_MXN), wholePesoAmount]
     })
   });
 
@@ -101,15 +106,24 @@ export class TarjetaRegaloComponent {
   }
 
   onSubmit(): void {
-    this.successMessage.set('');
-    this.errorMessage.set('');
-
     if (this.isSubmitting()) return;
+
+    this.successMessage.set('');
+    this.whatsappFallbackUrl.set('');
+    this.errorMessage.set('');
 
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;
     }
+
+    // Open while the submit gesture still has transient user activation.
+    const whatsappWindow = window.open('', '_blank');
+    if (!whatsappWindow) {
+      this.errorMessage.set('Permite las ventanas emergentes para abrir WhatsApp e intenta de nuevo.');
+      return;
+    }
+    whatsappWindow.opener = null;
 
     const value = this.form.getRawValue();
     this.isSubmitting.set(true);
@@ -123,14 +137,25 @@ export class TarjetaRegaloComponent {
       message: this.optionalText(value.message)
     }).subscribe({
       next: (giftCard) => {
-        window.open(buildGiftCardWhatsAppUrl(giftCard), '_blank', 'noopener');
+        const whatsappUrl = buildGiftCardWhatsAppUrl(giftCard);
+        let whatsappOpened = false;
+        try {
+          if (!whatsappWindow.closed) {
+            whatsappWindow.location.replace(whatsappUrl);
+            whatsappOpened = true;
+          }
+        } catch {
+          whatsappWindow.close();
+        }
         this.previewFolio.set(giftCard.folio);
-        this.successMessage.set(
-          'Se abrió WhatsApp con tu mensaje. Adjunta manualmente tu comprobante antes de enviarlo.'
-        );
+        this.whatsappFallbackUrl.set(whatsappOpened ? '' : whatsappUrl);
+        this.successMessage.set(whatsappOpened
+          ? 'Se abrió WhatsApp con tu mensaje. Adjunta manualmente tu comprobante antes de enviarlo.'
+          : 'Solicitud creada. Abre WhatsApp con el enlace de abajo y adjunta manualmente tu comprobante.');
         this.isSubmitting.set(false);
       },
       error: (error: unknown) => {
+        whatsappWindow.close();
         this.errorMessage.set(error instanceof GiftCardRequestError
           ? error.message
           : 'No pudimos crear la solicitud. Intenta de nuevo.');
