@@ -1,8 +1,10 @@
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { TestBed } from '@angular/core/testing';
+import { of, throwError } from 'rxjs';
 
 import { GiftCard } from '../../core/models';
-import { GiftCardService } from '../../core/services/gift-card.service';
+import { GIFT_CARD_REQUEST_DATA_ACCESS } from '../../core/services/gift-card-request.data-access';
+import { GiftCardRequestError } from '../../core/services/public-gift-card-api.client';
 import { TarjetaRegaloComponent } from './tarjeta-regalo.component';
 
 const createdGiftCard: GiftCard = {
@@ -23,7 +25,7 @@ describe('TarjetaRegaloComponent', () => {
   let openSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(async () => {
-    createGiftCard = vi.fn(() => createdGiftCard);
+    createGiftCard = vi.fn(() => of(createdGiftCard));
     openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
 
     await TestBed.configureTestingModule({
@@ -31,8 +33,8 @@ describe('TarjetaRegaloComponent', () => {
       providers: [
         provideNoopAnimations(),
         {
-          provide: GiftCardService,
-          useValue: { createGiftCard }
+          provide: GIFT_CARD_REQUEST_DATA_ACCESS,
+          useValue: { createRequest: createGiftCard }
         }
       ]
     }).compileComponents();
@@ -84,8 +86,7 @@ describe('TarjetaRegaloComponent', () => {
         buyerName: 'Diego Arana',
         recipientName: 'Mamá Lupita',
         amountMXN: 500,
-        paymentMethod: 'transferencia',
-        status: 'pendiente'
+        buyerPhone: '2381110000'
       })
     );
     expect(openSpy).toHaveBeenCalledWith(
@@ -102,5 +103,17 @@ describe('TarjetaRegaloComponent', () => {
     expect(decoded).toContain('$500');
     expect(decoded).toContain('transferencia');
     expect(decoded).toContain('comprobante de transferencia');
+  });
+
+  it('keeps WhatsApp closed when the request fails', () => {
+    createGiftCard.mockReturnValue(throwError(() => new GiftCardRequestError('server', 'Intenta de nuevo.')));
+    const component = TestBed.createComponent(TarjetaRegaloComponent).componentInstance;
+    component.form.patchValue({ buyerName: 'Diego', buyerPhone: '2381110000', recipientName: 'Lupita' });
+
+    component.onSubmit();
+
+    expect(openSpy).not.toHaveBeenCalled();
+    expect(component.errorMessage()).toBe('Intenta de nuevo.');
+    expect(component.isSubmitting()).toBe(false);
   });
 });

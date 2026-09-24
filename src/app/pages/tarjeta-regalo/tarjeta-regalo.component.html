@@ -182,6 +182,7 @@
         class="submit-button"
         data-testid="submit-whatsapp-button"
         type="submit"
+        [disabled]="isSubmitting()"
       >
         <mat-icon>chat</mat-icon>
         Enviar solicitud por WhatsApp
@@ -192,11 +193,14 @@
         <div>
           <strong>Solicitud creada</strong>
           <p>{{ successMessage() }}</p>
-          <p>
+          <p *ngIf="dataMode === 'local'">
             Esta solicitud queda guardada solo en este navegador para el MVP; Bella
             Mujer la confirma con el mensaje y comprobante enviados por WhatsApp.
           </p>
         </div>
+      </div>
+      <div class="success" role="alert" data-testid="request-error" *ngIf="errorMessage()">
+        <p>{{ errorMessage() }}</p>
       </div>
     </form>
 

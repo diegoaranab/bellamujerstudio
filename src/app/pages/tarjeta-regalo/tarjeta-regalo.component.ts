@@ -13,7 +13,9 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 
-import { GiftCardService } from '../../core/services/gift-card.service';
+import { GIFT_CARD_API_CONFIG } from '../../core/services/gift-card-api-config';
+import { GIFT_CARD_REQUEST_DATA_ACCESS } from '../../core/services/gift-card-request.data-access';
+import { GiftCardRequestError } from '../../core/services/public-gift-card-api.client';
 import {
   GIFT_CARD_MIN_AMOUNT_MXN,
   GIFT_CARD_PRESET_AMOUNTS_MXN,
@@ -39,12 +41,15 @@ import {
   styleUrl: './tarjeta-regalo.component.scss'
 })
 export class TarjetaRegaloComponent {
-  private readonly giftCardService = inject(GiftCardService);
+  private readonly giftCardRequests = inject(GIFT_CARD_REQUEST_DATA_ACCESS);
+  readonly dataMode = inject(GIFT_CARD_API_CONFIG).mode;
 
   readonly presetAmounts = GIFT_CARD_PRESET_AMOUNTS_MXN;
   readonly minAmount = GIFT_CARD_MIN_AMOUNT_MXN;
   readonly previewFolio = signal(generateGiftCardFolio());
   readonly successMessage = signal('');
+  readonly errorMessage = signal('');
+  readonly isSubmitting = signal(false);
 
   readonly form = new FormGroup({
     buyerName: new FormControl('', {
@@ -97,6 +102,9 @@ export class TarjetaRegaloComponent {
 
   onSubmit(): void {
     this.successMessage.set('');
+    this.errorMessage.set('');
+
+    if (this.isSubmitting()) return;
 
     if (this.form.invalid) {
       this.form.markAllAsTouched();
@@ -104,23 +112,31 @@ export class TarjetaRegaloComponent {
     }
 
     const value = this.form.getRawValue();
-    const giftCard = this.giftCardService.createGiftCard({
+    this.isSubmitting.set(true);
+    this.giftCardRequests.createRequest({
       buyerName: value.buyerName.trim(),
       buyerPhone: value.buyerPhone.trim(),
       buyerEmail: this.optionalText(value.buyerEmail),
       recipientName: value.recipientName.trim(),
       recipientPhone: this.optionalText(value.recipientPhone),
       amountMXN: value.amountMXN,
-      message: this.optionalText(value.message),
-      paymentMethod: 'transferencia',
-      status: 'pendiente'
+      message: this.optionalText(value.message)
+    }).subscribe({
+      next: (giftCard) => {
+        window.open(buildGiftCardWhatsAppUrl(giftCard), '_blank', 'noopener');
+        this.previewFolio.set(giftCard.folio);
+        this.successMessage.set(
+          'Se abrió WhatsApp con tu mensaje. Adjunta manualmente tu comprobante antes de enviarlo.'
+        );
+        this.isSubmitting.set(false);
+      },
+      error: (error: unknown) => {
+        this.errorMessage.set(error instanceof GiftCardRequestError
+          ? error.message
+          : 'No pudimos crear la solicitud. Intenta de nuevo.');
+        this.isSubmitting.set(false);
+      }
     });
-
-    window.open(buildGiftCardWhatsAppUrl(giftCard), '_blank', 'noopener');
-    this.previewFolio.set(giftCard.folio);
-    this.successMessage.set(
-      'Se abrió WhatsApp con tu mensaje. Adjunta manualmente tu comprobante antes de enviarlo.'
-    );
   }
 
   private optionalText(value: string): string | undefined {

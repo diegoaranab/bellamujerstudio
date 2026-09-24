@@ -290,6 +290,16 @@ Future entities:
 - **Phase 3F:** Deployment, domain, CORS, logging, and security hardening.
 - **Phase 4:** Mercado Pago integration, including webhook validation and payment-driven status updates.
 
+Phase 3C configuration lives in `src/environments/environment.ts` and
+`environment.production.ts`. `giftCardDataMode` defaults to `local` in both builds;
+`bellaMujerApiBaseUrl` is intentionally empty. For local API testing, set the
+development environment to `api` and supply the base URL of a mock server that
+implements `POST /gift-cards/request`. Alternatively, override
+`GIFT_CARD_API_CONFIG` in Angular tests, as the data-access tests do. API mode
+creates a request only through the API and does not add it to localStorage; the
+existing admin pages continue to read localStorage. A missing base URL produces
+a configuration error. No AWS endpoint is bundled into the frontend.
+
 ## 14. Open Questions
 
 - What is the final production domain name?
