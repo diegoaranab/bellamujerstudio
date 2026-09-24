@@ -21,13 +21,15 @@ export class PublicGiftCardApiClient {
   private readonly http = inject(HttpClient);
   private readonly config = inject(GIFT_CARD_API_CONFIG);
 
-  createRequest(request: PublicGiftCardRequest): Observable<PublicGiftCardResponse> {
+  createRequest(request: PublicGiftCardRequest, idempotencyKey: string): Observable<PublicGiftCardResponse> {
     const baseUrl = this.config.baseUrl.trim().replace(/\/+$/, '');
     if (!baseUrl) {
       return throwError(() => new GiftCardRequestError('configuration', 'La API de tarjetas regalo no está configurada.'));
     }
 
-    return this.http.post<PublicGiftCardResponse>(`${baseUrl}/gift-cards/request`, request).pipe(
+    return this.http.post<PublicGiftCardResponse>(`${baseUrl}/gift-cards/request`, request, {
+      headers: { 'Idempotency-Key': idempotencyKey }
+    }).pipe(
       catchError((error: unknown) => throwError(() => this.normalizeError(error)))
     );
   }

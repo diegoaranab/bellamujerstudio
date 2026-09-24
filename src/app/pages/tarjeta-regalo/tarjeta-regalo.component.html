@@ -25,10 +25,14 @@
                 id="buyer-name"
                 data-testid="buyer-name-input"
                 formControlName="buyerName"
+                maxlength="120"
                 [attr.aria-invalid]="form.controls.buyerName.touched && form.controls.buyerName.invalid ? 'true' : null"
               />
               <mat-error *ngIf="form.controls.buyerName.hasError('required')">
                 Este nombre es obligatorio.
+              </mat-error>
+              <mat-error *ngIf="form.controls.buyerName.hasError('maxlength')">
+                El nombre de quien regala no puede superar 120 caracteres.
               </mat-error>
             </mat-form-field>
           </div>
@@ -41,19 +45,26 @@
                 id="buyer-phone"
                 data-testid="buyer-phone-input"
                 formControlName="buyerPhone"
+                maxlength="30"
                 [attr.aria-invalid]="form.controls.buyerPhone.touched && form.controls.buyerPhone.invalid ? 'true' : null"
               />
               <mat-error *ngIf="form.controls.buyerPhone.hasError('required')">
                 El WhatsApp es obligatorio.
+              </mat-error>
+              <mat-error *ngIf="form.controls.buyerPhone.hasError('maxlength')">
+                El WhatsApp de quien regala no puede superar 30 caracteres.
               </mat-error>
             </mat-form-field>
           </div>
 
           <mat-form-field appearance="outline">
             <mat-label>Email opcional</mat-label>
-            <input matInput data-testid="buyer-email-input" formControlName="buyerEmail" />
+            <input matInput data-testid="buyer-email-input" formControlName="buyerEmail" maxlength="160" />
             <mat-error *ngIf="form.controls.buyerEmail.hasError('email')">
               Escribe un email válido.
+            </mat-error>
+            <mat-error *ngIf="form.controls.buyerEmail.hasError('maxlength')">
+              El email no puede superar 160 caracteres.
             </mat-error>
           </mat-form-field>
         </mat-card-content>
@@ -73,10 +84,14 @@
                 id="recipient-name"
                 data-testid="recipient-name-input"
                 formControlName="recipientName"
+                maxlength="120"
                 [attr.aria-invalid]="form.controls.recipientName.touched && form.controls.recipientName.invalid ? 'true' : null"
               />
               <mat-error *ngIf="form.controls.recipientName.hasError('required')">
                 Este nombre es obligatorio.
+              </mat-error>
+              <mat-error *ngIf="form.controls.recipientName.hasError('maxlength')">
+                El nombre de quien recibe no puede superar 120 caracteres.
               </mat-error>
             </mat-form-field>
           </div>
@@ -89,7 +104,11 @@
                 id="recipient-phone"
                 data-testid="recipient-phone-input"
                 formControlName="recipientPhone"
+                maxlength="30"
               />
+              <mat-error *ngIf="form.controls.recipientPhone.hasError('maxlength')">
+                El WhatsApp de quien recibe no puede superar 30 caracteres.
+              </mat-error>
             </mat-form-field>
           </div>
 
@@ -102,7 +121,11 @@
                 rows="3"
                 data-testid="message-input"
                 formControlName="message"
+                maxlength="500"
               ></textarea>
+              <mat-error *ngIf="form.controls.message.hasError('maxlength')">
+                El mensaje no puede superar 500 caracteres.
+              </mat-error>
             </mat-form-field>
           </div>
         </mat-card-content>

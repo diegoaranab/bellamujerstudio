@@ -1,6 +1,6 @@
 # Bella Mujer Backend
 
-Phase 3B adds an AWS serverless scaffold for gift-card requests only. It is intentionally separate from the Angular frontend and does not change the current localStorage behavior.
+Phase 3B adds an AWS serverless scaffold for gift-card requests only. Phase 3C adds optional Angular API integration and keeps localStorage as the default mode.
 
 ## What Is Included
 
@@ -9,14 +9,20 @@ Phase 3B adds an AWS serverless scaffold for gift-card requests only. It is inte
 - Conservative API Gateway throttling for the public endpoint surface.
 - Lambda handlers for:
   - `GET /health`
-  - `POST /gift-cards/request`
+- `POST /gift-cards/request`
 - DynamoDB gift-card table with on-demand billing.
 - Short CloudWatch log retention.
 - Local Vitest tests for validation, handlers, and stack assertions.
 
 The DynamoDB AWS SDK client is bundled into the gift-card Lambda intentionally so runtime behavior is predictable and does not depend on the Lambda runtime's preinstalled SDK contents.
 
-This scaffold does not include Cognito, Mercado Pago, frontend API integration, deployment automation, or any changes to the existing assistant Worker.
+## Public request contract
+
+`POST /gift-cards/request` requires an `Idempotency-Key` header containing a UUID-style identifier. The frontend generates one key per logical submission and reuses it after an uncertain network or server failure. A missing or malformed key returns HTTP 400. The request body requires buyer name and phone, recipient name, and a whole-peso `amountMXN` of at least 300. Optional fields are buyer email, recipient phone, and message. Maximum lengths are 120 characters for names, 30 for phones, 160 for email, and 500 for message.
+
+The key becomes the gift-card ID. DynamoDB conditionally writes the card once. The first successful request returns HTTP 201. A replay with the same key and normalized body returns HTTP 200 with the original card, including its ID, folio, and timestamps. Reusing a key with different request data returns HTTP 409 (`IDEMPOTENCY_CONFLICT`). A successful new submission uses a fresh key. The API allows the header in CORS preflight and its Lambda has scoped PutItem and GetItem access.
+
+This scaffold does not include Cognito, Mercado Pago, deployment automation, or any changes to the existing assistant Worker.
 
 ## Install
 
@@ -63,4 +69,4 @@ Deployment is intentionally not part of this PR and no deploy is performed here.
 - Choose AWS account and region settings.
 - Confirm production CORS domains.
 - Add Cognito/auth in a later phase before admin endpoints are introduced.
-- Integrate the Angular frontend with the API in a later phase.
+- Configure the Angular frontend for API mode when the endpoint is ready.

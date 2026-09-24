@@ -68,7 +68,7 @@ describe('BellaMujerApiStack', () => {
       PolicyDocument: {
         Statement: Match.arrayWith([
           Match.objectLike({
-            Action: 'dynamodb:PutItem',
+            Action: ['dynamodb:PutItem', 'dynamodb:GetItem'],
             Effect: 'Allow',
             Resource: Match.anyValue()
           })

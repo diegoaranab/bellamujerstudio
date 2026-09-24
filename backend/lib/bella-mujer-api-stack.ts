@@ -65,13 +65,13 @@ export class BellaMujerApiStack extends cdk.Stack {
       }
     });
 
-    giftCardsTable.grant(giftCardRequestFunction, 'dynamodb:PutItem');
+    giftCardsTable.grant(giftCardRequestFunction, 'dynamodb:PutItem', 'dynamodb:GetItem');
 
     const api = new apigwv2.HttpApi(this, 'BellaMujerHttpApi', {
       apiName: 'bella-mujer-api',
       corsPreflight: {
         allowOrigins: [...allowedOrigins],
-        allowHeaders: ['content-type', 'authorization'],
+        allowHeaders: ['content-type', 'authorization', 'idempotency-key'],
         allowMethods: [
           apigwv2.CorsHttpMethod.GET,
           apigwv2.CorsHttpMethod.POST,

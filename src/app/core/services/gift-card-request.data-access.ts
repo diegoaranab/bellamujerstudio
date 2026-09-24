@@ -7,7 +7,7 @@ import { GiftCardService } from './gift-card.service';
 import { PublicGiftCardApiClient } from './public-gift-card-api.client';
 
 export interface GiftCardRequestDataAccess {
-  createRequest(request: PublicGiftCardRequest): Observable<GiftCard>;
+  createRequest(request: PublicGiftCardRequest, idempotencyKey?: string): Observable<GiftCard>;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -27,8 +27,9 @@ export class LocalGiftCardRequestDataAccess implements GiftCardRequestDataAccess
 export class ApiGiftCardRequestDataAccess implements GiftCardRequestDataAccess {
   private readonly api = inject(PublicGiftCardApiClient);
 
-  createRequest(request: PublicGiftCardRequest): Observable<GiftCard> {
-    return this.api.createRequest(request).pipe(map((response) => ({ ...response })));
+  createRequest(request: PublicGiftCardRequest, idempotencyKey?: string): Observable<GiftCard> {
+    return this.api.createRequest(request, idempotencyKey ?? crypto.randomUUID())
+      .pipe(map((response) => ({ ...response })));
   }
 }
 

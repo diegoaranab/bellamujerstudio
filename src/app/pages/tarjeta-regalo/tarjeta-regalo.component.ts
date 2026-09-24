@@ -55,26 +55,27 @@ export class TarjetaRegaloComponent {
   readonly whatsappFallbackUrl = signal('');
   readonly errorMessage = signal('');
   readonly isSubmitting = signal(false);
+  private pendingApiRequest?: { body: string; key: string };
 
   readonly form = new FormGroup({
     buyerName: new FormControl('', {
       nonNullable: true,
-      validators: [Validators.required]
+      validators: [Validators.required, Validators.maxLength(120)]
     }),
     buyerPhone: new FormControl('', {
       nonNullable: true,
-      validators: [Validators.required]
+      validators: [Validators.required, Validators.maxLength(30)]
     }),
     buyerEmail: new FormControl('', {
       nonNullable: true,
-      validators: [Validators.email]
+      validators: [Validators.email, Validators.maxLength(160)]
     }),
     recipientName: new FormControl('', {
       nonNullable: true,
-      validators: [Validators.required]
+      validators: [Validators.required, Validators.maxLength(120)]
     }),
-    recipientPhone: new FormControl('', { nonNullable: true }),
-    message: new FormControl('', { nonNullable: true }),
+    recipientPhone: new FormControl('', { nonNullable: true, validators: [Validators.maxLength(30)] }),
+    message: new FormControl('', { nonNullable: true, validators: [Validators.maxLength(500)] }),
     amountMXN: new FormControl(500, {
       nonNullable: true,
       validators: [Validators.required, Validators.min(GIFT_CARD_MIN_AMOUNT_MXN), wholePesoAmount]
@@ -127,7 +128,7 @@ export class TarjetaRegaloComponent {
 
     const value = this.form.getRawValue();
     this.isSubmitting.set(true);
-    this.giftCardRequests.createRequest({
+    const request = {
       buyerName: value.buyerName.trim(),
       buyerPhone: value.buyerPhone.trim(),
       buyerEmail: this.optionalText(value.buyerEmail),
@@ -135,8 +136,14 @@ export class TarjetaRegaloComponent {
       recipientPhone: this.optionalText(value.recipientPhone),
       amountMXN: value.amountMXN,
       message: this.optionalText(value.message)
-    }).subscribe({
+    };
+    const body = JSON.stringify(request);
+    if (this.dataMode === 'api' && this.pendingApiRequest?.body !== body) {
+      this.pendingApiRequest = { body, key: crypto.randomUUID() };
+    }
+    this.giftCardRequests.createRequest(request, this.pendingApiRequest?.key).subscribe({
       next: (giftCard) => {
+        this.pendingApiRequest = undefined;
         const whatsappUrl = buildGiftCardWhatsAppUrl(giftCard);
         let whatsappOpened = false;
         try {
@@ -155,6 +162,10 @@ export class TarjetaRegaloComponent {
         this.isSubmitting.set(false);
       },
       error: (error: unknown) => {
+        if (error instanceof GiftCardRequestError &&
+          (error.kind === 'validation' || error.kind === 'client' || error.kind === 'configuration')) {
+          this.pendingApiRequest = undefined;
+        }
         whatsappWindow.close();
         this.errorMessage.set(error instanceof GiftCardRequestError
           ? error.message

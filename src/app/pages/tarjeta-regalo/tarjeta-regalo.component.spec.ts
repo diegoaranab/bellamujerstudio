@@ -3,6 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { of, Subject, throwError } from 'rxjs';
 
 import { GiftCard } from '../../core/models';
+import { GIFT_CARD_API_CONFIG } from '../../core/services/gift-card-api-config';
 import { GIFT_CARD_REQUEST_DATA_ACCESS } from '../../core/services/gift-card-request.data-access';
 import { GiftCardRequestError } from '../../core/services/public-gift-card-api.client';
 import { TarjetaRegaloComponent } from './tarjeta-regalo.component';
@@ -101,7 +102,8 @@ describe('TarjetaRegaloComponent', () => {
         recipientName: 'Mamá Lupita',
         amountMXN: 500,
         buyerPhone: '2381110000'
-      })
+      }),
+      undefined
     );
     expect(replaceSpy).toHaveBeenCalledWith(
       expect.stringContaining('https://wa.me/522381117950?text='),
@@ -189,5 +191,37 @@ describe('TarjetaRegaloComponent', () => {
 
     expect(createGiftCard).not.toHaveBeenCalled();
     expect(component.errorMessage()).toContain('ventanas emergentes');
+  });
+
+  it.each([
+    ['buyerName', 'x'.repeat(121), 'El nombre de quien regala no puede superar 120 caracteres.'],
+    ['recipientPhone', '1'.repeat(31), 'El WhatsApp de quien recibe no puede superar 30 caracteres.'],
+    ['message', 'x'.repeat(501), 'El mensaje no puede superar 500 caracteres.']
+  ] as const)('blocks an over-limit %s with a field error', (field, value, message) => {
+    const fixture = TestBed.createComponent(TarjetaRegaloComponent);
+    const component = fixture.componentInstance;
+    component.form.patchValue({ buyerName: 'Diego', buyerPhone: '2381110000', recipientName: 'Lupita' });
+    component.form.controls[field].setValue(value);
+    component.onSubmit();
+    fixture.detectChanges();
+    expect(component.form.invalid).toBe(true);
+    expect(component.form.controls[field].hasError('maxlength')).toBe(true);
+    expect(fixture.nativeElement.textContent).toContain(message);
+    expect(openSpy).not.toHaveBeenCalled();
+    expect(createGiftCard).not.toHaveBeenCalled();
+  });
+
+  it('reuses an API key after a network failure and changes it for a new submission', () => {
+    TestBed.overrideProvider(GIFT_CARD_API_CONFIG, { useValue: { mode: 'api', baseUrl: 'https://example.com' } });
+    createGiftCard.mockReturnValueOnce(throwError(() => new GiftCardRequestError('network', 'Retry')));
+    const component = TestBed.createComponent(TarjetaRegaloComponent).componentInstance;
+    component.form.patchValue({ buyerName: 'Diego', buyerPhone: '2381110000', recipientName: 'Lupita' });
+    component.onSubmit();
+    const firstKey = createGiftCard.mock.calls[0][1];
+    expect(firstKey).toMatch(/^[0-9a-f-]{36}$/);
+    component.onSubmit();
+    expect(createGiftCard.mock.calls[1][1]).toBe(firstKey);
+    component.onSubmit();
+    expect(createGiftCard.mock.calls[2][1]).not.toBe(firstKey);
   });
 });
