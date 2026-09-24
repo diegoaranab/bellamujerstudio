@@ -468,14 +468,18 @@ test('public routes remain usable across the responsive viewport matrix', async 
       await customerAction.scrollIntoViewIfNeeded();
       await expect(customerAction).toBeInViewport();
 
-      if (route.pageTestId === 'public-home-page' && viewport.width <= 720) {
+      if (route.pageTestId === 'public-home-page') {
         const sticky = page.locator('.sticky-whatsapp__link');
-        await expect(sticky).toBeVisible();
-        const bounds = await sticky.boundingBox();
-        expect(bounds).not.toBeNull();
-        expect(bounds!.x).toBeGreaterThanOrEqual(0);
-        expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(viewport.width);
-        expect(bounds!.width).toBeLessThan(viewport.width / 2);
+        if (viewport.width > 720) {
+          await expect(sticky).toBeHidden();
+        } else {
+          await expect(sticky).toBeVisible();
+          const bounds = await sticky.boundingBox();
+          expect(bounds).not.toBeNull();
+          expect(bounds!.x).toBeGreaterThanOrEqual(0);
+          expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(viewport.width);
+          expect(bounds!.width).toBeLessThan(viewport.width / 2);
+        }
       }
 
       for (const link of navLinks) {
