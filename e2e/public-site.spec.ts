@@ -485,6 +485,12 @@ test('public routes remain usable across the responsive viewport matrix', async 
       for (const link of navLinks) {
         await expect(page.getByTestId(link.testId)).toBeVisible();
       }
+      const whatsappLink = page.getByTestId('public-nav-whatsapp-link');
+      if (viewport.width <= 620) {
+        await expect(whatsappLink).toBeHidden();
+      } else {
+        await expect(whatsappLink).toBeVisible();
+      }
 
       await expect(page.getByTestId(route.activeNavTestId)).toHaveAttribute(
         'aria-current',
