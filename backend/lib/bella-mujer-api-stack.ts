@@ -1,6 +1,7 @@
 import * as cdk from 'aws-cdk-lib';
 import * as apigwv2 from 'aws-cdk-lib/aws-apigatewayv2';
 import * as integrations from 'aws-cdk-lib/aws-apigatewayv2-integrations';
+import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as nodejs from 'aws-cdk-lib/aws-lambda-nodejs';
@@ -24,6 +25,75 @@ export class BellaMujerApiStack extends cdk.Stack {
       },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       removalPolicy: cdk.RemovalPolicy.RETAIN
+    });
+
+    const adminUserPool = new cognito.UserPool(this, 'AdminUserPool', {
+      userPoolName: 'bella-mujer-admin',
+      selfSignUpEnabled: false,
+      signInAliases: {
+        email: true
+      },
+      standardAttributes: {
+        email: {
+          required: true,
+          mutable: true
+        }
+      },
+      passwordPolicy: {
+        minLength: 12,
+        requireLowercase: true,
+        requireUppercase: true,
+        requireDigits: true,
+        requireSymbols: true,
+        tempPasswordValidity: cdk.Duration.days(7)
+      },
+      mfa: cognito.Mfa.REQUIRED,
+      mfaSecondFactor: {
+        sms: false,
+        otp: true
+      },
+      accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
+      removalPolicy: cdk.RemovalPolicy.RETAIN
+    });
+
+    const adminUserPoolDomain = adminUserPool.addDomain('AdminHostedUiDomain', {
+      cognitoDomain: {
+        domainPrefix: `bella-mujer-admin-${cdk.Aws.ACCOUNT_ID}-${cdk.Aws.REGION}`
+      }
+    });
+
+    const adminUserPoolClient = adminUserPool.addClient('AdminSpaClient', {
+      userPoolClientName: 'bella-mujer-admin-spa',
+      generateSecret: false,
+      preventUserExistenceErrors: true,
+      authFlows: {
+        userSrp: true
+      },
+      supportedIdentityProviders: [cognito.UserPoolClientIdentityProvider.COGNITO],
+      oAuth: {
+        flows: {
+          authorizationCodeGrant: true
+        },
+        scopes: [
+          cognito.OAuthScope.OPENID,
+          cognito.OAuthScope.EMAIL,
+          cognito.OAuthScope.PROFILE
+        ],
+        callbackUrls: [
+          'http://localhost:4200/',
+          'https://diegoaranab.github.io/bellamujerstudio/',
+          'https://bellamujerestudio.com/'
+        ],
+        logoutUrls: [
+          'http://localhost:4200/',
+          'https://diegoaranab.github.io/bellamujerstudio/',
+          'https://bellamujerestudio.com/'
+        ]
+      },
+      accessTokenValidity: cdk.Duration.hours(1),
+      idTokenValidity: cdk.Duration.hours(1),
+      refreshTokenValidity: cdk.Duration.days(30),
+      enableTokenRevocation: true
     });
 
     const sharedLambdaProps: Omit<nodejs.NodejsFunctionProps, 'entry'> = {
@@ -107,6 +177,26 @@ export class BellaMujerApiStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'GiftCardsTableName', {
       value: giftCardsTable.tableName,
       description: 'DynamoDB gift cards table name'
+    });
+
+    new cdk.CfnOutput(this, 'AdminUserPoolId', {
+      value: adminUserPool.userPoolId,
+      description: 'Cognito user pool ID for admin authentication'
+    });
+
+    new cdk.CfnOutput(this, 'AdminUserPoolClientId', {
+      value: adminUserPoolClient.userPoolClientId,
+      description: 'Public Cognito SPA client ID (no client secret)'
+    });
+
+    new cdk.CfnOutput(this, 'AdminCognitoAuthority', {
+      value: `https://cognito-idp.${cdk.Aws.REGION}.${cdk.Aws.URL_SUFFIX}/${adminUserPool.userPoolId}`,
+      description: 'OIDC authority for admin authentication'
+    });
+
+    new cdk.CfnOutput(this, 'AdminCognitoHostedUiDomain', {
+      value: adminUserPoolDomain.baseUrl(),
+      description: 'Cognito Hosted UI domain for admin authentication'
     });
   }
 }

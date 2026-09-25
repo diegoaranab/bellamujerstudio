@@ -78,6 +78,10 @@ mat-nav-list a.active-link {
   flex: 1;
 }
 
+.logout-button {
+  margin-right: 0.75rem;
+}
+
 .content {
   padding: 1.5rem 2rem 4.5rem;
 }
@@ -117,6 +121,16 @@ mat-nav-list a.active-link {
 
   .topbar {
     padding: 0 1rem;
+  }
+
+  .logout-button {
+    min-width: 40px;
+    padding: 0 0.65rem;
+    font-size: 0;
+  }
+
+  .logout-button mat-icon {
+    margin: 0;
   }
 
   .bottom-nav {

@@ -1,6 +1,6 @@
 # Bella Mujer Backend
 
-Phase 3B adds an AWS serverless scaffold for gift-card requests only. Phase 3C adds optional Angular API integration and keeps localStorage as the default mode.
+Phase 3B adds an AWS serverless scaffold for gift-card requests. Phase 3C adds optional Angular API integration, and Phase 3D adds the undeployed Cognito authentication foundation. localStorage and local auth mode remain the defaults during the transition.
 
 ## What Is Included
 
@@ -11,6 +11,8 @@ Phase 3B adds an AWS serverless scaffold for gift-card requests only. Phase 3C a
   - `GET /health`
 - `POST /gift-cards/request`
 - DynamoDB gift-card table with on-demand billing.
+- Cognito user pool for administrator accounts, with required software-token MFA and email recovery.
+- Secretless Cognito SPA client using authorization code flow and PKCE-compatible callback URLs.
 - Short CloudWatch log retention.
 - Local Vitest tests for validation, handlers, and stack assertions.
 
@@ -22,7 +24,7 @@ The DynamoDB AWS SDK client is bundled into the gift-card Lambda intentionally s
 
 The key becomes the gift-card ID. DynamoDB conditionally writes the card once. The first successful request returns HTTP 201. A replay with the same key and normalized body returns HTTP 200 with the original card, including its ID, folio, and timestamps. Reusing a key with different request data returns HTTP 409 (`IDEMPOTENCY_CONFLICT`). A successful new submission uses a fresh key. The API allows the header in CORS preflight and its Lambda has scoped PutItem and GetItem access.
 
-This scaffold does not include Cognito, Mercado Pago, deployment automation, or any changes to the existing assistant Worker.
+This scaffold does not include protected admin API endpoints, Mercado Pago, deployment automation, or any changes to the existing assistant Worker. No users or credentials are created by CDK.
 
 ## Install
 
@@ -68,5 +70,7 @@ Deployment is intentionally not part of this PR and no deploy is performed here.
 - Review the synthesized CloudFormation template.
 - Choose AWS account and region settings.
 - Confirm production CORS domains.
-- Add Cognito/auth in a later phase before admin endpoints are introduced.
+- Configure the Angular environment with the synthesized Cognito outputs before changing `authMode` to `cognito`.
+- Create owner/admin users out of band; self-sign-up is disabled.
+- Add API Gateway JWT authorization when protected admin endpoints are introduced.
 - Configure the Angular frontend for API mode when the endpoint is ready.

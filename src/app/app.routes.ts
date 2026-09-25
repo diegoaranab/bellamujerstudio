@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import { adminAuthGuard } from './core/auth/admin-auth.guard';
 import { AdminLayoutComponent } from './layouts/admin-layout/admin-layout.component';
 import { PublicLayoutComponent } from './layouts/public-layout/public-layout.component';
 import { AsistenteComponent } from './pages/asistente/asistente.component';
@@ -6,6 +7,7 @@ import { ClientesComponent } from './pages/clientes/clientes.component';
 import { ConfiguracionComponent } from './pages/configuracion/configuracion.component';
 import { DashboardComponent } from './pages/dashboard/dashboard.component';
 import { InventarioComponent } from './pages/inventario/inventario.component';
+import { AdminLoginComponent } from './pages/admin-login/admin-login.component';
 import { PublicContactComponent } from './pages/public-contact/public-contact.component';
 import { PublicGalleryComponent } from './pages/public-gallery/public-gallery.component';
 import { PublicHomeComponent } from './pages/public-home/public-home.component';
@@ -24,8 +26,13 @@ import {
 
 export const routes: Routes = [
   {
+    path: 'admin/login',
+    component: AdminLoginComponent
+  },
+  {
     path: 'admin',
     component: AdminLayoutComponent,
+    canActivate: [adminAuthGuard],
     children: [
       { path: '', redirectTo: 'inicio', pathMatch: 'full' },
       { path: 'inicio', component: DashboardComponent },

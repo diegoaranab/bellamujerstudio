@@ -6,8 +6,9 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatListModule } from '@angular/material/list';
 import { MatToolbarModule } from '@angular/material/toolbar';
-import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
+import { AuthService } from '../../core/auth/auth.service';
 import { NuevaCitaDialogComponent } from '../../shared/dialogs/nueva-cita-dialog/nueva-cita-dialog.component';
 
 interface NavItem {
@@ -35,6 +36,8 @@ interface NavItem {
 export class AdminLayoutComponent {
   private readonly dialog = inject(MatDialog);
   private readonly breakpointObserver = inject(BreakpointObserver);
+  private readonly router = inject(Router);
+  protected readonly auth = inject(AuthService);
 
   protected readonly navItems: NavItem[] = [
     { path: '/admin/inicio', label: 'Inicio', icon: 'dashboard' },
@@ -59,5 +62,12 @@ export class AdminLayoutComponent {
       maxHeight: isHandset ? '100vh' : '90vh',
       panelClass: isHandset ? 'bm-dialog-fullscreen' : undefined
     });
+  }
+
+  async logout(): Promise<void> {
+    await this.auth.logout();
+    if (!this.auth.isCognitoMode || this.auth.errorMessage()) {
+      await this.router.navigate(['/admin/login']);
+    }
   }
 }

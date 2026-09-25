@@ -45,6 +45,59 @@ describe('BellaMujerApiStack', () => {
     template.resourcePropertiesCountIs('AWS::Lambda::Function', {}, 2);
   });
 
+  it('defines an owner-only Cognito user pool with strong defaults', () => {
+    template.resourceCountIs('AWS::Cognito::UserPool', 1);
+    template.hasResourceProperties('AWS::Cognito::UserPool', {
+      AdminCreateUserConfig: {
+        AllowAdminCreateUserOnly: true
+      },
+      AccountRecoverySetting: {
+        RecoveryMechanisms: [{ Name: 'verified_email', Priority: 1 }]
+      },
+      AutoVerifiedAttributes: ['email'],
+      MfaConfiguration: 'ON',
+      EnabledMfas: ['SOFTWARE_TOKEN_MFA'],
+      Policies: {
+        PasswordPolicy: {
+          MinimumLength: 12,
+          RequireLowercase: true,
+          RequireNumbers: true,
+          RequireSymbols: true,
+          RequireUppercase: true,
+          TemporaryPasswordValidityDays: 7
+        }
+      },
+      UsernameAttributes: ['email']
+    });
+  });
+
+  it('defines a secretless SPA client using authorization code flow', () => {
+    template.resourceCountIs('AWS::Cognito::UserPoolClient', 1);
+    template.hasResourceProperties('AWS::Cognito::UserPoolClient', {
+      AllowedOAuthFlows: ['code'],
+      AllowedOAuthFlowsUserPoolClient: true,
+      AllowedOAuthScopes: ['openid', 'email', 'profile'],
+      CallbackURLs: [
+        'http://localhost:4200/',
+        'https://diegoaranab.github.io/bellamujerstudio/',
+        'https://bellamujerestudio.com/'
+      ],
+      EnableTokenRevocation: true,
+      ExplicitAuthFlows: ['ALLOW_USER_SRP_AUTH', 'ALLOW_REFRESH_TOKEN_AUTH'],
+      GenerateSecret: false,
+      PreventUserExistenceErrors: 'ENABLED',
+      SupportedIdentityProviders: ['COGNITO']
+    });
+    template.resourceCountIs('AWS::Cognito::UserPoolDomain', 1);
+  });
+
+  it('outputs the Cognito identifiers required by the SPA', () => {
+    template.hasOutput('AdminUserPoolId', {});
+    template.hasOutput('AdminUserPoolClientId', {});
+    template.hasOutput('AdminCognitoAuthority', {});
+    template.hasOutput('AdminCognitoHostedUiDomain', {});
+  });
+
   it('configures conservative default API throttling', () => {
     template.hasResourceProperties('AWS::ApiGatewayV2::Stage', {
       StageName: '$default',
