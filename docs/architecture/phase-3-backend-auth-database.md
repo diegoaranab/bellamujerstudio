@@ -271,6 +271,13 @@ Future entities:
 - Add request size limits and basic abuse protection for public endpoints.
 - Keep logs useful but avoid logging full personal data payloads.
 
+Phase 3F.1 enforces these public-endpoint controls in the undeployed scaffold:
+
+- Frontend URLs are centralized in the backend configuration. Localhost and the current GitHub Pages URL are defaults; optional production HTTPS URLs come from the `frontendProductionUrls` CDK context value.
+- API Gateway CORS and Lambda response CORS use the origins derived from the same URL list. An unknown or absent origin is never replaced with a trusted origin, and wildcard CORS is not used.
+- `POST /gift-cards/request` rejects bodies over 8 KiB before JSON parsing, including decoded-size handling for base64 events.
+- Normal persistence errors log operation and request metadata only. Gift-card payloads, customer contact details, messages, and exception messages are not logged.
+
 ## 12. Testing Strategy
 
 - Frontend unit tests for gift-card data adapters, route guards, and admin state handling.
@@ -321,6 +328,31 @@ change its mode to `cognito`.
 
 No Cognito resources have been deployed, no real user or credential is present,
 and no API Gateway admin authorizer or protected admin endpoint is included yet.
+
+### Phase 3F.1 deployment-readiness checklist
+
+This is a checklist for a later deployment, not a record of completed actions:
+
+- [ ] Confirm the target AWS account and region.
+- [ ] Confirm an AWS Budget and billing alert before deploying.
+- [ ] Synthesize with the intended CDK context and review all CloudFormation resources, IAM policies, replacements, and outputs.
+- [ ] Configure final frontend URL(s) with `frontendProductionUrls` and verify the derived API CORS origins.
+- [ ] Verify Cognito callback and logout URLs exactly match each deployed frontend base URL.
+- [ ] Verify Cognito remains admin-created-only (`selfSignUpEnabled: false`) and that MFA remains required.
+- [ ] Verify the only public routes are `GET /health` and `POST /gift-cards/request`; do not expose admin routes without JWT authorization.
+- [ ] Change the production Angular `authMode` from transitional `local` to `cognito` before production admin use.
+- [ ] When server persistence is intentionally activated, change production `giftCardDataMode` from `local` to `api` and configure the deployed API base URL.
+- [ ] Configure the frontend from `AdminCognitoAuthority`, `AdminUserPoolClientId`, and `AdminCognitoHostedUiDomain`; retain `AdminUserPoolId` for operational use.
+- [ ] Run post-deployment smoke tests for health, CORS/preflight with `Idempotency-Key`, create/replay behavior, Cognito sign-in/MFA/logout, guarded admin navigation, and production mode selection.
+- [ ] Plan rollback/removal around retained resources. DynamoDB and Cognito use `RETAIN`, so stack removal does not delete them automatically; determine backup/import/manual cleanup ownership first. Log groups use 14-day retention and are not retained after stack removal.
+
+To preview a future custom frontend configuration without deploying, run:
+
+```bash
+npm --prefix backend run synth -- -c frontendProductionUrls=https://YOUR_FINAL_HOST/
+```
+
+The value may be a quoted comma-separated list of HTTPS frontend URLs. The same value must be supplied to later CDK diff/deploy commands. Local synth does not require a custom production URL.
 
 ## 14. Open Questions
 

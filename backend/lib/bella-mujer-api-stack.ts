@@ -8,11 +8,18 @@ import * as nodejs from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import { Construct } from 'constructs';
 
-import { allowedOrigins } from '../src/shared/cors';
+import {
+  FRONTEND_PRODUCTION_URLS_CONTEXT_KEY,
+  resolveFrontendConfiguration
+} from '../src/shared/frontend-configuration';
 
 export class BellaMujerApiStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
+
+    const frontend = resolveFrontendConfiguration(
+      this.node.tryGetContext(FRONTEND_PRODUCTION_URLS_CONTEXT_KEY)
+    );
 
     const giftCardsTable = new dynamodb.Table(this, 'GiftCardsTable', {
       partitionKey: {
@@ -79,16 +86,8 @@ export class BellaMujerApiStack extends cdk.Stack {
           cognito.OAuthScope.EMAIL,
           cognito.OAuthScope.PROFILE
         ],
-        callbackUrls: [
-          'http://localhost:4200/',
-          'https://diegoaranab.github.io/bellamujerstudio/',
-          'https://bellamujerestudio.com/'
-        ],
-        logoutUrls: [
-          'http://localhost:4200/',
-          'https://diegoaranab.github.io/bellamujerstudio/',
-          'https://bellamujerestudio.com/'
-        ]
+        callbackUrls: frontend.urls,
+        logoutUrls: frontend.urls
       },
       accessTokenValidity: cdk.Duration.hours(1),
       idTokenValidity: cdk.Duration.hours(1),
@@ -105,6 +104,9 @@ export class BellaMujerApiStack extends cdk.Stack {
         minify: true,
         sourceMap: true,
         target: 'node22'
+      },
+      environment: {
+        ALLOWED_FRONTEND_ORIGINS: frontend.origins.join(',')
       }
     };
 
@@ -131,6 +133,7 @@ export class BellaMujerApiStack extends cdk.Stack {
         removalPolicy: cdk.RemovalPolicy.DESTROY
       }),
       environment: {
+        ...sharedLambdaProps.environment,
         GIFT_CARDS_TABLE_NAME: giftCardsTable.tableName
       }
     });
@@ -140,8 +143,8 @@ export class BellaMujerApiStack extends cdk.Stack {
     const api = new apigwv2.HttpApi(this, 'BellaMujerHttpApi', {
       apiName: 'bella-mujer-api',
       corsPreflight: {
-        allowOrigins: [...allowedOrigins],
-        allowHeaders: ['content-type', 'authorization', 'idempotency-key'],
+        allowOrigins: frontend.origins,
+        allowHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key'],
         allowMethods: [
           apigwv2.CorsHttpMethod.GET,
           apigwv2.CorsHttpMethod.POST,

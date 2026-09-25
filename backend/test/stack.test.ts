@@ -3,8 +3,8 @@ import { Match, Template } from 'aws-cdk-lib/assertions';
 import { describe, expect, it } from 'vitest';
 import { BellaMujerApiStack } from '../lib/bella-mujer-api-stack';
 
-const synthesizeTemplate = () => {
-  const app = new cdk.App();
+const synthesizeTemplate = (context?: Record<string, unknown>) => {
+  const app = new cdk.App({ context });
   const stack = new BellaMujerApiStack(app, 'TestBellaMujerApiStack');
 
   return Template.fromStack(stack);
@@ -28,21 +28,62 @@ describe('BellaMujerApiStack', () => {
         }
       ]
     });
+
+    const [table] = Object.values(template.findResources('AWS::DynamoDB::Table'));
+    expect(table).toMatchObject({
+      DeletionPolicy: 'Retain',
+      UpdateReplacePolicy: 'Retain'
+    });
   });
 
-  it('defines an HTTP API and Lambda functions', () => {
+  it('defines an HTTP API with an explicit default frontend allow-list', () => {
     template.resourceCountIs('AWS::ApiGatewayV2::Api', 1);
     template.hasResourceProperties('AWS::ApiGatewayV2::Api', {
       ProtocolType: 'HTTP',
-      CorsConfiguration: Match.objectLike({
-        AllowOrigins: Match.arrayWith([
+      CorsConfiguration: {
+        AllowHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key'],
+        AllowMethods: ['GET', 'POST', 'OPTIONS'],
+        AllowOrigins: [
           'http://localhost:4200',
-          'https://diegoaranab.github.io',
-          'https://bellamujerestudio.com'
-        ])
-      })
+          'https://diegoaranab.github.io'
+        ]
+      }
     });
     template.resourcePropertiesCountIs('AWS::Lambda::Function', {}, 2);
+
+    for (const lambdaFunction of Object.values(template.findResources('AWS::Lambda::Function'))) {
+      expect(lambdaFunction.Properties.Environment.Variables).toMatchObject({
+        ALLOWED_FRONTEND_ORIGINS: 'http://localhost:4200,https://diegoaranab.github.io'
+      });
+    }
+  });
+
+  it('adds a configured production frontend to API and Cognito allow-lists', () => {
+    const productionTemplate = synthesizeTemplate({
+      frontendProductionUrls: 'https://studio.example.com/app/'
+    });
+
+    productionTemplate.hasResourceProperties('AWS::ApiGatewayV2::Api', {
+      CorsConfiguration: Match.objectLike({
+        AllowOrigins: [
+          'http://localhost:4200',
+          'https://diegoaranab.github.io',
+          'https://studio.example.com'
+        ]
+      })
+    });
+    productionTemplate.hasResourceProperties('AWS::Cognito::UserPoolClient', {
+      CallbackURLs: [
+        'http://localhost:4200/',
+        'https://diegoaranab.github.io/bellamujerstudio/',
+        'https://studio.example.com/app/'
+      ],
+      LogoutURLs: [
+        'http://localhost:4200/',
+        'https://diegoaranab.github.io/bellamujerstudio/',
+        'https://studio.example.com/app/'
+      ]
+    });
   });
 
   it('defines an owner-only Cognito user pool with strong defaults', () => {
@@ -69,6 +110,12 @@ describe('BellaMujerApiStack', () => {
       },
       UsernameAttributes: ['email']
     });
+
+    const [userPool] = Object.values(template.findResources('AWS::Cognito::UserPool'));
+    expect(userPool).toMatchObject({
+      DeletionPolicy: 'Retain',
+      UpdateReplacePolicy: 'Retain'
+    });
   });
 
   it('defines a secretless SPA client using authorization code flow', () => {
@@ -79,8 +126,11 @@ describe('BellaMujerApiStack', () => {
       AllowedOAuthScopes: ['openid', 'email', 'profile'],
       CallbackURLs: [
         'http://localhost:4200/',
-        'https://diegoaranab.github.io/bellamujerstudio/',
-        'https://bellamujerestudio.com/'
+        'https://diegoaranab.github.io/bellamujerstudio/'
+      ],
+      LogoutURLs: [
+        'http://localhost:4200/',
+        'https://diegoaranab.github.io/bellamujerstudio/'
       ],
       EnableTokenRevocation: true,
       ExplicitAuthFlows: ['ALLOW_USER_SRP_AUTH', 'ALLOW_REFRESH_TOKEN_AUTH'],
@@ -105,6 +155,22 @@ describe('BellaMujerApiStack', () => {
         ThrottlingRateLimit: 5,
         ThrottlingBurstLimit: 20
       }
+    });
+  });
+
+  it('bounds Lambda log retention to two weeks', () => {
+    template.resourcePropertiesCountIs('AWS::Logs::LogGroup', { RetentionInDays: 14 }, 2);
+  });
+
+  it('exposes only the health check and public gift-card request routes', () => {
+    template.resourceCountIs('AWS::ApiGatewayV2::Route', 2);
+    template.hasResourceProperties('AWS::ApiGatewayV2::Route', {
+      AuthorizationType: 'NONE',
+      RouteKey: 'GET /health'
+    });
+    template.hasResourceProperties('AWS::ApiGatewayV2::Route', {
+      AuthorizationType: 'NONE',
+      RouteKey: 'POST /gift-cards/request'
     });
   });
 

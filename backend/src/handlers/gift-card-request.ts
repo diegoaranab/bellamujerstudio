@@ -2,7 +2,13 @@ import { DynamoDBClient, GetItemCommand, PutItemCommand } from '@aws-sdk/client-
 import { APIGatewayProxyEventV2, APIGatewayProxyStructuredResultV2 } from 'aws-lambda';
 import { createGiftCardFolio } from '../shared/id';
 import { GiftCard, GiftCardTableItem, PublicGiftCardRequest, toGiftCardTableItem } from '../shared/gift-card-model';
-import { jsonResponse, serverErrorResponse, validationErrorResponse } from '../shared/response';
+import { originsFromEnvironment } from '../shared/frontend-configuration';
+import {
+  jsonResponse,
+  payloadTooLargeResponse,
+  serverErrorResponse,
+  validationErrorResponse
+} from '../shared/response';
 import { Clock, currentDate, currentISO } from '../shared/time';
 import { validatePublicGiftCardRequest } from '../shared/validation';
 
@@ -15,7 +21,10 @@ export interface GiftCardRequestHandlerDependencies {
   persistence: GiftCardPersistence;
   clock?: Clock;
   createFolio?: (createdAt: Date) => string;
+  allowedOrigins?: readonly string[];
 }
+
+export const MAX_REQUEST_BODY_BYTES = 8 * 1024;
 
 const validKey = (key: string | undefined): key is string =>
   !!key && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(key);
@@ -40,6 +49,28 @@ const parseBody = (body: string | undefined, isBase64Encoded?: boolean): unknown
   const json = isBase64Encoded ? Buffer.from(body, 'base64').toString('utf8') : body;
 
   return JSON.parse(json);
+};
+
+const bodySize = (body: string | undefined, isBase64Encoded?: boolean): number =>
+  body ? Buffer.byteLength(body, isBase64Encoded ? 'base64' : 'utf8') : 0;
+
+const logPersistenceFailure = (
+  operation: 'save' | 'load-replay',
+  event: APIGatewayProxyEventV2,
+  error: unknown
+): void => {
+  const metadata = error && typeof error === 'object' && '$metadata' in error
+    ? (error.$metadata as { requestId?: unknown; httpStatusCode?: unknown })
+    : undefined;
+
+  console.error('Gift-card persistence operation failed', {
+    operation,
+    apiRequestId: event.requestContext?.requestId,
+    ...(typeof metadata?.requestId === 'string' ? { awsRequestId: metadata.requestId } : {}),
+    ...(typeof metadata?.httpStatusCode === 'number'
+      ? { awsHttpStatusCode: metadata.httpStatusCode }
+      : {})
+  });
 };
 
 const toDynamoItem = (giftCard: GiftCardTableItem): PutItemCommand['input']['Item'] => ({
@@ -101,25 +132,30 @@ export class DynamoGiftCardPersistence implements GiftCardPersistence {
 export const createGiftCardRequestHandler = ({
   persistence,
   clock = currentDate,
-  createFolio = createGiftCardFolio
+  createFolio = createGiftCardFolio,
+  allowedOrigins = originsFromEnvironment()
 }: GiftCardRequestHandlerDependencies) => {
   return async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyStructuredResultV2> => {
     const origin = event.headers.origin;
+    if (bodySize(event.body, event.isBase64Encoded) > MAX_REQUEST_BODY_BYTES) {
+      return payloadTooLargeResponse(origin, allowedOrigins);
+    }
+
     const key = event.headers['idempotency-key'] ?? event.headers['Idempotency-Key'];
-    if (!validKey(key)) return validationErrorResponse(origin);
+    if (!validKey(key)) return validationErrorResponse(origin, allowedOrigins);
 
     let parsedBody: unknown;
 
     try {
       parsedBody = parseBody(event.body, event.isBase64Encoded);
     } catch {
-      return validationErrorResponse(origin);
+      return validationErrorResponse(origin, allowedOrigins);
     }
 
     const validation = validatePublicGiftCardRequest(parsedBody);
 
     if (!validation.ok) {
-      return validationErrorResponse(origin);
+      return validationErrorResponse(origin, allowedOrigins);
     }
 
     const now = clock();
@@ -142,19 +178,27 @@ export const createGiftCardRequestHandler = ({
           const existing = await persistence.get(giftCard.id);
           if (existing) {
             return sameRequest(existing, validation.value)
-              ? jsonResponse(200, existing, origin)
-              : jsonResponse(409, { error: 'IDEMPOTENCY_CONFLICT', message: 'Esta clave ya se usó para otra solicitud.' }, origin);
+              ? jsonResponse(200, existing, origin, allowedOrigins)
+              : jsonResponse(
+                409,
+                {
+                  error: 'IDEMPOTENCY_CONFLICT',
+                  message: 'Esta clave ya se usó para otra solicitud.'
+                },
+                origin,
+                allowedOrigins
+              );
           }
         } catch (lookupError) {
-          console.error('Failed to load gift card replay', lookupError);
+          logPersistenceFailure('load-replay', event, lookupError);
         }
       }
-      console.error('Failed to save gift card request', error);
+      logPersistenceFailure('save', event, error);
 
-      return serverErrorResponse(origin);
+      return serverErrorResponse(origin, allowedOrigins);
     }
 
-    return jsonResponse(201, giftCard, origin);
+    return jsonResponse(201, giftCard, origin, allowedOrigins);
   };
 };
 

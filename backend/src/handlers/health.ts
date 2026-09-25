@@ -1,4 +1,5 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyStructuredResultV2 } from 'aws-lambda';
+import { originsFromEnvironment } from '../shared/frontend-configuration';
 import { jsonResponse } from '../shared/response';
 
 export const handler = async (
@@ -10,5 +11,6 @@ export const handler = async (
       ok: true,
       service: 'bella-mujer-api'
     },
-    event.headers.origin
+    event.headers.origin,
+    originsFromEnvironment()
   );
