@@ -10,11 +10,16 @@ export interface OidcUser {
   readonly state?: unknown;
 }
 
+export interface OidcSigninRequestState {
+  readonly userState: unknown;
+}
+
 export interface OidcClient {
   readonly events: {
     addAccessTokenExpired(callback: () => void): () => void;
   };
   getUser(): Promise<OidcUser | null>;
+  readSigninRequestState(state: string): Promise<OidcSigninRequestState | null>;
   removeUser(): Promise<void>;
   signinRedirect(args: { state: { returnUrl: string } }): Promise<void>;
   signinRedirectCallback(url?: string): Promise<OidcUser>;
@@ -34,9 +39,10 @@ export const OIDC_CLIENT_FACTORY = new InjectionToken<OidcClientFactory>('OIDC_C
         throw new Error('La autenticación requiere un navegador.');
       }
 
-      const { UserManager, WebStorageStateStore } = await import('oidc-client-ts');
+      const { SigninState, UserManager, WebStorageStateStore } = await import('oidc-client-ts');
       const redirectUri = new URL(document.baseURI).toString();
       const hostedUiDomain = config.cognito.hostedUiDomain.replace(/\/$/, '');
+      const stateStore = new WebStorageStateStore({ store: window.sessionStorage });
       const manager = new UserManager({
         authority: config.cognito.authority,
         client_id: config.cognito.clientId,
@@ -52,12 +58,26 @@ export const OIDC_CLIENT_FACTORY = new InjectionToken<OidcClientFactory>('OIDC_C
           revocation_endpoint: `${hostedUiDomain}/oauth2/revoke`,
           end_session_endpoint: `${hostedUiDomain}/logout`
         },
+        stateStore,
         userStore: new WebStorageStateStore({ store: window.sessionStorage })
       });
 
       return {
         events: manager.events,
         getUser: () => manager.getUser(),
+        readSigninRequestState: async (state) => {
+          const storedState = await stateStore.get(state);
+          if (!storedState) {
+            return null;
+          }
+
+          try {
+            const signinState = await SigninState.fromStorageString(storedState);
+            return { userState: signinState.data };
+          } catch {
+            return null;
+          }
+        },
         removeUser: () => manager.removeUser(),
         signinRedirect: (args) => manager.signinRedirect(args),
         signinRedirectCallback: (url) => manager.signinRedirectCallback(url),

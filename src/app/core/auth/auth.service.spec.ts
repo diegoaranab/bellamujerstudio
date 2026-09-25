@@ -31,6 +31,7 @@ function createClient(user: OidcUser | null): OidcClient {
       addAccessTokenExpired: vi.fn(() => vi.fn())
     },
     getUser: vi.fn().mockResolvedValue(user),
+    readSigninRequestState: vi.fn().mockResolvedValue(null),
     removeUser: vi.fn().mockResolvedValue(undefined),
     signinRedirect: vi.fn().mockResolvedValue(undefined),
     signinRedirectCallback: vi
@@ -150,8 +151,73 @@ describe('AuthService', () => {
     expect(router.navigate).not.toHaveBeenCalled();
   });
 
-  it('keeps OAuth errors on a clean admin login URL with the error available', async () => {
+  it('ignores an unrelated code parameter on a public URL', async () => {
+    const client = createClient({ access_token: 'access-token', expired: false });
+    const { service, replaceState } = configure(client, {
+      documentUrl: 'https://studio.example/app/?code=promotion#/tarjeta-regalo'
+    });
+
+    await service.initialize();
+
+    expect(client.readSigninRequestState).not.toHaveBeenCalled();
+    expect(client.signinRedirectCallback).not.toHaveBeenCalled();
+    expect(client.getUser).toHaveBeenCalled();
+    expect(replaceState).not.toHaveBeenCalled();
+    expect(service.isAuthenticated()).toBe(true);
+  });
+
+  it('ignores an unrelated error parameter on a public URL', async () => {
+    const client = createClient({ access_token: 'access-token', expired: false });
+    const { service, replaceState } = configure(client, {
+      documentUrl: 'https://studio.example/app/?error=promotion#/tarjeta-regalo'
+    });
+
+    await service.initialize();
+
+    expect(client.readSigninRequestState).not.toHaveBeenCalled();
+    expect(client.signinRedirectCallback).not.toHaveBeenCalled();
+    expect(client.getUser).toHaveBeenCalled();
+    expect(replaceState).not.toHaveBeenCalled();
+    expect(service.isAuthenticated()).toBe(true);
+  });
+
+  it('ignores a response whose state has no pending signin transaction', async () => {
+    const client = createClient({ access_token: 'access-token', expired: false });
+    const { service, replaceState } = configure(client, {
+      documentUrl:
+        'https://studio.example/app/?code=promotion&state=unrelated-state#/tarjeta-regalo'
+    });
+
+    await service.initialize();
+
+    expect(client.readSigninRequestState).toHaveBeenCalledWith('unrelated-state');
+    expect(client.signinRedirectCallback).not.toHaveBeenCalled();
+    expect(client.getUser).toHaveBeenCalled();
+    expect(replaceState).not.toHaveBeenCalled();
+    expect(service.isAuthenticated()).toBe(true);
+  });
+
+  it('processes a callback with a matching pending signin state', async () => {
+    const client = createClient({ access_token: 'access-token', expired: false });
+    vi.mocked(client.readSigninRequestState).mockResolvedValue({
+      userState: { returnUrl: '/admin/clientes' }
+    });
+    const { service } = configure(client, {
+      documentUrl: 'https://studio.example/app/?code=temporary-code&state=expected-state'
+    });
+
+    await service.initialize();
+
+    expect(client.readSigninRequestState).toHaveBeenCalledWith('expected-state');
+    expect(client.signinRedirectCallback).toHaveBeenCalled();
+    expect(client.getUser).not.toHaveBeenCalled();
+  });
+
+  it('keeps OAuth errors on login with the safe original destination and error available', async () => {
     const client = createClient(null);
+    vi.mocked(client.readSigninRequestState).mockResolvedValue({
+      userState: { returnUrl: '/admin/tarjetas-regalo/abc' }
+    });
     vi.mocked(client.signinRedirectCallback).mockRejectedValue(new Error('access_denied'));
     const { service, replaceState } = configure(client, {
       documentUrl:
@@ -161,7 +227,11 @@ describe('AuthService', () => {
     await service.initialize();
 
     expect(client.signinRedirectCallback).toHaveBeenCalled();
-    expect(replaceState).toHaveBeenCalledWith({}, '', '/app/#/admin/login');
+    expect(replaceState).toHaveBeenCalledWith(
+      {},
+      '',
+      '/app/#/admin/login?returnUrl=%2Fadmin%2Ftarjetas-regalo%2Fabc'
+    );
     expect(service.isAuthenticated()).toBe(false);
     expect(service.status()).toBe('error');
     expect(service.errorMessage()).toMatch(/sesión no es válida/i);
@@ -169,6 +239,9 @@ describe('AuthService', () => {
 
   it('keeps failed authorization-code exchanges on a clean admin login URL', async () => {
     const client = createClient(null);
+    vi.mocked(client.readSigninRequestState).mockResolvedValue({
+      userState: { returnUrl: 'https://malicious.example/admin' }
+    });
     vi.mocked(client.signinRedirectCallback).mockRejectedValue(new Error('Token exchange failed'));
     const { service, replaceState } = configure(client, {
       documentUrl: 'https://studio.example/app/?code=temporary-code&state=opaque'
@@ -176,7 +249,11 @@ describe('AuthService', () => {
 
     await service.initialize();
 
-    expect(replaceState).toHaveBeenCalledWith({}, '', '/app/#/admin/login');
+    expect(replaceState).toHaveBeenCalledWith(
+      {},
+      '',
+      '/app/#/admin/login?returnUrl=%2Fadmin%2Finicio'
+    );
     expect(service.status()).toBe('error');
     expect(service.errorMessage()).not.toBeNull();
   });
@@ -188,6 +265,9 @@ describe('AuthService', () => {
       state: { returnUrl: '/admin/tarjetas-regalo/abc?tab=notas' }
     };
     const client = createClient(user);
+    vi.mocked(client.readSigninRequestState).mockResolvedValue({
+      userState: user.state
+    });
     const { service, replaceState } = configure(client, {
       documentUrl: 'https://studio.example/app/?code=temporary-code&state=opaque'
     });

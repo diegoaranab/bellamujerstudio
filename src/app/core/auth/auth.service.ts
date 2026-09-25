@@ -127,13 +127,18 @@ export class AuthService {
       return;
     }
 
-    const hasAuthorizationResponse = this.hasAuthorizationResponse();
+    let authorizationState: unknown;
+    let hasAuthorizationResponse = false;
 
     try {
       const client = await this.getClient();
       client.events.addAccessTokenExpired(() => {
         this.handleAccessTokenExpired(client);
       });
+
+      const authorizationResponse = await this.getAuthorizationResponse(client);
+      hasAuthorizationResponse = authorizationResponse !== null;
+      authorizationState = authorizationResponse?.userState;
 
       const user = hasAuthorizationResponse
         ? await client.signinRedirectCallback(this.document.location.href)
@@ -154,7 +159,7 @@ export class AuthService {
     } catch {
       await this.clearInvalidUser();
       if (hasAuthorizationResponse) {
-        this.finishFailedAuthorizationRedirect();
+        this.finishFailedAuthorizationRedirect(authorizationState);
       }
       this.authStatus.set('error');
       this.authError.set(
@@ -187,9 +192,16 @@ export class AuthService {
     }
   }
 
-  private hasAuthorizationResponse(): boolean {
+  private async getAuthorizationResponse(
+    client: OidcClient
+  ): Promise<{ userState: unknown } | null> {
     const search = new URLSearchParams(this.document.location.search);
-    return search.has('code') || search.has('error');
+    const state = search.get('state');
+    if ((!search.has('code') && !search.has('error')) || !state) {
+      return null;
+    }
+
+    return client.readSigninRequestState(state);
   }
 
   private handleAccessTokenExpired(client: OidcClient): void {
@@ -244,9 +256,14 @@ export class AuthService {
     this.document.defaultView?.history.replaceState({}, '', cleanUrl);
   }
 
-  private finishFailedAuthorizationRedirect(): void {
+  private finishFailedAuthorizationRedirect(state: unknown): void {
+    const returnUrl =
+      typeof state === 'object' && state !== null && 'returnUrl' in state
+        ? normalizeAdminReturnUrl((state as { returnUrl: unknown }).returnUrl)
+        : DEFAULT_ADMIN_RETURN_URL;
     const baseUrl = new URL(this.document.baseURI);
-    const cleanUrl = `${baseUrl.pathname}${baseUrl.search}#/admin/login`;
+    const query = new URLSearchParams({ returnUrl });
+    const cleanUrl = `${baseUrl.pathname}${baseUrl.search}#/admin/login?${query}`;
 
     this.document.defaultView?.history.replaceState({}, '', cleanUrl);
   }
