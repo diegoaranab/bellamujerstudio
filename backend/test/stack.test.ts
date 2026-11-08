@@ -207,12 +207,15 @@ describe('BellaMujerApiStack', () => {
       'POST /gift-cards/request'
     ]);
     expect(routesByKey['GET /health']).toMatchObject({ AuthorizationType: 'NONE' });
+    expect(routesByKey['GET /health'].AuthorizationScopes).toBeUndefined();
     expect(routesByKey['POST /gift-cards/request']).toMatchObject({
       AuthorizationType: 'NONE'
     });
+    expect(routesByKey['POST /gift-cards/request'].AuthorizationScopes).toBeUndefined();
     expect(routesByKey['GET /admin/health']).toMatchObject({
       AuthorizationType: 'JWT',
-      AuthorizerId: { Ref: authorizerLogicalId }
+      AuthorizerId: { Ref: authorizerLogicalId },
+      AuthorizationScopes: ['openid']
     });
   });
 
