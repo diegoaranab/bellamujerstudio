@@ -162,15 +162,57 @@ describe('BellaMujerApiStack', () => {
     template.resourcePropertiesCountIs('AWS::Logs::LogGroup', { RetentionInDays: 14 }, 2);
   });
 
-  it('exposes only the health check and public gift-card request routes', () => {
-    template.resourceCountIs('AWS::ApiGatewayV2::Route', 2);
-    template.hasResourceProperties('AWS::ApiGatewayV2::Route', {
-      AuthorizationType: 'NONE',
-      RouteKey: 'GET /health'
+  it('uses the existing Cognito pool and SPA client for a JWT authorizer', () => {
+    template.resourceCountIs('AWS::Cognito::UserPool', 1);
+    template.resourceCountIs('AWS::Cognito::UserPoolClient', 1);
+    template.resourceCountIs('AWS::ApiGatewayV2::Authorizer', 1);
+    template.resourcePropertiesCountIs('AWS::Lambda::Function', {}, 2);
+
+    const [[userPoolLogicalId]] = Object.entries(
+      template.findResources('AWS::Cognito::UserPool')
+    );
+    const [[userPoolClientLogicalId]] = Object.entries(
+      template.findResources('AWS::Cognito::UserPoolClient')
+    );
+    const [authorizer] = Object.values(
+      template.findResources('AWS::ApiGatewayV2::Authorizer')
+    );
+
+    expect(authorizer.Properties).toMatchObject({
+      AuthorizerType: 'JWT',
+      IdentitySource: ['$request.header.Authorization'],
+      JwtConfiguration: {
+        Audience: [{ Ref: userPoolClientLogicalId }]
+      }
     });
-    template.hasResourceProperties('AWS::ApiGatewayV2::Route', {
-      AuthorizationType: 'NONE',
-      RouteKey: 'POST /gift-cards/request'
+    expect(JSON.stringify(authorizer.Properties.JwtConfiguration.Issuer)).toContain(
+      userPoolLogicalId
+    );
+  });
+
+  it('exposes exactly two public routes and one protected admin health route', () => {
+    template.resourceCountIs('AWS::ApiGatewayV2::Route', 3);
+
+    const routes = Object.values(template.findResources('AWS::ApiGatewayV2::Route'));
+    const routesByKey = Object.fromEntries(
+      routes.map((route) => [route.Properties.RouteKey, route.Properties])
+    );
+    const [[authorizerLogicalId]] = Object.entries(
+      template.findResources('AWS::ApiGatewayV2::Authorizer')
+    );
+
+    expect(Object.keys(routesByKey).sort()).toEqual([
+      'GET /admin/health',
+      'GET /health',
+      'POST /gift-cards/request'
+    ]);
+    expect(routesByKey['GET /health']).toMatchObject({ AuthorizationType: 'NONE' });
+    expect(routesByKey['POST /gift-cards/request']).toMatchObject({
+      AuthorizationType: 'NONE'
+    });
+    expect(routesByKey['GET /admin/health']).toMatchObject({
+      AuthorizationType: 'JWT',
+      AuthorizerId: { Ref: authorizerLogicalId }
     });
   });
 
@@ -194,5 +236,16 @@ describe('BellaMujerApiStack', () => {
         ])
       }
     });
+
+    const dynamodbActions = Object.values(template.findResources('AWS::IAM::Policy')).flatMap(
+      (policy) =>
+        policy.Properties.PolicyDocument.Statement.filter(
+          (statement: { Action?: string[] }) =>
+            Array.isArray(statement.Action) &&
+            statement.Action.some((action) => action.startsWith('dynamodb:'))
+        ).map((statement: { Action: string[] }) => statement.Action)
+    );
+
+    expect(dynamodbActions).toEqual([['dynamodb:PutItem', 'dynamodb:GetItem']]);
   });
 });
