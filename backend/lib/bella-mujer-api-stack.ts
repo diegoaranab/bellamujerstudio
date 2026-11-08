@@ -184,7 +184,8 @@ export class BellaMujerApiStack extends cdk.Stack {
         'AdminHealthIntegration',
         healthFunction
       ),
-      authorizer: adminAuthorizer
+      authorizer: adminAuthorizer,
+      authorizationScopes: ['openid']
     });
 
     new cdk.CfnOutput(this, 'ApiUrl', {
