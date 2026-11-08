@@ -1,5 +1,6 @@
 import * as cdk from 'aws-cdk-lib';
 import * as apigwv2 from 'aws-cdk-lib/aws-apigatewayv2';
+import { HttpUserPoolAuthorizer } from 'aws-cdk-lib/aws-apigatewayv2-authorizers';
 import * as integrations from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
@@ -157,6 +158,10 @@ export class BellaMujerApiStack extends cdk.Stack {
     defaultStage?.addPropertyOverride('DefaultRouteSettings.ThrottlingRateLimit', 5);
     defaultStage?.addPropertyOverride('DefaultRouteSettings.ThrottlingBurstLimit', 20);
 
+    const adminAuthorizer = new HttpUserPoolAuthorizer('AdminAuthorizer', adminUserPool, {
+      userPoolClients: [adminUserPoolClient]
+    });
+
     api.addRoutes({
       path: '/health',
       methods: [apigwv2.HttpMethod.GET],
@@ -170,6 +175,17 @@ export class BellaMujerApiStack extends cdk.Stack {
         'GiftCardRequestIntegration',
         giftCardRequestFunction
       )
+    });
+
+    api.addRoutes({
+      path: '/admin/health',
+      methods: [apigwv2.HttpMethod.GET],
+      integration: new integrations.HttpLambdaIntegration(
+        'AdminHealthIntegration',
+        healthFunction
+      ),
+      authorizer: adminAuthorizer,
+      authorizationScopes: ['openid']
     });
 
     new cdk.CfnOutput(this, 'ApiUrl', {
