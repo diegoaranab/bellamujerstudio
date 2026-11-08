@@ -14,7 +14,7 @@ Phase 3B adds an AWS serverless scaffold for gift-card requests. Phase 3C adds o
 - DynamoDB gift-card table with on-demand billing.
 - Cognito user pool for administrator accounts, with required software-token MFA and email recovery.
 - Secretless Cognito SPA client using authorization code flow and PKCE-compatible callback URLs.
-- Cognito JWT authorization on the first protected route, `GET /admin/health`.
+- Cognito access-token authorization on the first protected route, `GET /admin/health`, requiring the `openid` scope.
 - Short CloudWatch log retention.
 - Local Vitest tests for validation, handlers, and stack assertions.
 
@@ -45,7 +45,7 @@ npm --prefix backend run synth -- -c frontendProductionUrls=https://YOUR_FINAL_H
 
 For multiple production URLs, use a quoted comma-separated value. Paths are allowed when the frontend is hosted below the origin, and a trailing slash is normalized automatically. Supply the same context value to every later CDK diff/deploy operation and verify the synthesized `AllowOrigins`, `CallbackURLs`, and `LogoutURLs` first. Omitting the context remains valid for local synthesis and does not invent a production domain.
 
-`GET /health` and `POST /gift-cards/request` remain public. `GET /admin/health` is the first protected admin endpoint and requires a valid Cognito JWT from the existing administrator user pool and SPA client. It reuses the health Lambda and does not access DynamoDB. There is still no administrative gift-card API; `giftCardDataMode` must remain `local` until that API is deliberately implemented. This scaffold also does not include Mercado Pago, deployment automation, or any changes to the existing assistant Worker. No users or credentials are created by CDK.
+`GET /health` and `POST /gift-cards/request` remain public. `GET /admin/health` is the first protected admin endpoint and requires a valid Cognito access token from the existing administrator user pool and SPA client carrying the `openid` scope. It reuses the health Lambda and does not access DynamoDB. There is still no administrative gift-card API; `giftCardDataMode` must remain `local` until that API is deliberately implemented. This scaffold also does not include Mercado Pago, deployment automation, or any changes to the existing assistant Worker. No users or credentials are created by CDK.
 
 ## Install
 
@@ -93,7 +93,7 @@ Deployment is intentionally not part of Phase 3F.1. The following items are requ
 - [ ] Supply and verify the final frontend URL(s) through `frontendProductionUrls`; do not rely on an assumed custom domain.
 - [ ] Verify API CORS origins and every Cognito callback/logout URL in the synthesized template.
 - [ ] Confirm Cognito still has self-sign-up disabled and document the out-of-band admin-user creation process.
-- [ ] Confirm only `GET /health` and `POST /gift-cards/request` are public, and that `GET /admin/health` rejects requests without a valid Cognito JWT.
+- [ ] Confirm only `GET /health` and `POST /gift-cards/request` are public, and that `GET /admin/health` rejects requests without a valid Cognito access token carrying the `openid` scope.
 - [ ] Ensure the production Angular `authMode` is `cognito`, never `local`, before protecting or exposing real admin data.
 - [ ] Keep production `giftCardDataMode` as `local`; switch it to `api` only after an administrative gift-card API is deliberately implemented and validated.
 - [ ] Copy `AdminCognitoAuthority`, `AdminUserPoolClientId`, and `AdminCognitoHostedUiDomain` outputs into the production Angular configuration. `AdminUserPoolId` is also emitted for operations.
