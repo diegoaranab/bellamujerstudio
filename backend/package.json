@@ -11,13 +11,13 @@
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.946.0",
-    "aws-cdk-lib": "^2.232.1",
+    "aws-cdk-lib": "2.275.0",
     "constructs": "^10.4.4"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.159",
     "@types/node": "^24.10.1",
-    "aws-cdk": "^2.1033.0",
+    "aws-cdk": "2.1148.0",
     "esbuild": "^0.27.1",
     "typescript": "^5.9.3",
     "vitest": "^4.0.15"
