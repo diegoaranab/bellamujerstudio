@@ -1,6 +1,6 @@
 # Bella Mujer Club conceptual domain
 
-This document defines product concepts and invariants, not production TypeScript, API contracts, or a physical DynamoDB key design.
+This document defines product concepts and invariants and records the physical persistence architecture selected in Phase 2. It does not define Phase 3 API contracts.
 
 ## Domain boundaries
 
@@ -185,7 +185,7 @@ The `$500` is not discarded. It remains eligible on future visits, with the one-
 
 **CONFIRMED** — QR scanning alone creates no visit and no loyalty ledger entry. The administrator deliberately confirms/registers the visit, after which server logic determines eligibility and records auditable movements.
 
-The concrete idempotency-key and transaction design is an **OPEN TECHNICAL DECISION** for the persistence/API phases.
+**SELECTED IN PHASE 2** — A future visit API will use a UUID idempotency key as the immutable `visitId`, or preserve an exact one-to-one mapping. The visit stores an opaque SHA-256 request fingerprint. Conditional creation prevents duplicate visit writes; Phase 3 will compare fingerprints to distinguish safe replay from conflict.
 
 ## Security and privacy principles
 
@@ -207,6 +207,30 @@ Invitation token structure, credential derivation, session handling, expiration,
 
 ## Physical persistence boundary
 
-**CONFIRMED direction** — Club data uses dedicated DynamoDB persistence, remains separate from Gift Cards, includes `studioId`, and supports an auditable ledger.
+**SELECTED IN PHASE 2** — Club uses one dedicated DynamoDB table, physically separate from Gift Cards, with base `pk` and `sk` attributes and no secondary indexes initially.
 
-**OPEN TECHNICAL DECISION** — Table count, partition/sort keys, indexes, transactional writes, balance materialization, and exact consistency strategy will be selected during the Club persistence phase. This blueprint intentionally does not freeze them.
+Client profiles form the future directory access pattern:
+
+```text
+pk = STUDIO#<studioId>
+sk = CLIENT#<clientId>
+```
+
+Phase 3 can list a studio's clients with a bounded Query on that partition and `begins_with(sk, 'CLIENT#')`; it must not use Scan. Name and phone lookup remain future access-pattern decisions and do not justify a speculative index.
+
+Each client aggregate uses:
+
+```text
+pk = STUDIO#<studioId>#CLIENT#<clientId>
+sk = BALANCE
+sk = VISIT#<visitId>
+sk = LEDGER#<occurredAtISO>#<entryId>
+```
+
+The timestamp-first ledger key supports deterministic chronological lexical queries. Physical keys contain opaque identifiers only, never client names, phone numbers, email addresses, or service names.
+
+`BALANCE` is a materialized current-state view with an optimistic `version`; the append-style `LEDGER` remains the audit source. A visit outcome is one transaction containing an immutable conditional Visit put, immutable conditional Ledger puts, and a Balance update conditioned on its expected version. Direct core aggregate reads are strongly consistent.
+
+No GSI or LSI is included initially because all confirmed Phase 2 access patterns are supported by the base keys. An index may be introduced later only for a reviewed Phase 3 query pattern.
+
+Phase 2 persistence architecture is implemented in code; production deployment follows the post-merge CDK gate.

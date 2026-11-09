@@ -24,18 +24,24 @@ Goals:
 
 Boundaries: no DynamoDB Club persistence and no production mock JSON added as a substitute for a backend.
 
-**Next: Phase 2 — Club persistence/domain infrastructure.**
+**Phase 2 is implemented in code and awaits the post-merge production deployment gate.**
 
 ## Phase 2 — Club persistence/domain infrastructure
 
-Goals:
+**Persistence architecture implemented in code; production deployment follows the post-merge CDK gate.**
+
+Implemented architecture:
 
 - create dedicated Club persistence, separate from Gift Cards;
-- use DynamoDB;
-- make domain records tenant-aware through `studioId`; and
-- establish an auditable loyalty ledger and current-balance strategy.
+- use one DynamoDB table with base `pk`/`sk` keys and no secondary indexes initially;
+- store the client directory in each `STUDIO#<studioId>` partition;
+- store each client's immutable Visits, append-style Ledger, and materialized Balance in a per-client aggregate partition;
+- make domain records tenant-aware through `studioId`;
+- use consistent direct reads for core aggregate records;
+- update Balance with optimistic versioning in the same transaction as Visit and Ledger writes; and
+- use immutable visit identity plus a request fingerprint as the persistence half of future API idempotency.
 
-**OPEN TECHNICAL DECISION** — Exact table, partition/sort-key, index, transaction, idempotency, and materialization designs are selected and reviewed in this phase. This blueprint does not freeze them.
+The base-table layout supports bounded client-directory and chronological ledger Queries. A phone/name lookup index will be considered only when Phase 3 defines that access pattern.
 
 Tenant awareness is preparation in the data shape, not a SaaS implementation.
 
