@@ -11,10 +11,11 @@ Phase 3B adds an AWS serverless scaffold for gift-card requests. Phase 3C adds o
   - `GET /health`
   - `POST /gift-cards/request`
   - `GET /admin/health` (reuses the health handler)
+  - `GET /admin/gift-cards` (read-only, bounded administrative listing)
 - DynamoDB gift-card table with on-demand billing.
 - Cognito user pool for administrator accounts, with required software-token MFA and email recovery.
 - Secretless Cognito SPA client using authorization code flow and PKCE-compatible callback URLs.
-- Cognito access-token authorization on the first protected route, `GET /admin/health`, requiring the `openid` scope.
+- Cognito access-token/JWT authorization on both protected administrative routes, requiring the `openid` scope.
 - Short CloudWatch log retention.
 - Local Vitest tests for validation, handlers, and stack assertions.
 
@@ -45,7 +46,9 @@ npm --prefix backend run synth -- -c frontendProductionUrls=https://YOUR_FINAL_H
 
 For multiple production URLs, use a quoted comma-separated value. Paths are allowed when the frontend is hosted below the origin, and a trailing slash is normalized automatically. Supply the same context value to every later CDK diff/deploy operation and verify the synthesized `AllowOrigins`, `CallbackURLs`, and `LogoutURLs` first. Omitting the context remains valid for local synthesis and does not invent a production domain.
 
-`GET /health` and `POST /gift-cards/request` remain public. `GET /admin/health` is the first protected admin endpoint and requires a valid Cognito access token from the existing administrator user pool and SPA client carrying the `openid` scope. It reuses the health Lambda and does not access DynamoDB. There is still no administrative gift-card API; `giftCardDataMode` must remain `local` until that API is deliberately implemented. This scaffold also does not include Mercado Pago, deployment automation, or any changes to the existing assistant Worker. No users or credentials are created by CDK.
+`GET /health` and `POST /gift-cards/request` remain public. `GET /admin/health` and `GET /admin/gift-cards` are protected admin endpoints requiring a valid Cognito access token through the existing JWT authorizer with the `openid` scope. The gift-card endpoint provides only a read-only, bounded-paginated list of gift-card requests; it does not provide create, update, delete, or status-management operations.
+
+Angular/admin gift-card state remains local in this PR. Production `giftCardDataMode` must remain `local`, and frontend API integration is deliberately deferred to a later PR. This scaffold also does not include Mercado Pago, deployment automation, or any changes to the existing assistant Worker. No users or credentials are created by CDK.
 
 ## Install
 
@@ -103,11 +106,11 @@ Deployment is intentionally not part of Phase 3F.1. The following items are requ
 - [ ] Supply and verify the final frontend URL(s) through `frontendProductionUrls`; do not rely on an assumed custom domain.
 - [ ] Verify API CORS origins and every Cognito callback/logout URL in the synthesized template.
 - [ ] Confirm Cognito still has self-sign-up disabled and document the out-of-band admin-user creation process.
-- [ ] Confirm only `GET /health` and `POST /gift-cards/request` are public, and that `GET /admin/health` rejects requests without a valid Cognito access token carrying the `openid` scope.
+- [ ] Confirm only `GET /health` and `POST /gift-cards/request` are public, and that both protected admin routes reject requests without a valid Cognito access token carrying the `openid` scope.
 - [ ] Ensure the production Angular `authMode` is `cognito`, never `local`, before protecting or exposing real admin data.
-- [ ] Keep production `giftCardDataMode` as `local`; switch it to `api` only after an administrative gift-card API is deliberately implemented and validated.
+- [ ] Keep production `giftCardDataMode` as `local`; frontend integration with the read-only administrative gift-card API is deliberately deferred to a later PR.
 - [ ] Copy `AdminCognitoAuthority`, `AdminUserPoolClientId`, and `AdminCognitoHostedUiDomain` outputs into the production Angular configuration. `AdminUserPoolId` is also emitted for operations.
 - [ ] Smoke-test `GET /health`, an allowed-origin preflight including `Idempotency-Key`, a valid gift-card request/replay, rejection of an unknown origin in browser CORS, Cognito sign-in/MFA/logout, protected admin navigation, and production-mode configuration.
 - [ ] Prepare rollback and stack-removal steps. The DynamoDB table and Cognito user pool use `RETAIN`, so they survive stack deletion/replacement and require deliberate data backup, import, or manual cleanup. Lambda log groups are intentionally destroyable and retain logs for 14 days while present.
 
-No administrative gift-card API exists yet. The protected `GET /admin/health` route is only an infrastructure and authorization gate.
+The administrative gift-card API is currently read-only. It does not support create, update, delete, or status-management operations.

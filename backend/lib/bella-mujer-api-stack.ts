@@ -141,6 +141,24 @@ export class BellaMujerApiStack extends cdk.Stack {
 
     giftCardsTable.grant(giftCardRequestFunction, 'dynamodb:PutItem', 'dynamodb:GetItem');
 
+    const adminGiftCardsFunction = new nodejs.NodejsFunction(this, 'AdminGiftCardsFunction', {
+      ...sharedLambdaProps,
+      entry: 'src/handlers/admin-gift-cards.ts',
+      handler: 'handler',
+      description: 'Lists gift cards for authenticated administrators',
+      logGroup: new logs.LogGroup(this, 'AdminGiftCardsFunctionLogGroup', {
+        logGroupName: `/aws/lambda/${cdk.Stack.of(this).stackName}-admin-gift-cards`,
+        retention: logs.RetentionDays.TWO_WEEKS,
+        removalPolicy: cdk.RemovalPolicy.DESTROY
+      }),
+      environment: {
+        ...sharedLambdaProps.environment,
+        GIFT_CARDS_TABLE_NAME: giftCardsTable.tableName
+      }
+    });
+
+    giftCardsTable.grant(adminGiftCardsFunction, 'dynamodb:Scan');
+
     const api = new apigwv2.HttpApi(this, 'BellaMujerHttpApi', {
       apiName: 'bella-mujer-api',
       corsPreflight: {
@@ -183,6 +201,17 @@ export class BellaMujerApiStack extends cdk.Stack {
       integration: new integrations.HttpLambdaIntegration(
         'AdminHealthIntegration',
         healthFunction
+      ),
+      authorizer: adminAuthorizer,
+      authorizationScopes: ['openid']
+    });
+
+    api.addRoutes({
+      path: '/admin/gift-cards',
+      methods: [apigwv2.HttpMethod.GET],
+      integration: new integrations.HttpLambdaIntegration(
+        'AdminGiftCardsIntegration',
+        adminGiftCardsFunction
       ),
       authorizer: adminAuthorizer,
       authorizationScopes: ['openid']
