@@ -34,6 +34,8 @@ describe('BellaMujerApiStack', () => {
       DeletionPolicy: 'Retain',
       UpdateReplacePolicy: 'Retain'
     });
+    expect(table.Properties.GlobalSecondaryIndexes).toBeUndefined();
+    expect(table.Properties.LocalSecondaryIndexes).toBeUndefined();
   });
 
   it('defines an HTTP API with an explicit default frontend allow-list', () => {
@@ -42,14 +44,14 @@ describe('BellaMujerApiStack', () => {
       ProtocolType: 'HTTP',
       CorsConfiguration: {
         AllowHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key'],
-        AllowMethods: ['GET', 'POST', 'OPTIONS'],
+        AllowMethods: ['GET', 'POST', 'PATCH', 'OPTIONS'],
         AllowOrigins: [
           'http://localhost:4200',
           'https://diegoaranab.github.io'
         ]
       }
     });
-    template.resourcePropertiesCountIs('AWS::Lambda::Function', {}, 3);
+    template.resourcePropertiesCountIs('AWS::Lambda::Function', {}, 4);
 
     for (const lambdaFunction of Object.values(template.findResources('AWS::Lambda::Function'))) {
       expect(lambdaFunction.Properties.Environment.Variables).toMatchObject({
@@ -159,14 +161,14 @@ describe('BellaMujerApiStack', () => {
   });
 
   it('bounds Lambda log retention to two weeks', () => {
-    template.resourcePropertiesCountIs('AWS::Logs::LogGroup', { RetentionInDays: 14 }, 3);
+    template.resourcePropertiesCountIs('AWS::Logs::LogGroup', { RetentionInDays: 14 }, 4);
   });
 
   it('uses the existing Cognito pool and SPA client for a JWT authorizer', () => {
     template.resourceCountIs('AWS::Cognito::UserPool', 1);
     template.resourceCountIs('AWS::Cognito::UserPoolClient', 1);
     template.resourceCountIs('AWS::ApiGatewayV2::Authorizer', 1);
-    template.resourcePropertiesCountIs('AWS::Lambda::Function', {}, 3);
+    template.resourcePropertiesCountIs('AWS::Lambda::Function', {}, 4);
 
     const [[userPoolLogicalId]] = Object.entries(
       template.findResources('AWS::Cognito::UserPool')
@@ -190,8 +192,8 @@ describe('BellaMujerApiStack', () => {
     );
   });
 
-  it('exposes exactly two public routes and two protected admin routes', () => {
-    template.resourceCountIs('AWS::ApiGatewayV2::Route', 4);
+  it('exposes exactly two public routes and three protected admin routes', () => {
+    template.resourceCountIs('AWS::ApiGatewayV2::Route', 5);
 
     const routes = Object.values(template.findResources('AWS::ApiGatewayV2::Route'));
     const routesByKey = Object.fromEntries(
@@ -205,6 +207,7 @@ describe('BellaMujerApiStack', () => {
       'GET /admin/gift-cards',
       'GET /admin/health',
       'GET /health',
+      'PATCH /admin/gift-cards/{id}',
       'POST /gift-cards/request'
     ]);
     expect(routesByKey['GET /health']).toMatchObject({ AuthorizationType: 'NONE' });
@@ -223,6 +226,11 @@ describe('BellaMujerApiStack', () => {
       AuthorizerId: { Ref: authorizerLogicalId },
       AuthorizationScopes: ['openid']
     });
+    expect(routesByKey['PATCH /admin/gift-cards/{id}']).toMatchObject({
+      AuthorizationType: 'JWT',
+      AuthorizerId: { Ref: authorizerLogicalId },
+      AuthorizationScopes: ['openid']
+    });
   });
 
   it('does not create VPC, NAT, EC2, or RDS resources', () => {
@@ -233,7 +241,7 @@ describe('BellaMujerApiStack', () => {
     template.resourceCountIs('AWS::RDS::DBCluster', 0);
   });
 
-  it('keeps public write permissions unchanged and grants only Scan to the admin list Lambda', () => {
+  it('keeps strict DynamoDB permissions separated by Lambda responsibility', () => {
     const [[tableLogicalId]] = Object.entries(
       template.findResources('AWS::DynamoDB::Table')
     );
@@ -245,6 +253,19 @@ describe('BellaMujerApiStack', () => {
             Action: ['dynamodb:PutItem', 'dynamodb:GetItem'],
             Effect: 'Allow',
             Resource: Match.anyValue()
+          })
+        ])
+      }
+    });
+    template.hasResourceProperties('AWS::IAM::Policy', {
+      PolicyDocument: {
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Action: 'dynamodb:UpdateItem',
+            Effect: 'Allow',
+            Resource: Match.arrayWith([
+              { 'Fn::GetAtt': [tableLogicalId, 'Arn'] }
+            ])
           })
         ])
       }
@@ -277,8 +298,37 @@ describe('BellaMujerApiStack', () => {
 
     expect(dynamodbActions).toEqual(expect.arrayContaining([
       ['dynamodb:PutItem', 'dynamodb:GetItem'],
-      'dynamodb:Scan'
+      'dynamodb:Scan',
+      'dynamodb:UpdateItem'
     ]));
-    expect(dynamodbActions).toHaveLength(2);
+    expect(dynamodbActions).toHaveLength(3);
+
+    const lambdaFunctions = Object.values(template.findResources('AWS::Lambda::Function'));
+    const roleForDescription = (description: string): string => {
+      const lambdaFunction = lambdaFunctions.find(
+        (resource) => resource.Properties.Description === description
+      );
+      expect(lambdaFunction).toBeDefined();
+      return lambdaFunction!.Properties.Role['Fn::GetAtt'][0];
+    };
+    const actionsForRole = (roleLogicalId: string): string[] =>
+      Object.values(template.findResources('AWS::IAM::Policy')).flatMap((policy) =>
+        policy.Properties.Roles.some((role: { Ref?: string }) => role.Ref === roleLogicalId)
+          ? policy.Properties.PolicyDocument.Statement.flatMap(
+            (statement: { Action?: string | string[] }) => statement.Action ?? []
+          )
+          : []
+      ).filter((action: string) => action.startsWith('dynamodb:')).sort();
+
+    expect(actionsForRole(roleForDescription('Creates public pending gift-card requests'))).toEqual([
+      'dynamodb:GetItem',
+      'dynamodb:PutItem'
+    ]);
+    expect(actionsForRole(roleForDescription(
+      'Lists gift cards for authenticated administrators'
+    ))).toEqual(['dynamodb:Scan']);
+    expect(actionsForRole(roleForDescription(
+      'Updates gift-card status and notes for authenticated administrators'
+    ))).toEqual(['dynamodb:UpdateItem']);
   });
 });

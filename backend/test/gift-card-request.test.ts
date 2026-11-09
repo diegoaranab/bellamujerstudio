@@ -208,9 +208,11 @@ describe('gift-card request handler', () => {
 describe('Dynamo gift-card persistence', () => {
   it('conditionally writes and consistently reads the original card', async () => {
     const send = vi.fn().mockResolvedValueOnce({}).mockResolvedValueOnce({ Item: {
-      id: { S: keyOne }, folio: { S: 'BM-ORIGINAL' }, status: { S: 'pendiente' },
+      id: { S: keyOne }, folio: { S: 'BM-ORIGINAL' }, status: { S: 'pagada' },
       paymentMethod: { S: 'transferencia' }, createdAtISO: { S: '2026-04-25T12:00:00.000Z' },
-      updatedAtISO: { S: '2026-04-25T12:00:00.000Z' }, buyerName: { S: 'Diego' },
+      updatedAtISO: { S: '2026-04-25T13:00:00.000Z' },
+      confirmedAtISO: { S: '2026-04-25T13:00:00.000Z' },
+      notes: { S: 'Transferencia confirmada' }, buyerName: { S: 'Diego' },
       buyerPhone: { S: '5551234567' }, recipientName: { S: 'Alejandra' },
       amountMXN: { N: '500' }, message: { S: 'Feliz cumple' }
     } });
@@ -225,8 +227,9 @@ describe('Dynamo gift-card persistence', () => {
     expect(send.mock.calls[0][0]).toBeInstanceOf(PutItemCommand);
     expect(send.mock.calls[0][0].input.ConditionExpression).toBe('attribute_not_exists(pk)');
     expect(await persistence.get(keyOne)).toEqual({
-      id: keyOne, folio: 'BM-ORIGINAL', status: 'pendiente', paymentMethod: 'transferencia',
-      createdAtISO: '2026-04-25T12:00:00.000Z', updatedAtISO: '2026-04-25T12:00:00.000Z',
+      id: keyOne, folio: 'BM-ORIGINAL', status: 'pagada', paymentMethod: 'transferencia',
+      createdAtISO: '2026-04-25T12:00:00.000Z', updatedAtISO: '2026-04-25T13:00:00.000Z',
+      confirmedAtISO: '2026-04-25T13:00:00.000Z', notes: 'Transferencia confirmada',
       ...validBody
     });
     expect(send.mock.calls[1][0]).toBeInstanceOf(GetItemCommand);

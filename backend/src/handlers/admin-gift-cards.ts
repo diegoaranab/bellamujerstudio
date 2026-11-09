@@ -4,7 +4,7 @@ import {
   ScanCommand
 } from '@aws-sdk/client-dynamodb';
 import { APIGatewayProxyEventV2, APIGatewayProxyStructuredResultV2 } from 'aws-lambda';
-import { GiftCard } from '../shared/gift-card-model';
+import { GiftCard, giftCardFromDynamoItem } from '../shared/gift-card-model';
 import { originsFromEnvironment } from '../shared/frontend-configuration';
 import { jsonResponse } from '../shared/response';
 
@@ -83,42 +83,6 @@ const parseLimit = (value: string | undefined): number => {
   return parsed;
 };
 
-const requiredString = (item: Record<string, AttributeValue>, field: string): string => {
-  const value = item[field]?.S;
-  if (typeof value !== 'string') throw new Error(`Invalid gift-card field: ${field}`);
-  return value;
-};
-
-const optionalString = (
-  item: Record<string, AttributeValue>,
-  field: string
-): string | undefined => item[field]?.S;
-
-const toGiftCard = (item: Record<string, AttributeValue>): GiftCard => {
-  const amount = Number(item.amountMXN?.N);
-  if (!Number.isFinite(amount)) throw new Error('Invalid gift-card field: amountMXN');
-
-  const buyerEmail = optionalString(item, 'buyerEmail');
-  const recipientPhone = optionalString(item, 'recipientPhone');
-  const message = optionalString(item, 'message');
-
-  return {
-    id: requiredString(item, 'id'),
-    folio: requiredString(item, 'folio'),
-    createdAtISO: requiredString(item, 'createdAtISO'),
-    updatedAtISO: requiredString(item, 'updatedAtISO'),
-    paymentMethod: 'transferencia',
-    status: 'pendiente',
-    buyerName: requiredString(item, 'buyerName'),
-    buyerPhone: requiredString(item, 'buyerPhone'),
-    ...(buyerEmail ? { buyerEmail } : {}),
-    recipientName: requiredString(item, 'recipientName'),
-    ...(recipientPhone ? { recipientPhone } : {}),
-    amountMXN: amount,
-    ...(message ? { message } : {})
-  };
-};
-
 const asContinuationKey = (
   key: Record<string, AttributeValue> | undefined
 ): ContinuationKey | undefined => {
@@ -154,7 +118,7 @@ export class DynamoGiftCardListPersistence implements GiftCardListPersistence {
         }
       }));
 
-      const pageItems = (result.Items ?? []).map(toGiftCard);
+      const pageItems = (result.Items ?? []).map(giftCardFromDynamoItem);
       if (pageItems.length > remaining) {
         throw new Error('DynamoDB returned more gift cards than the requested scan limit');
       }

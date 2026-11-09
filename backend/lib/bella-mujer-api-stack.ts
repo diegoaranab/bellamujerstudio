@@ -159,6 +159,28 @@ export class BellaMujerApiStack extends cdk.Stack {
 
     giftCardsTable.grant(adminGiftCardsFunction, 'dynamodb:Scan');
 
+    const adminGiftCardUpdateFunction = new nodejs.NodejsFunction(
+      this,
+      'AdminGiftCardUpdateFunction',
+      {
+        ...sharedLambdaProps,
+        entry: 'src/handlers/admin-gift-card-update.ts',
+        handler: 'handler',
+        description: 'Updates gift-card status and notes for authenticated administrators',
+        logGroup: new logs.LogGroup(this, 'AdminGiftCardUpdateFunctionLogGroup', {
+          logGroupName: `/aws/lambda/${cdk.Stack.of(this).stackName}-admin-gift-card-update`,
+          retention: logs.RetentionDays.TWO_WEEKS,
+          removalPolicy: cdk.RemovalPolicy.DESTROY
+        }),
+        environment: {
+          ...sharedLambdaProps.environment,
+          GIFT_CARDS_TABLE_NAME: giftCardsTable.tableName
+        }
+      }
+    );
+
+    giftCardsTable.grant(adminGiftCardUpdateFunction, 'dynamodb:UpdateItem');
+
     const api = new apigwv2.HttpApi(this, 'BellaMujerHttpApi', {
       apiName: 'bella-mujer-api',
       corsPreflight: {
@@ -167,6 +189,7 @@ export class BellaMujerApiStack extends cdk.Stack {
         allowMethods: [
           apigwv2.CorsHttpMethod.GET,
           apigwv2.CorsHttpMethod.POST,
+          apigwv2.CorsHttpMethod.PATCH,
           apigwv2.CorsHttpMethod.OPTIONS
         ]
       }
@@ -212,6 +235,17 @@ export class BellaMujerApiStack extends cdk.Stack {
       integration: new integrations.HttpLambdaIntegration(
         'AdminGiftCardsIntegration',
         adminGiftCardsFunction
+      ),
+      authorizer: adminAuthorizer,
+      authorizationScopes: ['openid']
+    });
+
+    api.addRoutes({
+      path: '/admin/gift-cards/{id}',
+      methods: [apigwv2.HttpMethod.PATCH],
+      integration: new integrations.HttpLambdaIntegration(
+        'AdminGiftCardUpdateIntegration',
+        adminGiftCardUpdateFunction
       ),
       authorizer: adminAuthorizer,
       authorizationScopes: ['openid']
