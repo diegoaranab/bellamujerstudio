@@ -34,6 +34,86 @@
   font: inherit;
 }
 
+.club-preview {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.25rem 1.5rem;
+  border: 1px solid var(--bm-border-soft);
+  border-radius: var(--bm-radius-card);
+  background:
+    radial-gradient(circle at 90% 0%, color-mix(in srgb, var(--bm-brand-sand) 20%, transparent), transparent 34%),
+    var(--bm-brand-blush);
+  box-shadow: var(--bm-shadow-soft);
+}
+
+.club-preview__icon {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: white;
+  background: var(--bm-brand-wine);
+}
+
+.club-preview__copy {
+  min-width: 0;
+}
+
+.club-preview__copy h2 {
+  margin-top: 0.2rem;
+  color: var(--bm-brand-wine);
+}
+
+.club-preview__copy > p {
+  margin-top: 0.35rem;
+  color: var(--bm-text-muted);
+}
+
+.club-preview__heading-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.club-preview__eyebrow {
+  color: var(--bm-brand-rose);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.club-preview__badge {
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bm-brand-wine) 10%, white);
+  color: var(--bm-brand-wine);
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.club-preview__action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 44px;
+  padding: 0 1rem;
+  border-radius: 999px;
+  color: white;
+  background: var(--bm-brand-wine);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.club-preview__action:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--bm-brand-wine) 45%, white);
+  outline-offset: 3px;
+}
+
 .kpi-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -131,5 +211,15 @@
 
   .cita-meta-main {
     align-items: flex-start;
+  }
+
+  .club-preview {
+    grid-template-columns: auto minmax(0, 1fr);
+    padding: 1.1rem;
+  }
+
+  .club-preview__action {
+    grid-column: 1 / -1;
+    justify-content: center;
   }
 }

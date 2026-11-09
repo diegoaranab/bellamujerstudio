@@ -25,6 +25,18 @@ html {
   --mat-sys-surface-container: #ffffff;
   --mat-sys-surface-container-low: #fff7f9;
   --mat-sys-surface-container-high: #fdf0f3;
+
+  /* Bella Mujer semantic visual foundation. Material system values remain unchanged. */
+  --bm-brand-wine: #8a1e3f;
+  --bm-brand-rose: #a98585;
+  --bm-brand-sand: #c09579;
+  --bm-brand-blush: #fffafa;
+  --bm-surface-accent: color-mix(in srgb, var(--bm-brand-wine) 7%, white);
+  --bm-border-soft: color-mix(in srgb, var(--bm-brand-wine) 14%, transparent);
+  --bm-text-muted: #6b5b66;
+  --bm-radius-card: 24px;
+  --bm-radius-soft: 16px;
+  --bm-shadow-soft: 0 16px 40px color-mix(in srgb, var(--bm-brand-wine) 10%, transparent);
 }
 
 body {

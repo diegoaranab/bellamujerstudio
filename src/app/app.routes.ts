@@ -6,6 +6,7 @@ import { AsistenteComponent } from './pages/asistente/asistente.component';
 import { ClientesComponent } from './pages/clientes/clientes.component';
 import { ConfiguracionComponent } from './pages/configuracion/configuracion.component';
 import { DashboardComponent } from './pages/dashboard/dashboard.component';
+import { ClubDashboardComponent } from './pages/club-dashboard/club-dashboard.component';
 import { InventarioComponent } from './pages/inventario/inventario.component';
 import { AdminLoginComponent } from './pages/admin-login/admin-login.component';
 import { PublicContactComponent } from './pages/public-contact/public-contact.component';
@@ -36,6 +37,7 @@ export const routes: Routes = [
     children: [
       { path: '', redirectTo: 'inicio', pathMatch: 'full' },
       { path: 'inicio', component: DashboardComponent },
+      { path: 'club', component: ClubDashboardComponent },
       { path: 'servicios', component: ServiciosComponent },
       { path: 'clientes', component: ClientesComponent },
       { path: 'inventario', component: InventarioComponent },

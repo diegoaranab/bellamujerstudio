@@ -13,6 +13,7 @@ import {
 } from './core/constants/seo.constants';
 import { AdminLayoutComponent } from './layouts/admin-layout/admin-layout.component';
 import { PublicLayoutComponent } from './layouts/public-layout/public-layout.component';
+import { ClubDashboardComponent } from './pages/club-dashboard/club-dashboard.component';
 
 @Component({
   template: '<p>Ruta de prueba</p>'
@@ -30,6 +31,7 @@ describe('App', () => {
             component: AdminLayoutComponent,
             children: [
               { path: 'inicio', component: TestRouteComponent },
+              { path: 'club', component: ClubDashboardComponent },
               { path: 'tarjetas-regalo', component: TestRouteComponent }
             ]
           },
@@ -128,8 +130,32 @@ describe('App', () => {
     expect(navText).toContain('Clientes');
     expect(navText).toContain('Inventario');
     expect(navText).toContain('Tarjetas regalo');
+    expect(navText).toContain('Bella Mujer Club');
     expect(navText).toContain('Asistente');
     expect(navText).toContain('Configuración');
+  });
+
+  it('keeps Club in the desktop sidebar and out of the mobile bottom navigation collection', async () => {
+    const fixture = await renderAt('/admin/club');
+    const compiled = fixture.nativeElement as HTMLElement;
+    const sidebar = compiled.querySelector('.sidenav');
+    const bottomNav = compiled.querySelector('[data-testid="admin-bottom-nav"]');
+
+    expect(sidebar?.textContent).toContain('Bella Mujer Club');
+    expect(bottomNav?.textContent).not.toContain('Bella Mujer Club');
+    expect(bottomNav?.querySelectorAll('.bottom-nav__item')).toHaveLength(7);
+    expect(bottomNav?.textContent).toContain('Inicio');
+    expect(bottomNav?.textContent).toContain('Configuración');
+  });
+
+  it('renders the Club route inside the admin shell and not the public shell', async () => {
+    const fixture = await renderAt('/admin/club');
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    expect(compiled.querySelector('[data-testid="admin-shell"]')).toBeTruthy();
+    expect(compiled.querySelector('[data-testid="public-shell"]')).toBeFalsy();
+    expect(compiled.querySelector('[data-testid="club-dashboard"]')).toBeTruthy();
+    expect(compiled.querySelector('h1')?.textContent).toContain('Bella Mujer Club');
   });
 
   it('should render the main shell header content', async () => {

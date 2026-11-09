@@ -15,6 +15,7 @@ interface NavItem {
   path: string;
   label: string;
   icon: string;
+  showInBottomNav?: boolean;
 }
 
 @Component({
@@ -49,9 +50,19 @@ export class AdminLayoutComponent {
       label: 'Tarjetas regalo',
       icon: 'card_giftcard'
     },
+    {
+      path: '/admin/club',
+      label: 'Bella Mujer Club',
+      icon: 'loyalty',
+      showInBottomNav: false
+    },
     { path: '/admin/asistente', label: 'Asistente', icon: 'chat' },
     { path: '/admin/configuracion', label: 'Configuración', icon: 'settings' }
   ];
+
+  protected readonly bottomNavItems = this.navItems.filter(
+    (item) => item.showInBottomNav !== false
+  );
 
   openNuevaCita(): void {
     const isHandset = this.breakpointObserver.isMatched(Breakpoints.Handset);

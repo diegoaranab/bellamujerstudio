@@ -8,6 +8,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatListModule } from '@angular/material/list';
 import { MatMenuModule } from '@angular/material/menu';
+import { RouterLink } from '@angular/router';
 import { combineLatest, map } from 'rxjs';
 
 import { DbFacadeService } from '../../core/services/db-facade.service';
@@ -37,7 +38,8 @@ interface CitaHoyVm {
     MatListModule,
     MatMenuModule,
     NgFor,
-    NgIf
+    NgIf,
+    RouterLink
   ],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss'

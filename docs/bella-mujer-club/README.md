@@ -45,6 +45,6 @@ Existing administrative Cognito authentication remains the administrative bounda
 
 ## Current implementation status
 
-**Phase 0 — documentation only.** There is no Club production behavior, persistence, route, component, authentication mechanism, infrastructure, or deployment in this work.
-
-The next intended step is **Phase 1 — visual foundation and a mocked Club admin shell**. It will establish reusable Bella Mujer visual primitives and the `/admin/club` experience without adding DynamoDB Club persistence or redesigning the whole application.
+- **Phase 0 — completed.** The product blueprint records the confirmed rules and boundaries.
+- **Phase 1 — preview shell implemented.** `/admin/club` provides a clearly labeled, demonstration-only administrator preview and a small Bella Mujer visual foundation. It does not persist or modify Club data.
+- **Next: Phase 2 — Club persistence/domain infrastructure.** Dedicated DynamoDB persistence, an auditable ledger, and the physical domain design remain the next implementation step.
