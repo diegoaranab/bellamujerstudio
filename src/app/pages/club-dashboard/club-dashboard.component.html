@@ -1,0 +1,149 @@
+<article class="club-page" data-testid="club-dashboard">
+  <header class="club-hero">
+    <div class="club-hero__content">
+      <div class="club-hero__meta">
+        <span class="bm-preview-badge">
+          <mat-icon aria-hidden="true">visibility</mat-icon>
+          Vista previa
+        </span>
+        <span class="club-hero__context">Bella Mujer Studio</span>
+      </div>
+      <p class="club-hero__eyebrow">Programa de fidelidad</p>
+      <h1>Bella Mujer Club</h1>
+      <p class="club-hero__lead">Fidelidad que se siente personal.</p>
+      <p class="club-hero__description">
+        Una experiencia cálida para reconocer cada visita y acompañar la relación con nuestras
+        clientas.
+      </p>
+    </div>
+    <div class="club-hero__mark" aria-hidden="true">
+      <mat-icon>loyalty</mat-icon>
+      <span>Club</span>
+    </div>
+  </header>
+
+  <section class="preview-notice" aria-labelledby="preview-notice-title" data-testid="club-preview-notice">
+    <mat-icon aria-hidden="true">info</mat-icon>
+    <div>
+      <h2 id="preview-notice-title">Datos de demostración</h2>
+      <p>
+        Esta pantalla todavía no registra ni modifica información real de clientas. Los valores se
+        muestran únicamente para validar la experiencia visual.
+      </p>
+    </div>
+  </section>
+
+  <section aria-labelledby="metrics-title">
+    <div class="section-heading">
+      <div>
+        <p class="section-heading__eyebrow">Resumen ilustrativo</p>
+        <h2 id="metrics-title">Un vistazo al Club</h2>
+      </div>
+      <span>Todos los datos son demo</span>
+    </div>
+    <div class="metric-grid" data-testid="club-demo-metrics">
+      @for (metric of metrics; track metric.label) {
+        <article class="metric-card">
+          <div class="metric-card__icon" aria-hidden="true"><mat-icon>{{ metric.icon }}</mat-icon></div>
+          <p class="metric-card__label">{{ metric.label }}</p>
+          <p class="metric-card__value">{{ metric.value }}</p>
+          <p class="metric-card__detail">{{ metric.detail }}</p>
+        </article>
+      }
+    </div>
+  </section>
+
+  <div class="club-grid club-grid--featured">
+    <section class="section-card loyalty-example" aria-labelledby="loyalty-title">
+      <div class="section-card__header">
+        <div>
+          <p class="section-heading__eyebrow">Ejemplo de fidelidad</p>
+          <h2 id="loyalty-title">Clienta demo A</h2>
+        </div>
+        <span class="demo-label">Demo</span>
+      </div>
+      <p class="loyalty-example__intro">Una vista clara de su posición actual, sin definir todavía una meta de recompensa.</p>
+      <div class="stamp-row" role="img" aria-label="3 sellos acumulados">
+        @for (stamp of [1, 2, 3]; track stamp) {
+          <span class="stamp"><mat-icon aria-hidden="true">spa</mat-icon></span>
+        }
+      </div>
+      <p class="loyalty-example__count">3 sellos acumulados</p>
+      <div class="balance-note">
+        <span>Saldo elegible</span>
+        <strong>$130</strong>
+        <small>Acumulado para una próxima visita</small>
+      </div>
+    </section>
+
+    <section class="section-card" aria-labelledby="clients-title" data-testid="club-demo-clients">
+      <div class="section-card__header">
+        <div>
+          <p class="section-heading__eyebrow">Ejemplos recientes</p>
+          <h2 id="clients-title">Clientas Club</h2>
+        </div>
+        <mat-icon aria-hidden="true">groups</mat-icon>
+      </div>
+      <div class="client-list">
+        @for (client of demoClients; track client.name) {
+          <article class="client-row">
+            <span class="client-row__avatar" aria-hidden="true">{{ client.name.slice(-1) }}</span>
+            <div class="client-row__main">
+              <h3>{{ client.name }}</h3>
+              <p>{{ stampLabel(client.stamps) }} · {{ client.note }}</p>
+            </div>
+            <div class="client-row__balance">
+              <strong>{{ client.eligibleBalance }}</strong>
+              <span>Saldo elegible</span>
+            </div>
+          </article>
+        }
+      </div>
+    </section>
+  </div>
+
+  <section class="section-card activity-card" aria-labelledby="activity-title">
+    <div class="section-card__header">
+      <div>
+        <p class="section-heading__eyebrow">Historial ilustrativo</p>
+        <h2 id="activity-title">Actividad de fidelidad</h2>
+      </div>
+      <span class="demo-label">Solo demostración</span>
+    </div>
+    <p class="activity-card__intro">Cada movimiento futuro tendrá una razón visible y un historial auditable.</p>
+    <div class="activity-list">
+      @for (activity of activities; track activity.title) {
+        <article class="activity-row">
+          <span class="activity-row__icon" aria-hidden="true"><mat-icon>{{ activity.icon }}</mat-icon></span>
+          <div>
+            <h3>{{ activity.title }}</h3>
+            <p>{{ activity.detail }}</p>
+          </div>
+          <strong>{{ activity.value }}</strong>
+        </article>
+      }
+    </div>
+  </section>
+
+  <section aria-labelledby="areas-title" data-testid="club-future-areas">
+    <div class="section-heading">
+      <div>
+        <p class="section-heading__eyebrow">Evolución del producto</p>
+        <h2 id="areas-title">Próximas áreas del Club</h2>
+      </div>
+      <span>Sin acciones disponibles en esta vista</span>
+    </div>
+    <div class="area-grid">
+      @for (area of clubAreas; track area.title) {
+        <article class="area-card">
+          <mat-icon aria-hidden="true">{{ area.icon }}</mat-icon>
+          <div>
+            <h3>{{ area.title }}</h3>
+            <p>{{ area.description }}</p>
+          </div>
+          <span>Próxima fase</span>
+        </article>
+      }
+    </div>
+  </section>
+</article>

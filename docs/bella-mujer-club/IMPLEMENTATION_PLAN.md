@@ -4,7 +4,7 @@ Club will be reconstructed incrementally on the production Bella Mujer Studio st
 
 ## Phase 0 — Product blueprint
 
-**This documentation change.**
+**Completed.**
 
 Goal: formalize accepted prototype decisions, boundaries, unknowns, and the incremental plan before production Club code is written.
 
@@ -12,7 +12,7 @@ Deliverable: documentation only. No routes, components, APIs, persistence, authe
 
 ## Phase 1 — Visual foundation and Club shell
 
-Next intended PR (planned as PR #62).
+**Preview shell implemented.** The `/admin/club` experience uses demonstration-only component state and does not persist or modify Club data.
 
 Goals:
 
@@ -23,6 +23,8 @@ Goals:
 - test a richer hierarchy without redesigning the entire application.
 
 Boundaries: no DynamoDB Club persistence and no production mock JSON added as a substitute for a backend.
+
+**Next: Phase 2 — Club persistence/domain infrastructure.**
 
 ## Phase 2 — Club persistence/domain infrastructure
 

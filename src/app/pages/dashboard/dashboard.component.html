@@ -12,6 +12,24 @@
     </button>
   </header>
 
+  <aside class="club-preview" aria-labelledby="club-preview-title" data-testid="club-preview-card">
+    <div class="club-preview__icon" aria-hidden="true">
+      <mat-icon>loyalty</mat-icon>
+    </div>
+    <div class="club-preview__copy">
+      <div class="club-preview__heading-row">
+        <p class="club-preview__eyebrow">Programa de fidelidad</p>
+        <span class="club-preview__badge">Vista previa</span>
+      </div>
+      <h2 id="club-preview-title">Bella Mujer Club</h2>
+      <p>Conoce la nueva experiencia para acompañar y reconocer a nuestras clientas frecuentes.</p>
+    </div>
+    <a class="club-preview__action" routerLink="/admin/club">
+      Explorar Club
+      <mat-icon aria-hidden="true">arrow_forward</mat-icon>
+    </a>
+  </aside>
+
   <section class="kpi-grid">
     <mat-card class="kpi-card">
       <mat-card-content>

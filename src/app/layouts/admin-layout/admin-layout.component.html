@@ -51,8 +51,8 @@
     </main>
   </div>
 
-  <nav class="bottom-nav" aria-label="Navegación móvil">
-    @for (item of navItems; track item.path) {
+  <nav class="bottom-nav" aria-label="Navegación móvil" data-testid="admin-bottom-nav">
+    @for (item of bottomNavItems; track item.path) {
       <a
         class="bottom-nav__item"
         [routerLink]="item.path"
