@@ -1,5 +1,5 @@
 import { AsyncPipe, CurrencyPipe, DatePipe, NgClass, NgFor, NgIf } from '@angular/common';
-import { Component, inject } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import {
   FormControl,
   FormGroup,
@@ -16,9 +16,13 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatSelectChange, MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { RouterLink } from '@angular/router';
-import { combineLatest, map, startWith } from 'rxjs';
+import { combineLatest, finalize, map, startWith, take } from 'rxjs';
 
 import { GiftCard, GiftCardPaymentMethod, GiftCardStatus } from '../../core/models';
+import {
+  AdminGiftCardApiClient,
+  AdminGiftCardApiError
+} from '../../core/services/admin-gift-card-api.client';
 import { GiftCardService } from '../../core/services/gift-card.service';
 import {
   GIFT_CARD_MIN_AMOUNT_MXN,
@@ -56,8 +60,9 @@ import {
   templateUrl: './tarjetas-regalo.component.html',
   styleUrl: './tarjetas-regalo.component.scss'
 })
-export class TarjetasRegaloComponent {
+export class TarjetasRegaloComponent implements OnInit {
   private readonly giftCardService = inject(GiftCardService);
+  private readonly adminGiftCardApi = inject(AdminGiftCardApiClient);
   private readonly snackBar = inject(MatSnackBar);
 
   readonly giftCards$ = this.giftCardService.giftCards$;
@@ -70,6 +75,11 @@ export class TarjetasRegaloComponent {
     'tarjeta',
     'otro'
   ];
+  readonly remoteConfigured = this.adminGiftCardApi.isConfigured;
+  readonly remoteGiftCards = signal<GiftCard[]>([]);
+  readonly remoteLoading = signal(false);
+  readonly remoteError = signal<string | null>(null);
+  readonly remoteNextToken = signal<string | null>(null);
 
   readonly form = new FormGroup({
     buyerName: new FormControl('', {
@@ -122,6 +132,25 @@ export class TarjetasRegaloComponent {
       })
     )
   );
+
+  ngOnInit(): void {
+    if (this.remoteConfigured) {
+      this.loadRemotePage();
+    }
+  }
+
+  loadMoreRemote(): void {
+    const nextToken = this.remoteNextToken();
+    if (nextToken) {
+      this.loadRemotePage(nextToken);
+    }
+  }
+
+  retryRemote(): void {
+    this.loadRemotePage(
+      this.remoteGiftCards().length > 0 ? this.remoteNextToken() ?? undefined : undefined
+    );
+  }
 
   statusLabel(status: GiftCardStatus): string {
     return giftCardStatusLabel(status);
@@ -197,6 +226,53 @@ export class TarjetasRegaloComponent {
 
   openBuyerWhatsApp(giftCard: GiftCard): void {
     window.open(buildGiftCardBuyerWhatsAppUrl(giftCard), '_blank', 'noopener');
+  }
+
+  private loadRemotePage(nextToken?: string): void {
+    if (this.remoteLoading()) {
+      return;
+    }
+
+    this.remoteLoading.set(true);
+    this.remoteError.set(null);
+
+    this.adminGiftCardApi
+      .listGiftCards(50, nextToken)
+      .pipe(
+        take(1),
+        finalize(() => this.remoteLoading.set(false))
+      )
+      .subscribe({
+        next: (response) => {
+          this.remoteGiftCards.update((current) =>
+            nextToken
+              ? this.appendUniqueGiftCards(current, response.items)
+              : [...response.items]
+          );
+          this.remoteNextToken.set(response.nextToken ?? null);
+        },
+        error: (error: unknown) => {
+          this.remoteError.set(
+            error instanceof AdminGiftCardApiError
+              ? error.message
+              : 'No fue posible consultar las solicitudes en línea. Intenta de nuevo.'
+          );
+        }
+      });
+  }
+
+  private appendUniqueGiftCards(current: GiftCard[], incoming: GiftCard[]): GiftCard[] {
+    const existingIds = new Set(current.map((giftCard) => giftCard.id));
+    return [
+      ...current,
+      ...incoming.filter((giftCard) => {
+        if (existingIds.has(giftCard.id)) {
+          return false;
+        }
+        existingIds.add(giftCard.id);
+        return true;
+      })
+    ];
   }
 
   private optionalText(value: string): string | undefined {

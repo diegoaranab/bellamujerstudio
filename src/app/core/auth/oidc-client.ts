@@ -4,7 +4,7 @@ import { inject, InjectionToken } from '@angular/core';
 import { AuthConfig } from './auth-config';
 
 export interface OidcUser {
-  readonly access_token: string;
+  readonly access_token?: string;
   readonly id_token?: string;
   readonly expired?: boolean;
   readonly state?: unknown;
