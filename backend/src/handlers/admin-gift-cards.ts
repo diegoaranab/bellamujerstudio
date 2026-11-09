@@ -51,6 +51,11 @@ const validContinuationKey = (value: unknown): value is ContinuationKey =>
   validStringAttribute((value as { pk?: unknown }).pk, 2048) &&
   validStringAttribute((value as { sk?: unknown }).sk, 1024);
 
+const validGiftCardContinuationKey = (key: ContinuationKey): boolean =>
+  key.pk.S.startsWith('GIFT_CARD#') &&
+  key.pk.S.length > 'GIFT_CARD#'.length &&
+  key.sk.S === 'METADATA';
+
 const encodeNextToken = (key: ContinuationKey): string =>
   Buffer.from(JSON.stringify(key), 'utf8').toString('base64url');
 
@@ -61,7 +66,9 @@ const decodeNextToken = (token: string): ContinuationKey => {
   if (decoded.toString('base64url') !== token) throw new Error('Malformed pagination token');
 
   const value: unknown = JSON.parse(decoded.toString('utf8'));
-  if (!validContinuationKey(value)) throw new Error('Invalid continuation key');
+  if (!validContinuationKey(value) || !validGiftCardContinuationKey(value)) {
+    throw new Error('Invalid continuation key');
+  }
   return value;
 };
 

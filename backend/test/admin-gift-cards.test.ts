@@ -114,6 +114,21 @@ describe('administrative gift-card list handler', () => {
     expect(list).not.toHaveBeenCalled();
   });
 
+  it.each([
+    { pk: { S: 'CLIENT#123' }, sk: { S: 'METADATA' } },
+    { pk: { S: `GIFT_CARD#${giftCard.id}` }, sk: { S: 'OTHER' } },
+    { pk: { S: 'GIFT_CARD#' }, sk: { S: 'METADATA' } }
+  ])('rejects a continuation key outside the gift-card keyspace: %j', async (key) => {
+    const { persistence, list } = mockPersistence();
+    const handler = createAdminGiftCardsHandler({ persistence });
+    const nextToken = Buffer.from(JSON.stringify(key)).toString('base64url');
+
+    const response = await handler(eventForQuery({ nextToken }));
+
+    expect(response.statusCode).toBe(400);
+    expect(list).not.toHaveBeenCalled();
+  });
+
   it('returns 500 and logs only operational metadata when persistence fails', async () => {
     const privateError = `${giftCard.buyerEmail} ${giftCard.buyerPhone} ${giftCard.message}`;
     const error = Object.assign(new Error(privateError), {
