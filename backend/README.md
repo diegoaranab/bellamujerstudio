@@ -83,6 +83,16 @@ npm run backend:synth
 
 The synth command should not require AWS credentials because it only generates the CloudFormation template locally.
 
+## Deploy CDK
+
+From the `backend` directory, normal deployments must use:
+
+```bash
+npm run deploy -- <StackName> ...
+```
+
+The deploy script recompiles TypeScript before invoking CDK because `cdk.json` runs the compiled application under `dist/`. Do not use direct `npx cdk deploy` for this repository; it can execute stale local `dist/` output.
+
 ## Pre-deployment checklist
 
 Deployment is intentionally not part of Phase 3F.1. The following items are requirements for a later deliberate deployment; this document does not claim they have been completed.
