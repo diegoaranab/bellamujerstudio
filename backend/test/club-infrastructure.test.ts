@@ -33,4 +33,25 @@ describe('Club infrastructure', () => {
     expect(table.Properties.TimeToLiveSpecification).toBeUndefined();
     expect(template.findOutputs('GiftCardsTableName').GiftCardsTableName.Value.Ref).not.toBe(logicalId);
   });
+
+  it('injects the Club table and server-controlled studio only into Club Lambdas', () => {
+    const clubTableLogicalId = template.findOutputs('ClubTableName').ClubTableName.Value.Ref;
+    const functions = Object.values(template.findResources('AWS::Lambda::Function'));
+    const clubFunctions = functions.filter((resource) => [
+      'Creates Club clients for authenticated administrators',
+      'Reads Club clients for authenticated administrators'
+    ].includes(resource.Properties.Description));
+
+    expect(clubFunctions).toHaveLength(2);
+    for (const lambdaFunction of clubFunctions) {
+      expect(lambdaFunction.Properties.Environment.Variables).toMatchObject({
+        CLUB_TABLE_NAME: { Ref: clubTableLogicalId },
+        CLUB_STUDIO_ID: 'bella-mujer',
+        ALLOWED_FRONTEND_ORIGINS: 'http://localhost:4200,https://diegoaranab.github.io'
+      });
+    }
+    for (const lambdaFunction of functions.filter((resource) => !clubFunctions.includes(resource))) {
+      expect(lambdaFunction.Properties.Environment.Variables.CLUB_STUDIO_ID).toBeUndefined();
+    }
+  });
 });

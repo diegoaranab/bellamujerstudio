@@ -53,7 +53,7 @@ describe('BellaMujerApiStack', () => {
         ]
       }
     });
-    template.resourcePropertiesCountIs('AWS::Lambda::Function', {}, 4);
+    template.resourcePropertiesCountIs('AWS::Lambda::Function', {}, 6);
 
     for (const lambdaFunction of Object.values(template.findResources('AWS::Lambda::Function'))) {
       expect(lambdaFunction.Properties.Environment.Variables).toMatchObject({
@@ -163,14 +163,14 @@ describe('BellaMujerApiStack', () => {
   });
 
   it('bounds Lambda log retention to two weeks', () => {
-    template.resourcePropertiesCountIs('AWS::Logs::LogGroup', { RetentionInDays: 14 }, 4);
+    template.resourcePropertiesCountIs('AWS::Logs::LogGroup', { RetentionInDays: 14 }, 6);
   });
 
   it('uses the existing Cognito pool and SPA client for a JWT authorizer', () => {
     template.resourceCountIs('AWS::Cognito::UserPool', 1);
     template.resourceCountIs('AWS::Cognito::UserPoolClient', 1);
     template.resourceCountIs('AWS::ApiGatewayV2::Authorizer', 1);
-    template.resourcePropertiesCountIs('AWS::Lambda::Function', {}, 4);
+    template.resourcePropertiesCountIs('AWS::Lambda::Function', {}, 6);
 
     const [[userPoolLogicalId]] = Object.entries(
       template.findResources('AWS::Cognito::UserPool')
@@ -194,8 +194,8 @@ describe('BellaMujerApiStack', () => {
     );
   });
 
-  it('exposes exactly two public routes and three protected admin routes', () => {
-    template.resourceCountIs('AWS::ApiGatewayV2::Route', 5);
+  it('exposes exactly two public routes and six protected admin routes', () => {
+    template.resourceCountIs('AWS::ApiGatewayV2::Route', 8);
 
     const routes = Object.values(template.findResources('AWS::ApiGatewayV2::Route'));
     const routesByKey = Object.fromEntries(
@@ -206,10 +206,13 @@ describe('BellaMujerApiStack', () => {
     );
 
     expect(Object.keys(routesByKey).sort()).toEqual([
+      'GET /admin/club/clients',
+      'GET /admin/club/clients/{id}',
       'GET /admin/gift-cards',
       'GET /admin/health',
       'GET /health',
       'PATCH /admin/gift-cards/{id}',
+      'POST /admin/club/clients',
       'POST /gift-cards/request'
     ]);
     expect(routesByKey['GET /health']).toMatchObject({ AuthorizationType: 'NONE' });
@@ -233,6 +236,18 @@ describe('BellaMujerApiStack', () => {
       AuthorizerId: { Ref: authorizerLogicalId },
       AuthorizationScopes: ['openid']
     });
+    for (const routeKey of [
+      'POST /admin/club/clients',
+      'GET /admin/club/clients',
+      'GET /admin/club/clients/{id}'
+    ]) {
+      expect(routesByKey[routeKey]).toMatchObject({
+        AuthorizationType: 'JWT',
+        AuthorizerId: { Ref: authorizerLogicalId },
+        AuthorizationScopes: ['openid']
+      });
+    }
+    expect(Object.keys(routesByKey).some((key) => /^\w+ \/club\/clients/.test(key))).toBe(false);
   });
 
   it('does not create VPC, NAT, EC2, or RDS resources', () => {
@@ -302,7 +317,11 @@ describe('BellaMujerApiStack', () => {
       'dynamodb:Scan',
       'dynamodb:UpdateItem'
     ]));
-    expect(dynamodbActions).toHaveLength(3);
+    expect(dynamodbActions).toEqual(expect.arrayContaining([
+      'dynamodb:TransactWriteItems',
+      ['dynamodb:GetItem', 'dynamodb:Query']
+    ]));
+    expect(dynamodbActions).toHaveLength(5);
 
     const lambdaFunctions = Object.values(template.findResources('AWS::Lambda::Function'));
     const roleForDescription = (description: string): string => {
@@ -331,5 +350,37 @@ describe('BellaMujerApiStack', () => {
     expect(actionsForRole(roleForDescription(
       'Updates gift-card status and notes for authenticated administrators'
     ))).toEqual(['dynamodb:UpdateItem']);
+    expect(actionsForRole(roleForDescription(
+      'Creates Club clients for authenticated administrators'
+    ))).toEqual(['dynamodb:TransactWriteItems']);
+    expect(actionsForRole(roleForDescription(
+      'Reads Club clients for authenticated administrators'
+    ))).toEqual(['dynamodb:GetItem', 'dynamodb:Query']);
+
+    const clubTableLogicalId = template.findOutputs('ClubTableName')
+      .ClubTableName.Value.Ref as string;
+    const policies = Object.values(template.findResources('AWS::IAM::Policy'));
+    for (const [description, allowedActions] of [
+      ['Creates Club clients for authenticated administrators', ['dynamodb:TransactWriteItems']],
+      ['Reads Club clients for authenticated administrators', ['dynamodb:GetItem', 'dynamodb:Query']]
+    ] as const) {
+      const role = roleForDescription(description);
+      const statements = policies.flatMap((policy) =>
+        policy.Properties.Roles.some((candidate: { Ref?: string }) => candidate.Ref === role)
+          ? policy.Properties.PolicyDocument.Statement
+          : []
+      ).filter((statement: { Action?: string | string[] }) => {
+        const actions = typeof statement.Action === 'string' ? [statement.Action] : statement.Action ?? [];
+        return actions.some((action) => action.startsWith('dynamodb:'));
+      });
+      expect(statements).toHaveLength(1);
+      expect(statements[0].Action).toEqual(
+        allowedActions.length === 1 ? allowedActions[0] : [...allowedActions]
+      );
+      expect(statements[0].Resource).toEqual([
+        { 'Fn::GetAtt': [clubTableLogicalId, 'Arn'] }
+      ]);
+      expect(JSON.stringify(statements)).not.toContain(tableLogicalId);
+    }
   });
 });

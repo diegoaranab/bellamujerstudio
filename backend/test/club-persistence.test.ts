@@ -1,9 +1,15 @@
-import { DynamoDBClient, GetItemCommand, TransactWriteItemsCommand } from '@aws-sdk/client-dynamodb';
+import {
+  DynamoDBClient,
+  GetItemCommand,
+  QueryCommand,
+  TransactWriteItemsCommand
+} from '@aws-sdk/client-dynamodb';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ClubClient, ClubVisit, LoyaltyBalance, LoyaltyLedgerEntry } from '../src/club/club-model';
 import {
   DynamoClubPersistence,
   MAX_LEDGER_ENTRIES_PER_VISIT,
+  clubClientToDynamoItem,
   loyaltyBalanceToDynamoItem
 } from '../src/club/club-persistence';
 
@@ -82,6 +88,63 @@ describe('DynamoClubPersistence', () => {
       { pk: { S: 'STUDIO#studio-a#CLIENT#client-id' }, sk: { S: 'BALANCE' } },
       { pk: { S: 'STUDIO#studio-a#CLIENT#client-id' }, sk: { S: 'VISIT#visit-id' } }
     ]);
+  });
+
+  it('lists clients with one bounded Query on the exact studio directory partition', async () => {
+    const continuationKey = {
+      pk: { S: 'STUDIO#studio-a' },
+      sk: { S: 'CLIENT#client-id' }
+    };
+    send.mockResolvedValue({
+      Items: [clubClientToDynamoItem(client)],
+      LastEvaluatedKey: continuationKey
+    });
+
+    const page = await persistence.listClients('studio-a', 25, continuationKey);
+    const command = send.mock.calls[0][0];
+
+    expect(command).toBeInstanceOf(QueryCommand);
+    expect(command.input).toEqual({
+      TableName: 'club-table',
+      KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :clientPrefix)',
+      ExpressionAttributeNames: { '#pk': 'pk', '#sk': 'sk' },
+      ExpressionAttributeValues: {
+        ':pk': { S: 'STUDIO#studio-a' },
+        ':clientPrefix': { S: 'CLIENT#' }
+      },
+      Limit: 25,
+      ExclusiveStartKey: continuationKey
+    });
+    expect(page).toEqual({ items: [client], lastEvaluatedKey: continuationKey });
+    expect(JSON.stringify(page.items)).not.toMatch(/"(pk|sk|entityType)"/);
+    expect(command.constructor.name).not.toBe('ScanCommand');
+  });
+
+  it.each([0, 101, -1, 1.5])('rejects an unsafe client Query limit %s before DynamoDB', async (limit) => {
+    await expect(persistence.listClients('studio-a', limit)).rejects.toThrow();
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it('rejects forged input and malformed returned continuation keys', async () => {
+    await expect(persistence.listClients('studio-a', 10, {
+      pk: { S: 'STUDIO#other' }, sk: { S: 'CLIENT#client-id' }
+    })).rejects.toThrow();
+    expect(send).not.toHaveBeenCalled();
+
+    send.mockResolvedValue({
+      Items: [clubClientToDynamoItem(client)],
+      LastEvaluatedKey: { pk: { S: 'STUDIO#studio-a#CLIENT#client-id' }, sk: { S: 'BALANCE' } }
+    });
+    await expect(persistence.listClients('studio-a', 10)).rejects.toThrow();
+  });
+
+  it('fails safely for a malformed persisted client', async () => {
+    send.mockResolvedValue({
+      Items: [{ ...clubClientToDynamoItem(client), phone: { N: '55' } }]
+    });
+    await expect(persistence.listClients('studio-a', 10)).rejects.toThrow(
+      'Invalid Club persisted field: phone'
+    );
   });
 
   it('rejects malformed persisted records', async () => {
