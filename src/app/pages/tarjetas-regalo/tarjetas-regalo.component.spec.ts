@@ -49,6 +49,9 @@ const secondRemoteGiftCard: GiftCard = {
 describe('TarjetasRegaloComponent', () => {
   let giftCardsSubject: BehaviorSubject<GiftCard[]>;
   let updateStatus: ReturnType<typeof vi.fn>;
+  let updateNotes: ReturnType<typeof vi.fn>;
+  let createGiftCard: ReturnType<typeof vi.fn>;
+  let updateGiftCard: ReturnType<typeof vi.fn>;
   let listGiftCards: ReturnType<
     typeof vi.fn<() => Observable<AdminGiftCardListResponse>>
   >;
@@ -60,6 +63,9 @@ describe('TarjetasRegaloComponent', () => {
   ): Promise<void> {
     giftCardsSubject = new BehaviorSubject<GiftCard[]>(cards);
     updateStatus = vi.fn();
+    updateNotes = vi.fn();
+    createGiftCard = vi.fn();
+    updateGiftCard = vi.fn(() => of(remoteGiftCard));
     listGiftCards = vi.fn(() => remoteResponse);
 
     await TestBed.configureTestingModule({
@@ -74,14 +80,14 @@ describe('TarjetasRegaloComponent', () => {
             summary$: giftCardsSubject.pipe(
               map((items) => calculateGiftCardSummary(items))
             ),
-            createGiftCard: vi.fn(),
+            createGiftCard,
             updateStatus,
-            updateNotes: vi.fn()
+            updateNotes
           }
         },
         {
           provide: AdminGiftCardApiClient,
-          useValue: { isConfigured: remoteConfigured, listGiftCards }
+          useValue: { isConfigured: remoteConfigured, listGiftCards, updateGiftCard }
         }
       ]
     }).compileComponents();
@@ -134,7 +140,7 @@ describe('TarjetasRegaloComponent', () => {
     response.complete();
   });
 
-  it('renders remote requests separately and without local mutation controls', async () => {
+  it('renders remote requests separately with remote status and notes controls', async () => {
     await configure([localGiftCard], of({ items: [remoteGiftCard] }));
     const fixture = TestBed.createComponent(TarjetasRegaloComponent);
     fixture.detectChanges();
@@ -153,10 +159,206 @@ describe('TarjetasRegaloComponent', () => {
     expect(remoteRow.textContent).toContain('Lucía Online');
     expect(remoteRow.textContent).toContain('Disfruta tu regalo');
     expect(localList.textContent).not.toContain('BM-REGALO-20261108-ONLINE');
-    expect(remoteRow.querySelector('mat-select')).toBeNull();
-    expect(remoteRow.querySelector('textarea')).toBeNull();
+    expect(remoteRow.querySelector('[data-testid="remote-status-selector"]')).not.toBeNull();
+    expect(remoteRow.querySelector('[data-testid="remote-notes-textarea"]')).not.toBeNull();
+    expect(remoteRow.querySelector('[data-testid="remote-save-notes-button"]')).not.toBeNull();
     expect(remoteRow.querySelector('a')).toBeNull();
     expect(remoteRow.querySelector('[data-testid="gift-card-actions-button"]')).toBeNull();
+  });
+
+  it('updates remote status through the API and replaces the card with canonical timestamps', async () => {
+    const updated: GiftCard = {
+      ...remoteGiftCard,
+      status: 'pagada',
+      updatedAtISO: '2026-11-09T13:00:00.000Z',
+      confirmedAtISO: '2026-11-09T13:00:00.000Z',
+      deliveredAtISO: '2026-11-09T14:00:00.000Z',
+      usedAtISO: '2026-11-09T15:00:00.000Z'
+    };
+    await configure([localGiftCard], of({ items: [remoteGiftCard] }));
+    updateGiftCard.mockReturnValue(of(updated));
+    const fixture = TestBed.createComponent(TarjetasRegaloComponent);
+    fixture.detectChanges();
+
+    fixture.componentInstance.onRemoteStatusChange(remoteGiftCard, {
+      value: 'pagada'
+    } as never);
+    fixture.detectChanges();
+
+    expect(updateGiftCard).toHaveBeenCalledWith(remoteGiftCard.id, { status: 'pagada' });
+    expect(updateStatus).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.remoteGiftCards()).toEqual([updated]);
+    const remoteRow = fixture.nativeElement.querySelector(
+      '[data-testid="remote-gift-card-row"]'
+    ) as HTMLElement;
+    expect(remoteRow.textContent).toContain('Pagada:');
+    expect(remoteRow.textContent).toContain('Entregada:');
+    expect(remoteRow.textContent).toContain('Usada:');
+  });
+
+  it('preserves an unsaved remote notes draft when status updates canonically', async () => {
+    const giftCard: GiftCard = {
+      ...remoteGiftCard,
+      notes: 'Nota persistida anterior'
+    };
+    const updated: GiftCard = {
+      ...giftCard,
+      status: 'pagada',
+      confirmedAtISO: '2026-11-09T13:00:00.000Z'
+    };
+    await configure([localGiftCard], of({ items: [giftCard] }));
+    updateGiftCard.mockReturnValue(of(updated));
+    const fixture = TestBed.createComponent(TarjetasRegaloComponent);
+    fixture.detectChanges();
+
+    const notesTextarea = fixture.nativeElement.querySelector(
+      '[data-testid="remote-notes-textarea"]'
+    ) as HTMLTextAreaElement;
+    notesTextarea.value = 'Borrador todavía no guardado';
+    notesTextarea.dispatchEvent(new Event('input'));
+    fixture.componentInstance.onRemoteStatusChange(giftCard, {
+      value: 'pagada'
+    } as never);
+    fixture.detectChanges();
+
+    expect(updateGiftCard).toHaveBeenCalledWith(giftCard.id, { status: 'pagada' });
+    expect(fixture.componentInstance.remoteGiftCards()).toEqual([updated]);
+    expect(fixture.componentInstance.remoteGiftCards()[0]).toEqual(
+      expect.objectContaining({
+        status: 'pagada',
+        confirmedAtISO: '2026-11-09T13:00:00.000Z'
+      })
+    );
+    expect(fixture.componentInstance.remoteNotesDraft(updated)).toBe(
+      'Borrador todavía no guardado'
+    );
+    expect(fixture.componentInstance.remoteNotesDraft(updated)).not.toBe(
+      'Nota persistida anterior'
+    );
+    expect(notesTextarea.value).toBe('Borrador todavía no guardado');
+    expect(updateStatus).not.toHaveBeenCalled();
+    expect(updateNotes).not.toHaveBeenCalled();
+  });
+
+  it('saves remote notes through the API and synchronizes the canonical returned draft', async () => {
+    const updated = { ...remoteGiftCard, notes: 'Nota normalizada por servidor' };
+    await configure([], of({ items: [remoteGiftCard] }));
+    updateGiftCard.mockReturnValue(of(updated));
+    const fixture = TestBed.createComponent(TarjetasRegaloComponent);
+    fixture.detectChanges();
+
+    fixture.componentInstance.onRemoteNotesInput(remoteGiftCard.id, {
+      target: { value: '  Nota enviada  ' }
+    } as unknown as Event);
+    fixture.componentInstance.saveRemoteNotes(remoteGiftCard);
+
+    expect(updateGiftCard).toHaveBeenCalledWith(remoteGiftCard.id, {
+      notes: '  Nota enviada  '
+    });
+    expect(updateNotes).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.remoteGiftCards()).toEqual([updated]);
+    expect(fixture.componentInstance.remoteNotesDraft(updated)).toBe(
+      'Nota normalizada por servidor'
+    );
+  });
+
+  it('keeps remote card state and the user notes draft after a safe mutation failure', async () => {
+    await configure([], of({ items: [remoteGiftCard] }));
+    updateGiftCard.mockReturnValue(
+      throwError(
+        () =>
+          new AdminGiftCardApiError(
+            'validation',
+            'No fue posible guardar los cambios. Revisa la información.'
+          )
+      )
+    );
+    const fixture = TestBed.createComponent(TarjetasRegaloComponent);
+    fixture.detectChanges();
+
+    fixture.componentInstance.onRemoteNotesInput(remoteGiftCard.id, {
+      target: { value: 'Borrador importante' }
+    } as unknown as Event);
+    fixture.componentInstance.saveRemoteNotes(remoteGiftCard);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.remoteGiftCards()).toEqual([remoteGiftCard]);
+    expect(fixture.componentInstance.remoteNotesDraft(remoteGiftCard)).toBe(
+      'Borrador importante'
+    );
+    expect(document.body.textContent).toContain(
+      'No fue posible guardar los cambios. Revisa la información.'
+    );
+    expect(document.body.textContent).not.toContain('sensitive backend detail');
+  });
+
+  it('uses per-card saving state, disables only that row, and prevents duplicate PATCHes', async () => {
+    const pending = new Subject<GiftCard>();
+    await configure([], of({ items: [remoteGiftCard, secondRemoteGiftCard] }));
+    updateGiftCard.mockImplementation((id: string) =>
+      id === remoteGiftCard.id ? pending : of({ ...secondRemoteGiftCard, status: 'pagada' })
+    );
+    const fixture = TestBed.createComponent(TarjetasRegaloComponent);
+    fixture.detectChanges();
+
+    fixture.componentInstance.onRemoteStatusChange(remoteGiftCard, {
+      value: 'pagada'
+    } as never);
+    fixture.componentInstance.onRemoteStatusChange(remoteGiftCard, {
+      value: 'entregada'
+    } as never);
+    fixture.detectChanges();
+
+    expect(updateGiftCard).toHaveBeenCalledTimes(1);
+    expect(fixture.componentInstance.isRemoteSaving(remoteGiftCard.id)).toBe(true);
+    expect(fixture.componentInstance.isRemoteSaving(secondRemoteGiftCard.id)).toBe(false);
+    const rows = fixture.nativeElement.querySelectorAll(
+      '[data-testid="remote-gift-card-row"]'
+    ) as NodeListOf<HTMLElement>;
+    expect(
+      (rows[0].querySelector('[data-testid="remote-save-notes-button"]') as HTMLButtonElement)
+        .disabled
+    ).toBe(true);
+    expect(
+      (rows[1].querySelector('[data-testid="remote-save-notes-button"]') as HTMLButtonElement)
+        .disabled
+    ).toBe(false);
+
+    fixture.componentInstance.onRemoteStatusChange(secondRemoteGiftCard, {
+      value: 'pagada'
+    } as never);
+    expect(updateGiftCard).toHaveBeenCalledTimes(2);
+
+    pending.error(new Error('network detail'));
+    expect(fixture.componentInstance.isRemoteSaving(remoteGiftCard.id)).toBe(false);
+  });
+
+  it('keeps local notes and manual creation connected only to GiftCardService', async () => {
+    await configure([localGiftCard]);
+    const fixture = TestBed.createComponent(TarjetasRegaloComponent);
+
+    fixture.componentInstance.onNotesBlur(localGiftCard.id, {
+      target: { value: 'Nota local' }
+    } as unknown as Event);
+    fixture.componentInstance.form.setValue({
+      buyerName: 'Compradora',
+      buyerPhone: '2381000000',
+      buyerEmail: '',
+      recipientName: 'Destinataria',
+      recipientPhone: '',
+      amountMXN: 500,
+      message: '',
+      status: 'pendiente',
+      paymentMethod: 'transferencia',
+      notes: 'Manual'
+    });
+    fixture.componentInstance.onCreate();
+
+    expect(updateNotes).toHaveBeenCalledWith(localGiftCard.id, 'Nota local');
+    expect(createGiftCard).toHaveBeenCalledWith(
+      expect.objectContaining({ buyerName: 'Compradora', notes: 'Manual' })
+    );
+    expect(updateGiftCard).not.toHaveBeenCalled();
   });
 
   it('shows a remote empty state after an empty response', async () => {
