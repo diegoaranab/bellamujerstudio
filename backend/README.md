@@ -48,7 +48,7 @@ For multiple production URLs, use a quoted comma-separated value. Paths are allo
 
 `GET /health` and `POST /gift-cards/request` remain public. `GET /admin/health` and `GET /admin/gift-cards` are protected admin endpoints requiring a valid Cognito access token through the existing JWT authorizer with the `openid` scope. The gift-card endpoint provides only a read-only, bounded-paginated list of gift-card requests; it does not provide create, update, delete, or status-management operations.
 
-Angular/admin gift-card state remains local in this PR. Production `giftCardDataMode` must remain `local`, and frontend API integration is deliberately deferred to a later PR. This scaffold also does not include Mercado Pago, deployment automation, or any changes to the existing assistant Worker. No users or credentials are created by CDK.
+Production Angular uses `giftCardDataMode: 'api'`, so public gift-card requests are submitted through `POST /gift-cards/request`. Successful submissions are persisted in DynamoDB and appear in the admin read-only "Solicitudes recibidas en línea" section. Development remains `local`. Administrative create, update, status, and notes operations are not implemented remotely, so the existing manual admin workflow remains local. Mercado Pago is still not implemented. This scaffold also does not include deployment automation or any changes to the existing assistant Worker. No users or credentials are created by CDK.
 
 ## Install
 
@@ -108,7 +108,7 @@ Deployment is intentionally not part of Phase 3F.1. The following items are requ
 - [ ] Confirm Cognito still has self-sign-up disabled and document the out-of-band admin-user creation process.
 - [ ] Confirm only `GET /health` and `POST /gift-cards/request` are public, and that both protected admin routes reject requests without a valid Cognito access token carrying the `openid` scope.
 - [ ] Ensure the production Angular `authMode` is `cognito`, never `local`, before protecting or exposing real admin data.
-- [ ] Keep production `giftCardDataMode` as `local`; frontend integration with the read-only administrative gift-card API is deliberately deferred to a later PR.
+- [ ] Verify production Angular uses `giftCardDataMode: 'api'` for public gift-card requests while development remains `local`; administrative mutation operations and the existing manual admin workflow remain local.
 - [ ] Copy `AdminCognitoAuthority`, `AdminUserPoolClientId`, and `AdminCognitoHostedUiDomain` outputs into the production Angular configuration. `AdminUserPoolId` is also emitted for operations.
 - [ ] Smoke-test `GET /health`, an allowed-origin preflight including `Idempotency-Key`, a valid gift-card request/replay, rejection of an unknown origin in browser CORS, Cognito sign-in/MFA/logout, protected admin navigation, and production-mode configuration.
 - [ ] Prepare rollback and stack-removal steps. The DynamoDB table and Cognito user pool use `RETAIN`, so they survive stack deletion/replacement and require deliberate data backup, import, or manual cleanup. Lambda log groups are intentionally destroyable and retain logs for 14 days while present.
