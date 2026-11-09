@@ -49,7 +49,7 @@ describe('BellaMujerApiStack', () => {
         ]
       }
     });
-    template.resourcePropertiesCountIs('AWS::Lambda::Function', {}, 2);
+    template.resourcePropertiesCountIs('AWS::Lambda::Function', {}, 3);
 
     for (const lambdaFunction of Object.values(template.findResources('AWS::Lambda::Function'))) {
       expect(lambdaFunction.Properties.Environment.Variables).toMatchObject({
@@ -159,14 +159,14 @@ describe('BellaMujerApiStack', () => {
   });
 
   it('bounds Lambda log retention to two weeks', () => {
-    template.resourcePropertiesCountIs('AWS::Logs::LogGroup', { RetentionInDays: 14 }, 2);
+    template.resourcePropertiesCountIs('AWS::Logs::LogGroup', { RetentionInDays: 14 }, 3);
   });
 
   it('uses the existing Cognito pool and SPA client for a JWT authorizer', () => {
     template.resourceCountIs('AWS::Cognito::UserPool', 1);
     template.resourceCountIs('AWS::Cognito::UserPoolClient', 1);
     template.resourceCountIs('AWS::ApiGatewayV2::Authorizer', 1);
-    template.resourcePropertiesCountIs('AWS::Lambda::Function', {}, 2);
+    template.resourcePropertiesCountIs('AWS::Lambda::Function', {}, 3);
 
     const [[userPoolLogicalId]] = Object.entries(
       template.findResources('AWS::Cognito::UserPool')
@@ -190,8 +190,8 @@ describe('BellaMujerApiStack', () => {
     );
   });
 
-  it('exposes exactly two public routes and one protected admin health route', () => {
-    template.resourceCountIs('AWS::ApiGatewayV2::Route', 3);
+  it('exposes exactly two public routes and two protected admin routes', () => {
+    template.resourceCountIs('AWS::ApiGatewayV2::Route', 4);
 
     const routes = Object.values(template.findResources('AWS::ApiGatewayV2::Route'));
     const routesByKey = Object.fromEntries(
@@ -202,6 +202,7 @@ describe('BellaMujerApiStack', () => {
     );
 
     expect(Object.keys(routesByKey).sort()).toEqual([
+      'GET /admin/gift-cards',
       'GET /admin/health',
       'GET /health',
       'POST /gift-cards/request'
@@ -217,6 +218,11 @@ describe('BellaMujerApiStack', () => {
       AuthorizerId: { Ref: authorizerLogicalId },
       AuthorizationScopes: ['openid']
     });
+    expect(routesByKey['GET /admin/gift-cards']).toMatchObject({
+      AuthorizationType: 'JWT',
+      AuthorizerId: { Ref: authorizerLogicalId },
+      AuthorizationScopes: ['openid']
+    });
   });
 
   it('does not create VPC, NAT, EC2, or RDS resources', () => {
@@ -227,7 +233,11 @@ describe('BellaMujerApiStack', () => {
     template.resourceCountIs('AWS::RDS::DBCluster', 0);
   });
 
-  it('grants the gift-card Lambda scoped write access to the table', () => {
+  it('keeps public write permissions unchanged and grants only Scan to the admin list Lambda', () => {
+    const [[tableLogicalId]] = Object.entries(
+      template.findResources('AWS::DynamoDB::Table')
+    );
+
     template.hasResourceProperties('AWS::IAM::Policy', {
       PolicyDocument: {
         Statement: Match.arrayWith([
@@ -239,16 +249,36 @@ describe('BellaMujerApiStack', () => {
         ])
       }
     });
+    template.hasResourceProperties('AWS::IAM::Policy', {
+      PolicyDocument: {
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Action: 'dynamodb:Scan',
+            Effect: 'Allow',
+            Resource: Match.arrayWith([
+              { 'Fn::GetAtt': [tableLogicalId, 'Arn'] }
+            ])
+          })
+        ])
+      }
+    });
 
     const dynamodbActions = Object.values(template.findResources('AWS::IAM::Policy')).flatMap(
       (policy) =>
         policy.Properties.PolicyDocument.Statement.filter(
-          (statement: { Action?: string[] }) =>
-            Array.isArray(statement.Action) &&
-            statement.Action.some((action) => action.startsWith('dynamodb:'))
-        ).map((statement: { Action: string[] }) => statement.Action)
+          (statement: { Action?: string | string[] }) => {
+            const actions = typeof statement.Action === 'string'
+              ? [statement.Action]
+              : statement.Action ?? [];
+            return actions.some((action) => action.startsWith('dynamodb:'));
+          }
+        ).map((statement: { Action: string | string[] }) => statement.Action)
     );
 
-    expect(dynamodbActions).toEqual([['dynamodb:PutItem', 'dynamodb:GetItem']]);
+    expect(dynamodbActions).toEqual(expect.arrayContaining([
+      ['dynamodb:PutItem', 'dynamodb:GetItem'],
+      'dynamodb:Scan'
+    ]));
+    expect(dynamodbActions).toHaveLength(2);
   });
 });
