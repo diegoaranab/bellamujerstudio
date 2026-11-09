@@ -26,14 +26,16 @@ const giftCard: GiftCard = {
 describe('AdminGiftCardApiClient', () => {
   let http: HttpTestingController;
   let getAccessToken: ReturnType<typeof vi.fn>;
+  let getIdToken: ReturnType<typeof vi.fn>;
 
   function configure(baseUrl = 'https://api.example.test/') {
     getAccessToken = vi.fn().mockResolvedValue('access-token');
+    getIdToken = vi.fn().mockResolvedValue('id-token');
     TestBed.configureTestingModule({
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
-        { provide: AuthService, useValue: { getAccessToken } },
+        { provide: AuthService, useValue: { getAccessToken, getIdToken } },
         {
           provide: GIFT_CARD_API_CONFIG,
           useValue: { mode: 'local', baseUrl }
@@ -95,7 +97,76 @@ describe('AdminGiftCardApiClient', () => {
       kind: 'authentication'
     });
     expect(getAccessToken).toHaveBeenCalledOnce();
+    expect(getIdToken).not.toHaveBeenCalled();
     http.expectNone('https://api.example.test/admin/gift-cards');
+  });
+
+  it.each([
+    [{ status: 'pagada' as const }],
+    [{ notes: 'Validar transferencia' }],
+    [{ status: 'entregada' as const, notes: 'Entregada en recepción' }]
+  ])('patches an encoded card URL with the access token and body %j', async (update) => {
+    const client = configure('https://api.example.test////');
+    const promise = firstValueFrom(client.updateGiftCard('remote/id +?á', update));
+    await Promise.resolve();
+
+    const request = http.expectOne(
+      'https://api.example.test/admin/gift-cards/remote%2Fid%20%2B%3F%C3%A1'
+    );
+    expect(request.request.method).toBe('PATCH');
+    expect(request.request.body).toEqual(update);
+    expect(request.request.headers.get('Authorization')).toBe('Bearer access-token');
+    expect(request.request.urlWithParams).not.toContain('access-token');
+    request.flush({ ...giftCard, ...update });
+
+    await expect(promise).resolves.toEqual({ ...giftCard, ...update });
+    expect(getAccessToken).toHaveBeenCalledOnce();
+    expect(getIdToken).not.toHaveBeenCalled();
+  });
+
+  it('sends no PATCH when the access token is unavailable', async () => {
+    const client = configure();
+    getAccessToken.mockResolvedValue(null);
+
+    await expect(
+      firstValueFrom(client.updateGiftCard(giftCard.id, { status: 'pagada' }))
+    ).rejects.toMatchObject({ kind: 'authentication' });
+    expect(getIdToken).not.toHaveBeenCalled();
+    http.expectNone(`https://api.example.test/admin/gift-cards/${giftCard.id}`);
+  });
+
+  it('sends no PATCH when the API base URL is missing', async () => {
+    const client = configure('   ');
+
+    await expect(
+      firstValueFrom(client.updateGiftCard(giftCard.id, { notes: 'Nota' }))
+    ).rejects.toMatchObject({ kind: 'configuration' });
+    expect(getAccessToken).not.toHaveBeenCalled();
+    http.expectNone(`/admin/gift-cards/${giftCard.id}`);
+  });
+
+  it.each([
+    [400, 'validation'],
+    [401, 'authentication'],
+    [403, 'authentication'],
+    [404, 'not-found'],
+    [0, 'network'],
+    [500, 'server']
+  ] as const)('normalizes PATCH HTTP %i as a safe %s failure', async (status, kind) => {
+    const client = configure();
+    const promise = firstValueFrom(client.updateGiftCard(giftCard.id, { notes: 'Nota' }));
+    await Promise.resolve();
+
+    http.expectOne(`https://api.example.test/admin/gift-cards/${giftCard.id}`).flush(
+      { message: 'sensitive backend detail', token: 'must-not-leak' },
+      { status, statusText: 'Error' }
+    );
+
+    await expect(promise).rejects.toMatchObject({ kind });
+    await expect(promise).rejects.toBeInstanceOf(AdminGiftCardApiError);
+    await expect(promise).rejects.not.toMatchObject({
+      message: expect.stringContaining('sensitive backend detail')
+    });
   });
 
   it('fails locally when the API base URL is missing', async () => {

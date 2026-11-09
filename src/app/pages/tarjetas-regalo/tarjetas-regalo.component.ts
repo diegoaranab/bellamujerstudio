@@ -21,7 +21,8 @@ import { combineLatest, finalize, map, startWith, take } from 'rxjs';
 import { GiftCard, GiftCardPaymentMethod, GiftCardStatus } from '../../core/models';
 import {
   AdminGiftCardApiClient,
-  AdminGiftCardApiError
+  AdminGiftCardApiError,
+  AdminGiftCardUpdate
 } from '../../core/services/admin-gift-card-api.client';
 import { GiftCardService } from '../../core/services/gift-card.service';
 import {
@@ -80,6 +81,8 @@ export class TarjetasRegaloComponent implements OnInit {
   readonly remoteLoading = signal(false);
   readonly remoteError = signal<string | null>(null);
   readonly remoteNextToken = signal<string | null>(null);
+  readonly remoteSavingIds = signal<ReadonlySet<string>>(new Set());
+  readonly remoteNotesDrafts = signal<Record<string, string>>({});
 
   readonly form = new FormGroup({
     buyerName: new FormControl('', {
@@ -213,6 +216,45 @@ export class TarjetasRegaloComponent implements OnInit {
     this.giftCardService.updateNotes(id, notes);
   }
 
+  isRemoteSaving(id: string): boolean {
+    return this.remoteSavingIds().has(id);
+  }
+
+  remoteNotesDraft(giftCard: GiftCard): string {
+    return this.remoteNotesDrafts()[giftCard.id] ?? giftCard.notes ?? '';
+  }
+
+  onRemoteNotesInput(id: string, event: Event): void {
+    const notes = (event.target as HTMLTextAreaElement).value;
+    this.remoteNotesDrafts.update((drafts) => ({ ...drafts, [id]: notes }));
+  }
+
+  onRemoteStatusChange(giftCard: GiftCard, event: MatSelectChange): void {
+    if (this.isRemoteSaving(giftCard.id)) {
+      return;
+    }
+
+    const status = event.value as GiftCardStatus;
+    if (status === giftCard.status) {
+      return;
+    }
+
+    event.source?.writeValue(giftCard.status);
+    this.updateRemoteGiftCard(giftCard.id, { status }, 'Estatus actualizado.');
+  }
+
+  saveRemoteNotes(giftCard: GiftCard): void {
+    if (this.isRemoteSaving(giftCard.id)) {
+      return;
+    }
+
+    this.updateRemoteGiftCard(
+      giftCard.id,
+      { notes: this.remoteNotesDraft(giftCard) },
+      'Notas guardadas.'
+    );
+  }
+
   copyFolio(giftCard: GiftCard): void {
     void this.copyText(giftCard.folio, 'Folio copiado.');
   }
@@ -249,6 +291,7 @@ export class TarjetasRegaloComponent implements OnInit {
               ? this.appendUniqueGiftCards(current, response.items)
               : [...response.items]
           );
+          this.initializeRemoteNotesDrafts(response.items);
           this.remoteNextToken.set(response.nextToken ?? null);
         },
         error: (error: unknown) => {
@@ -259,6 +302,78 @@ export class TarjetasRegaloComponent implements OnInit {
           );
         }
       });
+  }
+
+  private updateRemoteGiftCard(
+    id: string,
+    update: AdminGiftCardUpdate,
+    successMessage: string
+  ): void {
+    if (this.isRemoteSaving(id)) {
+      return;
+    }
+
+    this.remoteSavingIds.update((ids) => new Set(ids).add(id));
+    this.adminGiftCardApi
+      .updateGiftCard(id, update)
+      .pipe(
+        take(1),
+        finalize(() => {
+          this.remoteSavingIds.update((ids) => {
+            const next = new Set(ids);
+            next.delete(id);
+            return next;
+          });
+        })
+      )
+      .subscribe({
+        next: (updatedGiftCard) => {
+          let replaced = false;
+          this.remoteGiftCards.update((current) =>
+            current.map((giftCard) => {
+              if (giftCard.id !== id) {
+                return giftCard;
+              }
+              replaced = true;
+              return updatedGiftCard;
+            })
+          );
+
+          if (!replaced) {
+            this.snackBar.open('No fue posible reflejar los cambios en la lista.', 'Cerrar', {
+              duration: 3500
+            });
+            return;
+          }
+
+          this.remoteNotesDrafts.update((drafts) => ({
+            ...drafts,
+            [id]: updatedGiftCard.notes ?? ''
+          }));
+          this.snackBar.open(successMessage, 'Cerrar', { duration: 2500 });
+        },
+        error: (error: unknown) => {
+          this.snackBar.open(
+            error instanceof AdminGiftCardApiError
+              ? error.message
+              : 'No fue posible guardar los cambios. Intenta de nuevo.',
+            'Cerrar',
+            { duration: 3500 }
+          );
+        }
+      });
+  }
+
+  private initializeRemoteNotesDrafts(giftCards: GiftCard[]): void {
+    this.remoteNotesDrafts.update((drafts) => {
+      const next = { ...drafts };
+      for (const giftCard of giftCards) {
+        if (!(giftCard.id in next)) {
+          next[giftCard.id] = giftCard.notes ?? '';
+        }
+      }
+      return next;
+    });
   }
 
   private appendUniqueGiftCards(current: GiftCard[], incoming: GiftCard[]): GiftCard[] {

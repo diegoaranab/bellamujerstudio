@@ -53,7 +53,8 @@
     <mat-card-header>
       <mat-card-title>Solicitudes recibidas en línea</mat-card-title>
       <mat-card-subtitle>
-        Consulta de solo lectura. Estas solicitudes no forman parte del control manual.
+        Solicitudes del formulario público. Administra aquí su estatus y notas internas;
+        las operaciones manuales se mantienen separadas.
       </mat-card-subtitle>
     </mat-card-header>
     <mat-card-content>
@@ -122,10 +123,60 @@
             </p>
             <p class="muted">WhatsApp del comprador: {{ giftCard.buyerPhone }}</p>
             <p class="muted" *ngIf="giftCard.message">Mensaje: {{ giftCard.message }}</p>
+            <div class="remote-milestones" data-testid="remote-milestones">
+              <span *ngIf="giftCard.confirmedAtISO">
+                Pagada: {{ giftCard.confirmedAtISO | date: 'dd/MM/yyyy, HH:mm' }}
+              </span>
+              <span *ngIf="giftCard.deliveredAtISO">
+                Entregada: {{ giftCard.deliveredAtISO | date: 'dd/MM/yyyy, HH:mm' }}
+              </span>
+              <span *ngIf="giftCard.usedAtISO">
+                Usada: {{ giftCard.usedAtISO | date: 'dd/MM/yyyy, HH:mm' }}
+              </span>
+            </div>
           </div>
-          <strong class="amount">
-            {{ giftCard.amountMXN | currency: 'MXN':'symbol-narrow':'1.0-0' }}
-          </strong>
+          <div class="remote-actions">
+            <strong class="amount">
+              {{ giftCard.amountMXN | currency: 'MXN':'symbol-narrow':'1.0-0' }}
+            </strong>
+            <mat-form-field appearance="outline">
+              <mat-label>Estatus</mat-label>
+              <mat-select
+                data-testid="remote-status-selector"
+                [value]="giftCard.status"
+                [disabled]="isRemoteSaving(giftCard.id)"
+                (selectionChange)="onRemoteStatusChange(giftCard, $event)"
+              >
+                <mat-option *ngFor="let status of statusOptions" [value]="status">
+                  {{ statusLabel(status) }}
+                </mat-option>
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="remote-notes-field">
+              <mat-label>Notas internas</mat-label>
+              <textarea
+                matInput
+                rows="3"
+                maxlength="2000"
+                data-testid="remote-notes-textarea"
+                [value]="remoteNotesDraft(giftCard)"
+                [disabled]="isRemoteSaving(giftCard.id)"
+                (input)="onRemoteNotesInput(giftCard.id, $event)"
+              ></textarea>
+              <mat-hint align="end">
+                {{ remoteNotesDraft(giftCard).length }}/2000
+              </mat-hint>
+            </mat-form-field>
+            <button
+              mat-stroked-button
+              type="button"
+              data-testid="remote-save-notes-button"
+              [disabled]="isRemoteSaving(giftCard.id)"
+              (click)="saveRemoteNotes(giftCard)"
+            >
+              {{ isRemoteSaving(giftCard.id) ? 'Guardando…' : 'Guardar notas' }}
+            </button>
+          </div>
         </article>
       </div>
 

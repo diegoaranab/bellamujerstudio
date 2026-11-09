@@ -88,8 +88,29 @@ mat-card {
 }
 
 .remote-row {
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
+}
+
+.remote-actions {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.remote-actions .amount {
+  justify-self: end;
+}
+
+.remote-notes-field {
+  width: 100%;
+}
+
+.remote-milestones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.85rem;
+  color: var(--mat-sys-on-surface-variant, #6b5b66);
+  font-size: 0.85rem;
 }
 
 .remote-pagination {
@@ -185,5 +206,9 @@ mat-chip.status-cancelada {
   .gift-row {
     grid-template-columns: minmax(0, 1fr) 220px;
     align-items: start;
+  }
+
+  .remote-row {
+    grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
   }
 }

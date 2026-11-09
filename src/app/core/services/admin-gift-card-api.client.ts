@@ -3,7 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable, catchError, defer, from, switchMap, throwError } from 'rxjs';
 
 import { AuthService } from '../auth/auth.service';
-import { GiftCard } from '../models';
+import { GiftCard, GiftCardStatus } from '../models';
 import { GIFT_CARD_API_CONFIG } from './gift-card-api-config';
 
 export interface AdminGiftCardListResponse {
@@ -11,9 +11,16 @@ export interface AdminGiftCardListResponse {
   nextToken?: string;
 }
 
+export interface AdminGiftCardUpdate {
+  status?: GiftCardStatus;
+  notes?: string;
+}
+
 export type AdminGiftCardApiErrorKind =
   | 'configuration'
   | 'authentication'
+  | 'validation'
+  | 'not-found'
   | 'network'
   | 'server';
 
@@ -70,6 +77,41 @@ export class AdminGiftCardApiClient {
     );
   }
 
+  updateGiftCard(id: string, update: AdminGiftCardUpdate): Observable<GiftCard> {
+    if (!this.isConfigured) {
+      return throwError(
+        () =>
+          new AdminGiftCardApiError(
+            'configuration',
+            'Las solicitudes en línea no están configuradas en este entorno.'
+          )
+      );
+    }
+
+    return defer(() => from(this.auth.getAccessToken())).pipe(
+      switchMap((accessToken) => {
+        if (!accessToken) {
+          return throwError(
+            () =>
+              new AdminGiftCardApiError(
+                'authentication',
+                'Tu sesión no permite actualizar las solicitudes en línea.'
+              )
+          );
+        }
+
+        return this.http.patch<GiftCard>(
+          `${this.baseUrl}/admin/gift-cards/${encodeURIComponent(id)}`,
+          update,
+          {
+            headers: new HttpHeaders({ Authorization: `Bearer ${accessToken}` })
+          }
+        );
+      }),
+      catchError((error: unknown) => throwError(() => this.normalizeError(error)))
+    );
+  }
+
   private normalizeError(error: unknown): AdminGiftCardApiError {
     if (error instanceof AdminGiftCardApiError) {
       return error;
@@ -77,7 +119,7 @@ export class AdminGiftCardApiClient {
     if (!(error instanceof HttpErrorResponse)) {
       return new AdminGiftCardApiError(
         'server',
-        'No fue posible consultar las solicitudes en línea. Intenta de nuevo.'
+        'No fue posible procesar las solicitudes en línea. Intenta de nuevo.'
       );
     }
     if (error.status === 0) {
@@ -89,12 +131,24 @@ export class AdminGiftCardApiClient {
     if (error.status === 401 || error.status === 403) {
       return new AdminGiftCardApiError(
         'authentication',
-        'Tu sesión no permite consultar las solicitudes en línea.'
+        'Tu sesión no permite administrar las solicitudes en línea.'
+      );
+    }
+    if (error.status === 400) {
+      return new AdminGiftCardApiError(
+        'validation',
+        'No fue posible guardar los cambios. Revisa la información e intenta de nuevo.'
+      );
+    }
+    if (error.status === 404) {
+      return new AdminGiftCardApiError(
+        'not-found',
+        'La solicitud en línea ya no está disponible.'
       );
     }
     return new AdminGiftCardApiError(
       'server',
-      'No fue posible consultar las solicitudes en línea. Intenta de nuevo.'
+      'No fue posible procesar las solicitudes en línea. Intenta de nuevo.'
     );
   }
 }
