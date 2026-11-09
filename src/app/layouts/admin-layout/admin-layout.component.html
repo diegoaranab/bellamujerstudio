@@ -29,19 +29,29 @@
         <span class="page-subtitle">Operación diaria del estudio</span>
       </div>
       <span class="spacer"></span>
-      <button mat-icon-button aria-label="Buscar">
+      <button class="desktop-topbar-control" mat-icon-button aria-label="Buscar">
         <mat-icon>search</mat-icon>
       </button>
-      <button mat-icon-button aria-label="Notificaciones">
+      <button class="desktop-topbar-control" mat-icon-button aria-label="Notificaciones">
         <mat-icon>notifications</mat-icon>
       </button>
       @if (auth.isCognitoMode && auth.isAuthenticated()) {
-        <button class="logout-button" mat-stroked-button (click)="logout()">
+        <button
+          class="logout-button"
+          mat-stroked-button
+          aria-label="Cerrar sesión"
+          (click)="logout()"
+        >
           <mat-icon>logout</mat-icon>
           Cerrar sesión
         </button>
       }
-      <button mat-flat-button color="primary" (click)="openNuevaCita()">
+      <button
+        class="desktop-new-appointment"
+        mat-flat-button
+        color="primary"
+        (click)="openNuevaCita()"
+      >
         Nueva cita
       </button>
     </mat-toolbar>
@@ -52,16 +62,64 @@
   </div>
 
   <nav class="bottom-nav" aria-label="Navegación móvil" data-testid="admin-bottom-nav">
-    @for (item of bottomNavItems; track item.path) {
-      <a
-        class="bottom-nav__item"
-        [routerLink]="item.path"
-        routerLinkActive="active"
-        [routerLinkActiveOptions]="{ exact: item.path === '/admin/inicio' }"
-      >
+    <a
+      class="bottom-nav__item"
+      [routerLink]="mobilePrimaryNavItems[0].path"
+      routerLinkActive="active"
+      [routerLinkActiveOptions]="{ exact: true }"
+      ariaCurrentWhenActive="page"
+    >
+      <mat-icon>{{ mobilePrimaryNavItems[0].icon }}</mat-icon>
+      <span>{{ mobilePrimaryNavItems[0].mobileLabel ?? mobilePrimaryNavItems[0].label }}</span>
+    </a>
+    <a
+      class="bottom-nav__item"
+      [routerLink]="mobilePrimaryNavItems[1].path"
+      routerLinkActive="active"
+      ariaCurrentWhenActive="page"
+    >
+      <mat-icon>{{ mobilePrimaryNavItems[1].icon }}</mat-icon>
+      <span>{{ mobilePrimaryNavItems[1].mobileLabel ?? mobilePrimaryNavItems[1].label }}</span>
+    </a>
+    <button
+      class="bottom-nav__item bottom-nav__item--primary"
+      type="button"
+      aria-label="Nueva cita"
+      data-testid="mobile-new-appointment"
+      (click)="openNuevaCita()"
+    >
+      <span class="bottom-nav__primary-icon"><mat-icon>add</mat-icon></span>
+      <span>Cita</span>
+    </button>
+    <a
+      class="bottom-nav__item"
+      [routerLink]="mobilePrimaryNavItems[2].path"
+      routerLinkActive="active"
+      ariaCurrentWhenActive="page"
+    >
+      <mat-icon>{{ mobilePrimaryNavItems[2].icon }}</mat-icon>
+      <span>{{ mobilePrimaryNavItems[2].mobileLabel ?? mobilePrimaryNavItems[2].label }}</span>
+    </a>
+    <button
+      class="bottom-nav__item"
+      type="button"
+      aria-label="Más opciones"
+      data-testid="mobile-more"
+      [class.active]="isMoreActive()"
+      [attr.aria-current]="isMoreActive() ? 'page' : null"
+      [matMenuTriggerFor]="mobileMoreMenu"
+    >
+      <mat-icon>more_horiz</mat-icon>
+      <span>Más</span>
+    </button>
+  </nav>
+
+  <mat-menu #mobileMoreMenu="matMenu" aria-label="Más opciones de navegación">
+    @for (item of mobileMoreNavItems; track item.path) {
+      <a mat-menu-item [routerLink]="item.path">
         <mat-icon>{{ item.icon }}</mat-icon>
         <span>{{ item.label }}</span>
       </a>
     }
-  </nav>
+  </mat-menu>
 </div>

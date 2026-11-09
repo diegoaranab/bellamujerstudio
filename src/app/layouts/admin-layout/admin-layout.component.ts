@@ -5,6 +5,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatListModule } from '@angular/material/list';
+import { MatMenuModule } from '@angular/material/menu';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
@@ -15,7 +16,8 @@ interface NavItem {
   path: string;
   label: string;
   icon: string;
-  showInBottomNav?: boolean;
+  mobileLabel?: string;
+  mobilePlacement?: 'primary' | 'more';
 }
 
 @Component({
@@ -29,7 +31,8 @@ interface NavItem {
     MatButtonModule,
     MatDialogModule,
     MatIconModule,
-    MatListModule
+    MatListModule,
+    MatMenuModule
   ],
   templateUrl: './admin-layout.component.html',
   styleUrl: './admin-layout.component.scss'
@@ -41,28 +44,71 @@ export class AdminLayoutComponent {
   protected readonly auth = inject(AuthService);
 
   protected readonly navItems: NavItem[] = [
-    { path: '/admin/inicio', label: 'Inicio', icon: 'dashboard' },
-    { path: '/admin/servicios', label: 'Servicios', icon: 'spa' },
-    { path: '/admin/clientes', label: 'Clientes', icon: 'groups' },
-    { path: '/admin/inventario', label: 'Inventario', icon: 'inventory_2' },
+    {
+      path: '/admin/inicio',
+      label: 'Inicio',
+      icon: 'dashboard',
+      mobilePlacement: 'primary'
+    },
+    {
+      path: '/admin/servicios',
+      label: 'Servicios',
+      icon: 'spa',
+      mobilePlacement: 'more'
+    },
+    {
+      path: '/admin/clientes',
+      label: 'Clientes',
+      icon: 'groups',
+      mobilePlacement: 'primary'
+    },
+    {
+      path: '/admin/inventario',
+      label: 'Inventario',
+      icon: 'inventory_2',
+      mobilePlacement: 'more'
+    },
     {
       path: '/admin/tarjetas-regalo',
       label: 'Tarjetas regalo',
-      icon: 'card_giftcard'
+      icon: 'card_giftcard',
+      mobilePlacement: 'more'
     },
     {
       path: '/admin/club',
       label: 'Bella Mujer Club',
       icon: 'loyalty',
-      showInBottomNav: false
+      mobileLabel: 'Club',
+      mobilePlacement: 'primary'
     },
-    { path: '/admin/asistente', label: 'Asistente', icon: 'chat' },
-    { path: '/admin/configuracion', label: 'Configuración', icon: 'settings' }
+    {
+      path: '/admin/asistente',
+      label: 'Asistente',
+      icon: 'chat',
+      mobilePlacement: 'more'
+    },
+    {
+      path: '/admin/configuracion',
+      label: 'Configuración',
+      icon: 'settings',
+      mobilePlacement: 'more'
+    }
   ];
 
-  protected readonly bottomNavItems = this.navItems.filter(
-    (item) => item.showInBottomNav !== false
+  protected readonly mobilePrimaryNavItems = this.navItems.filter(
+    (item) => item.mobilePlacement === 'primary'
   );
+
+  protected readonly mobileMoreNavItems = this.navItems.filter(
+    (item) => item.mobilePlacement === 'more'
+  );
+
+  protected isMoreActive(): boolean {
+    const currentPath = this.router.url.split(/[?#]/, 1)[0];
+    return this.mobileMoreNavItems.some(
+      (item) => currentPath === item.path || currentPath.startsWith(`${item.path}/`)
+    );
+  }
 
   openNuevaCita(): void {
     const isHandset = this.breakpointObserver.isMatched(Breakpoints.Handset);
