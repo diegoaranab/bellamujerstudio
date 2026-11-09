@@ -6,7 +6,8 @@ import {
   GiftCardTableItem,
   PublicGiftCardRequest,
   giftCardFromDynamoItem,
-  toGiftCardTableItem
+  toGiftCardTableItem,
+  toPublicGiftCardResponse
 } from '../shared/gift-card-model';
 import { originsFromEnvironment } from '../shared/frontend-configuration';
 import {
@@ -174,7 +175,7 @@ export const createGiftCardRequestHandler = ({
           const existing = await persistence.get(giftCard.id);
           if (existing) {
             return sameRequest(existing, validation.value)
-              ? jsonResponse(200, existing, origin, allowedOrigins)
+              ? jsonResponse(200, toPublicGiftCardResponse(existing), origin, allowedOrigins)
               : jsonResponse(
                 409,
                 {
@@ -194,7 +195,7 @@ export const createGiftCardRequestHandler = ({
       return serverErrorResponse(origin, allowedOrigins);
     }
 
-    return jsonResponse(201, giftCard, origin, allowedOrigins);
+    return jsonResponse(201, toPublicGiftCardResponse(giftCard), origin, allowedOrigins);
   };
 };
 

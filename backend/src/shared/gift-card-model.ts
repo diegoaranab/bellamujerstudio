@@ -34,6 +34,18 @@ export interface GiftCard extends PublicGiftCardRequest {
   notes?: string;
 }
 
+export interface PublicGiftCardResponse extends PublicGiftCardRequest {
+  id: string;
+  folio: string;
+  createdAtISO: string;
+  updatedAtISO: string;
+  paymentMethod: GiftCardPaymentMethod;
+  status: GiftCardStatus;
+  confirmedAtISO?: string;
+  deliveredAtISO?: string;
+  usedAtISO?: string;
+}
+
 export interface GiftCardTableItem extends GiftCard {
   pk: string;
   sk: 'METADATA';
@@ -43,6 +55,25 @@ export const toGiftCardTableItem = (giftCard: GiftCard): GiftCardTableItem => ({
   ...giftCard,
   pk: `GIFT_CARD#${giftCard.id}`,
   sk: 'METADATA'
+});
+
+export const toPublicGiftCardResponse = (giftCard: GiftCard): PublicGiftCardResponse => ({
+  id: giftCard.id,
+  folio: giftCard.folio,
+  createdAtISO: giftCard.createdAtISO,
+  updatedAtISO: giftCard.updatedAtISO,
+  paymentMethod: giftCard.paymentMethod,
+  status: giftCard.status,
+  buyerName: giftCard.buyerName,
+  buyerPhone: giftCard.buyerPhone,
+  ...(giftCard.buyerEmail ? { buyerEmail: giftCard.buyerEmail } : {}),
+  recipientName: giftCard.recipientName,
+  ...(giftCard.recipientPhone ? { recipientPhone: giftCard.recipientPhone } : {}),
+  amountMXN: giftCard.amountMXN,
+  ...(giftCard.message ? { message: giftCard.message } : {}),
+  ...(giftCard.confirmedAtISO ? { confirmedAtISO: giftCard.confirmedAtISO } : {}),
+  ...(giftCard.deliveredAtISO ? { deliveredAtISO: giftCard.deliveredAtISO } : {}),
+  ...(giftCard.usedAtISO ? { usedAtISO: giftCard.usedAtISO } : {})
 });
 
 const requiredString = (item: Record<string, AttributeValue>, field: string): string => {

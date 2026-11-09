@@ -37,7 +37,7 @@ const validBody = {
 };
 
 describe('gift-card request handler', () => {
-  it('returns 201 for valid request using mocked persistence', async () => {
+  it('returns a public-safe 201 response for a valid request', async () => {
     const save = vi.fn<GiftCardPersistence['save']>().mockResolvedValue(undefined);
     const get = vi.fn<GiftCardPersistence['get']>();
     const handler = createGiftCardRequestHandler({
@@ -51,7 +51,7 @@ describe('gift-card request handler', () => {
     const savedItem = save.mock.calls[0]?.[0] as GiftCardTableItem | undefined;
 
     expect(response.statusCode).toBe(201);
-    expect(body).toMatchObject({
+    expect(body).toEqual({
       id: keyOne,
       folio: 'BM-REGALO-20260425-ABCD',
       createdAtISO: '2026-04-25T12:00:00.000Z',
@@ -60,11 +60,51 @@ describe('gift-card request handler', () => {
       status: 'pendiente',
       ...validBody
     });
+    expect(body).not.toHaveProperty('notes');
+    expect(body).not.toHaveProperty('pk');
+    expect(body).not.toHaveProperty('sk');
     expect(savedItem).toMatchObject({
       pk: `GIFT_CARD#${keyOne}`,
       sk: 'METADATA',
       status: 'pendiente'
     });
+  });
+
+  it('returns persisted public workflow state on replay without exposing admin notes', async () => {
+    const privateNotes = 'Transferencia confirmada por Ale';
+    const existing = {
+      id: keyOne,
+      folio: 'BM-REGALO-20260425-ABCD',
+      createdAtISO: '2026-04-25T12:00:00.000Z',
+      updatedAtISO: '2026-04-25T13:00:00.000Z',
+      paymentMethod: 'transferencia' as const,
+      status: 'pagada' as const,
+      confirmedAtISO: '2026-04-25T13:00:00.000Z',
+      notes: privateNotes,
+      ...validBody
+    };
+    const duplicate = new Error('Duplicate');
+    duplicate.name = 'ConditionalCheckFailedException';
+    const handler = createGiftCardRequestHandler({
+      persistence: {
+        save: vi.fn().mockRejectedValue(duplicate),
+        get: vi.fn().mockResolvedValue(existing)
+      }
+    });
+
+    const response = await handler(eventForBody(validBody, keyOne));
+    const body = JSON.parse(response.body ?? '{}');
+
+    expect(response.statusCode).toBe(200);
+    expect(body).toMatchObject({
+      status: 'pagada',
+      confirmedAtISO: '2026-04-25T13:00:00.000Z',
+      updatedAtISO: '2026-04-25T13:00:00.000Z'
+    });
+    expect(body).not.toHaveProperty('notes');
+    expect(body).not.toHaveProperty('pk');
+    expect(body).not.toHaveProperty('sk');
+    expect(response.body).not.toContain(privateNotes);
   });
 
   it('returns the original card on replay and creates separate cards for separate keys', async () => {
