@@ -37,7 +37,7 @@ const validBody = {
 };
 
 describe('gift-card request handler', () => {
-  it('returns 201 for valid request using mocked persistence', async () => {
+  it('returns a public-safe 201 response for a valid request', async () => {
     const save = vi.fn<GiftCardPersistence['save']>().mockResolvedValue(undefined);
     const get = vi.fn<GiftCardPersistence['get']>();
     const handler = createGiftCardRequestHandler({
@@ -51,7 +51,7 @@ describe('gift-card request handler', () => {
     const savedItem = save.mock.calls[0]?.[0] as GiftCardTableItem | undefined;
 
     expect(response.statusCode).toBe(201);
-    expect(body).toMatchObject({
+    expect(body).toEqual({
       id: keyOne,
       folio: 'BM-REGALO-20260425-ABCD',
       createdAtISO: '2026-04-25T12:00:00.000Z',
@@ -60,11 +60,51 @@ describe('gift-card request handler', () => {
       status: 'pendiente',
       ...validBody
     });
+    expect(body).not.toHaveProperty('notes');
+    expect(body).not.toHaveProperty('pk');
+    expect(body).not.toHaveProperty('sk');
     expect(savedItem).toMatchObject({
       pk: `GIFT_CARD#${keyOne}`,
       sk: 'METADATA',
       status: 'pendiente'
     });
+  });
+
+  it('returns persisted public workflow state on replay without exposing admin notes', async () => {
+    const privateNotes = 'Transferencia confirmada por Ale';
+    const existing = {
+      id: keyOne,
+      folio: 'BM-REGALO-20260425-ABCD',
+      createdAtISO: '2026-04-25T12:00:00.000Z',
+      updatedAtISO: '2026-04-25T13:00:00.000Z',
+      paymentMethod: 'transferencia' as const,
+      status: 'pagada' as const,
+      confirmedAtISO: '2026-04-25T13:00:00.000Z',
+      notes: privateNotes,
+      ...validBody
+    };
+    const duplicate = new Error('Duplicate');
+    duplicate.name = 'ConditionalCheckFailedException';
+    const handler = createGiftCardRequestHandler({
+      persistence: {
+        save: vi.fn().mockRejectedValue(duplicate),
+        get: vi.fn().mockResolvedValue(existing)
+      }
+    });
+
+    const response = await handler(eventForBody(validBody, keyOne));
+    const body = JSON.parse(response.body ?? '{}');
+
+    expect(response.statusCode).toBe(200);
+    expect(body).toMatchObject({
+      status: 'pagada',
+      confirmedAtISO: '2026-04-25T13:00:00.000Z',
+      updatedAtISO: '2026-04-25T13:00:00.000Z'
+    });
+    expect(body).not.toHaveProperty('notes');
+    expect(body).not.toHaveProperty('pk');
+    expect(body).not.toHaveProperty('sk');
+    expect(response.body).not.toContain(privateNotes);
   });
 
   it('returns the original card on replay and creates separate cards for separate keys', async () => {
@@ -208,9 +248,11 @@ describe('gift-card request handler', () => {
 describe('Dynamo gift-card persistence', () => {
   it('conditionally writes and consistently reads the original card', async () => {
     const send = vi.fn().mockResolvedValueOnce({}).mockResolvedValueOnce({ Item: {
-      id: { S: keyOne }, folio: { S: 'BM-ORIGINAL' }, status: { S: 'pendiente' },
+      id: { S: keyOne }, folio: { S: 'BM-ORIGINAL' }, status: { S: 'pagada' },
       paymentMethod: { S: 'transferencia' }, createdAtISO: { S: '2026-04-25T12:00:00.000Z' },
-      updatedAtISO: { S: '2026-04-25T12:00:00.000Z' }, buyerName: { S: 'Diego' },
+      updatedAtISO: { S: '2026-04-25T13:00:00.000Z' },
+      confirmedAtISO: { S: '2026-04-25T13:00:00.000Z' },
+      notes: { S: 'Transferencia confirmada' }, buyerName: { S: 'Diego' },
       buyerPhone: { S: '5551234567' }, recipientName: { S: 'Alejandra' },
       amountMXN: { N: '500' }, message: { S: 'Feliz cumple' }
     } });
@@ -225,8 +267,9 @@ describe('Dynamo gift-card persistence', () => {
     expect(send.mock.calls[0][0]).toBeInstanceOf(PutItemCommand);
     expect(send.mock.calls[0][0].input.ConditionExpression).toBe('attribute_not_exists(pk)');
     expect(await persistence.get(keyOne)).toEqual({
-      id: keyOne, folio: 'BM-ORIGINAL', status: 'pendiente', paymentMethod: 'transferencia',
-      createdAtISO: '2026-04-25T12:00:00.000Z', updatedAtISO: '2026-04-25T12:00:00.000Z',
+      id: keyOne, folio: 'BM-ORIGINAL', status: 'pagada', paymentMethod: 'transferencia',
+      createdAtISO: '2026-04-25T12:00:00.000Z', updatedAtISO: '2026-04-25T13:00:00.000Z',
+      confirmedAtISO: '2026-04-25T13:00:00.000Z', notes: 'Transferencia confirmada',
       ...validBody
     });
     expect(send.mock.calls[1][0]).toBeInstanceOf(GetItemCommand);

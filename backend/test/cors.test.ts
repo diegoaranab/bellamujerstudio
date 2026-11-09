@@ -9,7 +9,7 @@ describe('CORS headers', () => {
     expect(corsHeaders('https://diegoaranab.github.io', allowedOrigins)).toEqual({
       'Access-Control-Allow-Origin': 'https://diegoaranab.github.io',
       'Access-Control-Allow-Headers': 'Content-Type,Authorization,Idempotency-Key',
-      'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+      'Access-Control-Allow-Methods': 'GET,POST,PATCH,OPTIONS',
       Vary: 'Origin'
     });
   });

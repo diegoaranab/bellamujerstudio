@@ -12,6 +12,7 @@ Phase 3B adds an AWS serverless scaffold for gift-card requests. Phase 3C adds o
   - `POST /gift-cards/request`
   - `GET /admin/health` (reuses the health handler)
   - `GET /admin/gift-cards` (read-only, bounded administrative listing)
+  - `PATCH /admin/gift-cards/{id}` (status and internal-notes updates only)
 - DynamoDB gift-card table with on-demand billing.
 - Cognito user pool for administrator accounts, with required software-token MFA and email recovery.
 - Secretless Cognito SPA client using authorization code flow and PKCE-compatible callback URLs.
@@ -46,9 +47,9 @@ npm --prefix backend run synth -- -c frontendProductionUrls=https://YOUR_FINAL_H
 
 For multiple production URLs, use a quoted comma-separated value. Paths are allowed when the frontend is hosted below the origin, and a trailing slash is normalized automatically. Supply the same context value to every later CDK diff/deploy operation and verify the synthesized `AllowOrigins`, `CallbackURLs`, and `LogoutURLs` first. Omitting the context remains valid for local synthesis and does not invent a production domain.
 
-`GET /health` and `POST /gift-cards/request` remain public. `GET /admin/health` and `GET /admin/gift-cards` are protected admin endpoints requiring a valid Cognito access token through the existing JWT authorizer with the `openid` scope. The gift-card endpoint provides only a read-only, bounded-paginated list of gift-card requests; it does not provide create, update, delete, or status-management operations.
+`GET /health` and `POST /gift-cards/request` remain public. `GET /admin/health`, `GET /admin/gift-cards`, and `PATCH /admin/gift-cards/{id}` are protected admin endpoints requiring a valid Cognito access token through the existing JWT authorizer with the `openid` scope. The PATCH endpoint accepts only `status` and `notes`; workflow milestone timestamps and `updatedAtISO` are managed by the server. Administrative remote creation, deletion, and full editing are not implemented.
 
-Production Angular uses `giftCardDataMode: 'api'`, so public gift-card requests are submitted through `POST /gift-cards/request`. Successful submissions are persisted in DynamoDB and appear in the admin read-only "Solicitudes recibidas en línea" section. Development remains `local`. Administrative create, update, status, and notes operations are not implemented remotely, so the existing manual admin workflow remains local. Mercado Pago is still not implemented. This scaffold also does not include deployment automation or any changes to the existing assistant Worker. No users or credentials are created by CDK.
+Production Angular uses `giftCardDataMode: 'api'`, so public gift-card requests are submitted through `POST /gift-cards/request`. Successful submissions are persisted in DynamoDB and appear in the admin read-only "Solicitudes recibidas en línea" section. Development remains `local`. The remote Angular section remains read-only until a later frontend PR connects the protected mutation endpoint, and the existing manual admin workflow remains local. Mercado Pago is still not implemented. This scaffold also does not include deployment automation or any changes to the existing assistant Worker. No users or credentials are created by CDK.
 
 ## Install
 
@@ -113,4 +114,4 @@ Deployment is intentionally not part of Phase 3F.1. The following items are requ
 - [ ] Smoke-test `GET /health`, an allowed-origin preflight including `Idempotency-Key`, a valid gift-card request/replay, rejection of an unknown origin in browser CORS, Cognito sign-in/MFA/logout, protected admin navigation, and production-mode configuration.
 - [ ] Prepare rollback and stack-removal steps. The DynamoDB table and Cognito user pool use `RETAIN`, so they survive stack deletion/replacement and require deliberate data backup, import, or manual cleanup. Lambda log groups are intentionally destroyable and retain logs for 14 days while present.
 
-The administrative gift-card API is currently read-only. It does not support create, update, delete, or status-management operations.
+The administrative gift-card API supports only bounded listing plus protected status/internal-notes updates. It does not support remote creation, deletion, or full editing, and the Angular remote section remains read-only.

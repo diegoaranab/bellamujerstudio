@@ -50,7 +50,11 @@ const asDynamoItem = (card: GiftCard) => ({
   recipientName: { S: card.recipientName },
   ...(card.recipientPhone ? { recipientPhone: { S: card.recipientPhone } } : {}),
   amountMXN: { N: String(card.amountMXN) },
-  ...(card.message ? { message: { S: card.message } } : {})
+  ...(card.message ? { message: { S: card.message } } : {}),
+  ...(card.confirmedAtISO ? { confirmedAtISO: { S: card.confirmedAtISO } } : {}),
+  ...(card.deliveredAtISO ? { deliveredAtISO: { S: card.deliveredAtISO } } : {}),
+  ...(card.usedAtISO ? { usedAtISO: { S: card.usedAtISO } } : {}),
+  ...(card.notes ? { notes: { S: card.notes } } : {})
 });
 
 const eventForQuery = (queryStringParameters?: Record<string, string>): APIGatewayProxyEventV2 =>
@@ -177,6 +181,48 @@ describe('administrative gift-card list handler', () => {
 });
 
 describe('Dynamo administrative gift-card list persistence', () => {
+  it.each([
+    {
+      status: 'pagada' as const,
+      confirmedAtISO: '2026-04-25T13:00:00.000Z',
+      notes: 'Transferencia confirmada'
+    },
+    {
+      status: 'usada' as const,
+      confirmedAtISO: '2026-04-25T13:00:00.000Z',
+      deliveredAtISO: '2026-04-25T14:00:00.000Z',
+      usedAtISO: '2026-04-25T15:00:00.000Z',
+      notes: 'Canjeada en estudio'
+    }
+  ])('returns persisted $status state and milestone fields', async (persistedState) => {
+    const persistedCard = { ...giftCard, ...persistedState };
+    const send = vi.fn().mockResolvedValue({ Items: [asDynamoItem(persistedCard)] });
+    const persistence = new DynamoGiftCardListPersistence(
+      { send } as unknown as DynamoDBClient,
+      'gift-cards-table'
+    );
+
+    const page = await persistence.list(1);
+
+    expect(page.items).toEqual([persistedCard]);
+  });
+
+  it.each([
+    { status: { S: 'inventada' }, paymentMethod: { S: 'transferencia' } },
+    { status: { S: 'pendiente' }, paymentMethod: { S: 'efectivo' } },
+    { status: { S: 'pendiente' }, paymentMethod: { S: 'transferencia' }, notes: { N: '1' } }
+  ])('fails safely for malformed persisted workflow state %j', async (workflow) => {
+    const send = vi.fn().mockResolvedValue({
+      Items: [{ ...asDynamoItem(giftCard), ...workflow }]
+    });
+    const persistence = new DynamoGiftCardListPersistence(
+      { send } as unknown as DynamoDBClient,
+      'gift-cards-table'
+    );
+
+    await expect(persistence.list(1)).rejects.toThrow('Invalid gift-card field');
+  });
+
   it('uses a bounded filtered Scan against the configured table and maps domain fields only', async () => {
     const send = vi.fn().mockResolvedValue({
       Items: [asDynamoItem(giftCard)],

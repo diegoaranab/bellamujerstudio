@@ -1,7 +1,14 @@
 import { DynamoDBClient, GetItemCommand, PutItemCommand } from '@aws-sdk/client-dynamodb';
 import { APIGatewayProxyEventV2, APIGatewayProxyStructuredResultV2 } from 'aws-lambda';
 import { createGiftCardFolio } from '../shared/id';
-import { GiftCard, GiftCardTableItem, PublicGiftCardRequest, toGiftCardTableItem } from '../shared/gift-card-model';
+import {
+  GiftCard,
+  GiftCardTableItem,
+  PublicGiftCardRequest,
+  giftCardFromDynamoItem,
+  toGiftCardTableItem,
+  toPublicGiftCardResponse
+} from '../shared/gift-card-model';
 import { originsFromEnvironment } from '../shared/frontend-configuration';
 import {
   jsonResponse,
@@ -115,17 +122,7 @@ export class DynamoGiftCardPersistence implements GiftCardPersistence {
     }));
     const item = result.Item;
     if (!item) return undefined;
-    return {
-      id: item.id.S!, folio: item.folio.S!, status: 'pendiente',
-      paymentMethod: 'transferencia', createdAtISO: item.createdAtISO.S!,
-      updatedAtISO: item.updatedAtISO.S!, buyerName: item.buyerName.S!,
-      buyerPhone: item.buyerPhone.S!,
-      ...(item.buyerEmail?.S ? { buyerEmail: item.buyerEmail.S } : {}),
-      recipientName: item.recipientName.S!,
-      ...(item.recipientPhone?.S ? { recipientPhone: item.recipientPhone.S } : {}),
-      amountMXN: Number(item.amountMXN.N),
-      ...(item.message?.S ? { message: item.message.S } : {})
-    };
+    return giftCardFromDynamoItem(item);
   }
 }
 
@@ -178,7 +175,7 @@ export const createGiftCardRequestHandler = ({
           const existing = await persistence.get(giftCard.id);
           if (existing) {
             return sameRequest(existing, validation.value)
-              ? jsonResponse(200, existing, origin, allowedOrigins)
+              ? jsonResponse(200, toPublicGiftCardResponse(existing), origin, allowedOrigins)
               : jsonResponse(
                 409,
                 {
@@ -198,7 +195,7 @@ export const createGiftCardRequestHandler = ({
       return serverErrorResponse(origin, allowedOrigins);
     }
 
-    return jsonResponse(201, giftCard, origin, allowedOrigins);
+    return jsonResponse(201, toPublicGiftCardResponse(giftCard), origin, allowedOrigins);
   };
 };
 
