@@ -121,6 +121,29 @@ export class AuthService {
     }
   }
 
+  async getAccessToken(): Promise<string | null> {
+    await this.initialize();
+
+    if (!this.isCognitoMode || !this.client) {
+      return null;
+    }
+
+    try {
+      const user = await this.client.getUser();
+      if (!this.isValidUser(user)) {
+        await this.clearInvalidUser();
+        return null;
+      }
+
+      this.currentUser.set(user);
+      this.authStatus.set('authenticated');
+      return user.access_token || null;
+    } catch {
+      await this.clearInvalidUser();
+      return null;
+    }
+  }
+
   private async initializeInternal(): Promise<void> {
     if (!this.isCognitoMode) {
       this.authStatus.set('local');

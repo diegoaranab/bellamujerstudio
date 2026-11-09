@@ -71,6 +71,33 @@ mat-card {
   text-align: center;
 }
 
+.remote-error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem;
+  border-radius: 8px;
+  background: var(--mat-sys-error-container, #ffdad6);
+  color: var(--mat-sys-on-error-container, #410002);
+}
+
+.remote-list {
+  margin-top: 0.5rem;
+}
+
+.remote-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+}
+
+.remote-pagination {
+  display: flex;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
 .gift-card-list {
   display: grid;
   gap: 0.9rem;

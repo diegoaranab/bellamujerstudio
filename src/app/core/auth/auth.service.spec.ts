@@ -93,6 +93,43 @@ describe('AuthService', () => {
     await expect(service.getToken()).resolves.toBe('access-token');
   });
 
+  it('returns the Cognito access token for authenticated API requests', async () => {
+    const client = createClient({
+      access_token: 'access-token',
+      id_token: 'id-token',
+      expired: false
+    });
+    const { service } = configure(client);
+
+    await expect(service.getAccessToken()).resolves.toBe('access-token');
+  });
+
+  it('never falls back to an ID token for authenticated API requests', async () => {
+    const client = createClient({ id_token: 'id-token', expired: false });
+    const { service } = configure(client);
+
+    await expect(service.getAccessToken()).resolves.toBeNull();
+    await expect(service.getToken()).resolves.toBe('id-token');
+  });
+
+  it('returns null and clears an expired session when retrieving an access token', async () => {
+    const client = createClient({ access_token: 'expired-token', expired: true });
+    const { service } = configure(client);
+
+    await expect(service.getAccessToken()).resolves.toBeNull();
+
+    expect(service.status()).toBe('unauthenticated');
+    expect(client.removeUser).toHaveBeenCalled();
+  });
+
+  it('returns null for access-token retrieval in local auth mode', async () => {
+    const client = createClient({ access_token: 'access-token', expired: false });
+    const { service } = configure(client, { config: localConfig });
+
+    await expect(service.getAccessToken()).resolves.toBeNull();
+    expect(client.getUser).not.toHaveBeenCalled();
+  });
+
   it('treats expired persisted auth state as unauthenticated and removes it', async () => {
     const client = createClient({ access_token: 'expired-token', expired: true });
     const { service } = configure(client);

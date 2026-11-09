@@ -49,6 +49,100 @@
     </mat-card>
   </section>
 
+  <mat-card class="remote-requests" data-testid="remote-gift-card-section">
+    <mat-card-header>
+      <mat-card-title>Solicitudes recibidas en línea</mat-card-title>
+      <mat-card-subtitle>
+        Consulta de solo lectura. Estas solicitudes no forman parte del control manual.
+      </mat-card-subtitle>
+    </mat-card-header>
+    <mat-card-content>
+      <p
+        class="empty-state"
+        data-testid="remote-not-configured-state"
+        *ngIf="!remoteConfigured"
+      >
+        La consulta de solicitudes en línea no está configurada en este entorno.
+      </p>
+
+      <p
+        class="empty-state"
+        data-testid="remote-loading-state"
+        *ngIf="remoteConfigured && remoteLoading() && remoteGiftCards().length === 0"
+      >
+        Cargando solicitudes en línea…
+      </p>
+
+      <div class="remote-error" data-testid="remote-error-state" *ngIf="remoteError() as error">
+        <p>{{ error }}</p>
+        <button
+          mat-stroked-button
+          type="button"
+          data-testid="remote-retry-button"
+          [disabled]="remoteLoading()"
+          (click)="retryRemote()"
+        >
+          Reintentar
+        </button>
+      </div>
+
+      <p
+        class="empty-state"
+        data-testid="remote-empty-state"
+        *ngIf="
+          remoteConfigured &&
+          !remoteLoading() &&
+          !remoteError() &&
+          remoteGiftCards().length === 0
+        "
+      >
+        Aún no hay solicitudes recibidas en línea.
+      </p>
+
+      <div
+        class="gift-card-list remote-list"
+        data-testid="remote-gift-card-list"
+        *ngIf="remoteGiftCards().length > 0"
+      >
+        <article
+          class="gift-row remote-row"
+          data-testid="remote-gift-card-row"
+          *ngFor="let giftCard of remoteGiftCards()"
+        >
+          <div class="gift-main">
+            <div class="row-title">
+              <strong>{{ giftCard.folio }}</strong>
+              <mat-chip [ngClass]="'status-' + giftCard.status">
+                {{ statusLabel(giftCard.status) }}
+              </mat-chip>
+            </div>
+            <p>{{ giftCard.recipientName }} recibe de {{ giftCard.buyerName }}</p>
+            <p class="muted">
+              Recibida el {{ giftCard.createdAtISO | date: 'dd/MM/yyyy' }}
+            </p>
+            <p class="muted">WhatsApp del comprador: {{ giftCard.buyerPhone }}</p>
+            <p class="muted" *ngIf="giftCard.message">Mensaje: {{ giftCard.message }}</p>
+          </div>
+          <strong class="amount">
+            {{ giftCard.amountMXN | currency: 'MXN':'symbol-narrow':'1.0-0' }}
+          </strong>
+        </article>
+      </div>
+
+      <div class="remote-pagination" *ngIf="remoteNextToken()">
+        <button
+          mat-stroked-button
+          type="button"
+          data-testid="remote-load-more-button"
+          [disabled]="remoteLoading()"
+          (click)="loadMoreRemote()"
+        >
+          {{ remoteLoading() ? 'Cargando…' : 'Cargar más' }}
+        </button>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
   <mat-card>
     <mat-card-header>
       <mat-card-title>Registrar tarjeta regalo</mat-card-title>
