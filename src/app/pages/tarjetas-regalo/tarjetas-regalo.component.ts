@@ -240,7 +240,7 @@ export class TarjetasRegaloComponent implements OnInit {
     }
 
     event.source?.writeValue(giftCard.status);
-    this.updateRemoteGiftCard(giftCard.id, { status }, 'Estatus actualizado.');
+    this.updateRemoteGiftCard(giftCard.id, { status }, 'Estatus actualizado.', false);
   }
 
   saveRemoteNotes(giftCard: GiftCard): void {
@@ -251,7 +251,8 @@ export class TarjetasRegaloComponent implements OnInit {
     this.updateRemoteGiftCard(
       giftCard.id,
       { notes: this.remoteNotesDraft(giftCard) },
-      'Notas guardadas.'
+      'Notas guardadas.',
+      true
     );
   }
 
@@ -307,7 +308,8 @@ export class TarjetasRegaloComponent implements OnInit {
   private updateRemoteGiftCard(
     id: string,
     update: AdminGiftCardUpdate,
-    successMessage: string
+    successMessage: string,
+    syncNotesDraftOnSuccess: boolean
   ): void {
     if (this.isRemoteSaving(id)) {
       return;
@@ -346,10 +348,12 @@ export class TarjetasRegaloComponent implements OnInit {
             return;
           }
 
-          this.remoteNotesDrafts.update((drafts) => ({
-            ...drafts,
-            [id]: updatedGiftCard.notes ?? ''
-          }));
+          if (syncNotesDraftOnSuccess) {
+            this.remoteNotesDrafts.update((drafts) => ({
+              ...drafts,
+              [id]: updatedGiftCard.notes ?? ''
+            }));
+          }
           this.snackBar.open(successMessage, 'Cerrar', { duration: 2500 });
         },
         error: (error: unknown) => {

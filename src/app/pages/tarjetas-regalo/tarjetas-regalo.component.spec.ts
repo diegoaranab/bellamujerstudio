@@ -196,6 +196,50 @@ describe('TarjetasRegaloComponent', () => {
     expect(remoteRow.textContent).toContain('Usada:');
   });
 
+  it('preserves an unsaved remote notes draft when status updates canonically', async () => {
+    const giftCard: GiftCard = {
+      ...remoteGiftCard,
+      notes: 'Nota persistida anterior'
+    };
+    const updated: GiftCard = {
+      ...giftCard,
+      status: 'pagada',
+      confirmedAtISO: '2026-11-09T13:00:00.000Z'
+    };
+    await configure([localGiftCard], of({ items: [giftCard] }));
+    updateGiftCard.mockReturnValue(of(updated));
+    const fixture = TestBed.createComponent(TarjetasRegaloComponent);
+    fixture.detectChanges();
+
+    const notesTextarea = fixture.nativeElement.querySelector(
+      '[data-testid="remote-notes-textarea"]'
+    ) as HTMLTextAreaElement;
+    notesTextarea.value = 'Borrador todavía no guardado';
+    notesTextarea.dispatchEvent(new Event('input'));
+    fixture.componentInstance.onRemoteStatusChange(giftCard, {
+      value: 'pagada'
+    } as never);
+    fixture.detectChanges();
+
+    expect(updateGiftCard).toHaveBeenCalledWith(giftCard.id, { status: 'pagada' });
+    expect(fixture.componentInstance.remoteGiftCards()).toEqual([updated]);
+    expect(fixture.componentInstance.remoteGiftCards()[0]).toEqual(
+      expect.objectContaining({
+        status: 'pagada',
+        confirmedAtISO: '2026-11-09T13:00:00.000Z'
+      })
+    );
+    expect(fixture.componentInstance.remoteNotesDraft(updated)).toBe(
+      'Borrador todavía no guardado'
+    );
+    expect(fixture.componentInstance.remoteNotesDraft(updated)).not.toBe(
+      'Nota persistida anterior'
+    );
+    expect(notesTextarea.value).toBe('Borrador todavía no guardado');
+    expect(updateStatus).not.toHaveBeenCalled();
+    expect(updateNotes).not.toHaveBeenCalled();
+  });
+
   it('saves remote notes through the API and synchronizes the canonical returned draft', async () => {
     const updated = { ...remoteGiftCard, notes: 'Nota normalizada por servidor' };
     await configure([], of({ items: [remoteGiftCard] }));
