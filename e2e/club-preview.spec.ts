@@ -33,8 +33,8 @@ test('mobile Club preview remains readable and is discoverable from Inicio', asy
 
   const bottomNav = page.getByTestId('admin-bottom-nav');
   await expect(bottomNav).toBeVisible();
-  await expect(bottomNav.getByRole('link')).toHaveCount(7);
-  await expect(bottomNav).not.toContainText('Bella Mujer Club');
+  await expect(bottomNav.locator(':scope > .bottom-nav__item')).toHaveCount(5);
+  await expect(bottomNav.getByRole('link', { name: 'Club' })).toBeVisible();
 
   await page.goto('/#/admin/inicio');
   const clubEntry = page.getByTestId('club-preview-card');

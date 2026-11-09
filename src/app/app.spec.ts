@@ -1,5 +1,6 @@
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { Component } from '@angular/core';
+import { By } from '@angular/platform-browser';
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { App } from './app';
@@ -14,6 +15,7 @@ import {
 import { AdminLayoutComponent } from './layouts/admin-layout/admin-layout.component';
 import { PublicLayoutComponent } from './layouts/public-layout/public-layout.component';
 import { ClubDashboardComponent } from './pages/club-dashboard/club-dashboard.component';
+import { NuevaCitaDialogComponent } from './shared/dialogs/nueva-cita-dialog/nueva-cita-dialog.component';
 
 @Component({
   template: '<p>Ruta de prueba</p>'
@@ -32,7 +34,13 @@ describe('App', () => {
             children: [
               { path: 'inicio', component: TestRouteComponent },
               { path: 'club', component: ClubDashboardComponent },
-              { path: 'tarjetas-regalo', component: TestRouteComponent }
+              { path: 'servicios', component: TestRouteComponent },
+              { path: 'clientes', component: TestRouteComponent },
+              { path: 'inventario', component: TestRouteComponent },
+              { path: 'tarjetas-regalo', component: TestRouteComponent },
+              { path: 'tarjetas-regalo/:id', component: TestRouteComponent },
+              { path: 'asistente', component: TestRouteComponent },
+              { path: 'configuracion', component: TestRouteComponent }
             ]
           },
           { path: 'inicio', redirectTo: 'admin/inicio', pathMatch: 'full' },
@@ -135,17 +143,101 @@ describe('App', () => {
     expect(navText).toContain('Configuración');
   });
 
-  it('keeps Club in the desktop sidebar and out of the mobile bottom navigation collection', async () => {
+  it('keeps every admin destination in the desktop sidebar', async () => {
     const fixture = await renderAt('/admin/club');
     const compiled = fixture.nativeElement as HTMLElement;
     const sidebar = compiled.querySelector('.sidenav');
-    const bottomNav = compiled.querySelector('[data-testid="admin-bottom-nav"]');
+    const labels = Array.from(sidebar?.querySelectorAll('a') ?? []).map((link) =>
+      link.textContent?.trim()
+    );
 
-    expect(sidebar?.textContent).toContain('Bella Mujer Club');
-    expect(bottomNav?.textContent).not.toContain('Bella Mujer Club');
-    expect(bottomNav?.querySelectorAll('.bottom-nav__item')).toHaveLength(7);
-    expect(bottomNav?.textContent).toContain('Inicio');
-    expect(bottomNav?.textContent).toContain('Configuración');
+    expect(labels).toEqual([
+      'dashboardInicio',
+      'spaServicios',
+      'groupsClientes',
+      'inventory_2Inventario',
+      'card_giftcardTarjetas regalo',
+      'loyaltyBella Mujer Club',
+      'chatAsistente',
+      'settingsConfiguración'
+    ]);
+  });
+
+  it('renders exactly five mobile slots with three primary route links', async () => {
+    const fixture = await renderAt('/admin/inicio');
+    const compiled = fixture.nativeElement as HTMLElement;
+    const bottomNav = compiled.querySelector('[data-testid="admin-bottom-nav"]');
+    const slots = bottomNav?.querySelectorAll(':scope > .bottom-nav__item');
+    const links = bottomNav?.querySelectorAll(':scope > a');
+
+    expect(slots).toHaveLength(5);
+    expect(links).toHaveLength(3);
+    expect(Array.from(links ?? []).map((link) => link.textContent?.trim())).toEqual([
+      'dashboardInicio',
+      'groupsClientes',
+      'loyaltyClub'
+    ]);
+    expect(bottomNav?.textContent).toContain('Cita');
+    expect(bottomNav?.textContent).toContain('Más');
+  });
+
+  it('puts only secondary destinations in the mobile More menu', async () => {
+    const fixture = await renderAt('/admin/inicio');
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    (compiled.querySelector('[data-testid="mobile-more"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const menuLabels = Array.from(document.querySelectorAll('[role="menu"] [mat-menu-item]')).map(
+      (item) => item.textContent?.trim()
+    );
+    expect(menuLabels).toEqual([
+      'spaServicios',
+      'inventory_2Inventario',
+      'card_giftcardTarjetas regalo',
+      'chatAsistente',
+      'settingsConfiguración'
+    ]);
+    expect(menuLabels.join(' ')).not.toContain('Bella Mujer Club');
+    expect(menuLabels.join(' ')).not.toContain('Clientes');
+  });
+
+  it('uses the existing appointment dialog from the mobile Cita action', async () => {
+    const fixture = await renderAt('/admin/inicio');
+    const compiled = fixture.nativeElement as HTMLElement;
+    const layout = fixture.debugElement.query(By.directive(AdminLayoutComponent)).componentInstance;
+    const openDialog = vi.spyOn(layout['dialog'], 'open');
+
+    (compiled.querySelector('[data-testid="mobile-new-appointment"]') as HTMLButtonElement).click();
+
+    expect(openDialog).toHaveBeenCalledOnce();
+    expect(openDialog.mock.calls[0][0]).toBe(NuevaCitaDialogComponent);
+  });
+
+  it.each(['/admin/inventario', '/admin/tarjetas-regalo/example-id'])(
+    'marks More active for the secondary route %s',
+    async (path) => {
+      const fixture = await renderAt(path);
+      const more = fixture.nativeElement.querySelector(
+        '[data-testid="mobile-more"]'
+      ) as HTMLButtonElement;
+
+      expect(more.classList).toContain('active');
+      expect(more.getAttribute('aria-current')).toBe('page');
+    }
+  );
+
+  it('activates the Club mobile link instead of More on the Club route', async () => {
+    const fixture = await renderAt('/admin/club');
+    const compiled = fixture.nativeElement as HTMLElement;
+    const club = compiled.querySelector('[data-testid="admin-bottom-nav"] a[href="/admin/club"]');
+    const more = compiled.querySelector('[data-testid="mobile-more"]');
+
+    expect(club?.classList).toContain('active');
+    expect(club?.getAttribute('aria-current')).toBe('page');
+    expect(more?.classList).not.toContain('active');
+    expect(more?.hasAttribute('aria-current')).toBe(false);
   });
 
   it('renders the Club route inside the admin shell and not the public shell', async () => {
