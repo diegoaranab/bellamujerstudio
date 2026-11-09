@@ -35,6 +35,19 @@ export class BellaMujerApiStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.RETAIN
     });
 
+    const clubTable = new dynamodb.Table(this, 'ClubTable', {
+      partitionKey: {
+        name: 'pk',
+        type: dynamodb.AttributeType.STRING
+      },
+      sortKey: {
+        name: 'sk',
+        type: dynamodb.AttributeType.STRING
+      },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.RETAIN
+    });
+
     const adminUserPool = new cognito.UserPool(this, 'AdminUserPool', {
       userPoolName: 'bella-mujer-admin',
       selfSignUpEnabled: false,
@@ -259,6 +272,11 @@ export class BellaMujerApiStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'GiftCardsTableName', {
       value: giftCardsTable.tableName,
       description: 'DynamoDB gift cards table name'
+    });
+
+    new cdk.CfnOutput(this, 'ClubTableName', {
+      value: clubTable.tableName,
+      description: 'DynamoDB Bella Mujer Club table name'
     });
 
     new cdk.CfnOutput(this, 'AdminUserPoolId', {

@@ -14,7 +14,7 @@ describe('BellaMujerApiStack', () => {
   const template = synthesizeTemplate();
 
   it('defines gift-card DynamoDB table with on-demand billing', () => {
-    template.resourceCountIs('AWS::DynamoDB::Table', 1);
+    template.resourceCountIs('AWS::DynamoDB::Table', 2);
     template.hasResourceProperties('AWS::DynamoDB::Table', {
       BillingMode: 'PAY_PER_REQUEST',
       KeySchema: [
@@ -29,7 +29,9 @@ describe('BellaMujerApiStack', () => {
       ]
     });
 
-    const [table] = Object.values(template.findResources('AWS::DynamoDB::Table'));
+    const giftCardsTableLogicalId = template.findOutputs('GiftCardsTableName')
+      .GiftCardsTableName.Value.Ref as string;
+    const table = template.findResources('AWS::DynamoDB::Table')[giftCardsTableLogicalId];
     expect(table).toMatchObject({
       DeletionPolicy: 'Retain',
       UpdateReplacePolicy: 'Retain'
@@ -242,9 +244,8 @@ describe('BellaMujerApiStack', () => {
   });
 
   it('keeps strict DynamoDB permissions separated by Lambda responsibility', () => {
-    const [[tableLogicalId]] = Object.entries(
-      template.findResources('AWS::DynamoDB::Table')
-    );
+    const tableLogicalId = template.findOutputs('GiftCardsTableName')
+      .GiftCardsTableName.Value.Ref as string;
 
     template.hasResourceProperties('AWS::IAM::Policy', {
       PolicyDocument: {
