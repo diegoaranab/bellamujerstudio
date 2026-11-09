@@ -318,7 +318,7 @@ describe('BellaMujerApiStack', () => {
       'dynamodb:UpdateItem'
     ]));
     expect(dynamodbActions).toEqual(expect.arrayContaining([
-      'dynamodb:TransactWriteItems',
+      'dynamodb:PutItem',
       ['dynamodb:GetItem', 'dynamodb:Query']
     ]));
     expect(dynamodbActions).toHaveLength(5);
@@ -352,7 +352,7 @@ describe('BellaMujerApiStack', () => {
     ))).toEqual(['dynamodb:UpdateItem']);
     expect(actionsForRole(roleForDescription(
       'Creates Club clients for authenticated administrators'
-    ))).toEqual(['dynamodb:TransactWriteItems']);
+    ))).toEqual(['dynamodb:PutItem']);
     expect(actionsForRole(roleForDescription(
       'Reads Club clients for authenticated administrators'
     ))).toEqual(['dynamodb:GetItem', 'dynamodb:Query']);
@@ -360,10 +360,7 @@ describe('BellaMujerApiStack', () => {
     const clubTableLogicalId = template.findOutputs('ClubTableName')
       .ClubTableName.Value.Ref as string;
     const policies = Object.values(template.findResources('AWS::IAM::Policy'));
-    for (const [description, allowedActions] of [
-      ['Creates Club clients for authenticated administrators', ['dynamodb:TransactWriteItems']],
-      ['Reads Club clients for authenticated administrators', ['dynamodb:GetItem', 'dynamodb:Query']]
-    ] as const) {
+    const dynamodbStatementsForRole = (description: string) => {
       const role = roleForDescription(description);
       const statements = policies.flatMap((policy) =>
         policy.Properties.Roles.some((candidate: { Ref?: string }) => candidate.Ref === role)
@@ -373,14 +370,56 @@ describe('BellaMujerApiStack', () => {
         const actions = typeof statement.Action === 'string' ? [statement.Action] : statement.Action ?? [];
         return actions.some((action) => action.startsWith('dynamodb:'));
       });
-      expect(statements).toHaveLength(1);
-      expect(statements[0].Action).toEqual(
-        allowedActions.length === 1 ? allowedActions[0] : [...allowedActions]
-      );
-      expect(statements[0].Resource).toEqual([
-        { 'Fn::GetAtt': [clubTableLogicalId, 'Arn'] }
-      ]);
-      expect(JSON.stringify(statements)).not.toContain(tableLogicalId);
+
+      return statements;
+    };
+
+    const createStatements = dynamodbStatementsForRole(
+      'Creates Club clients for authenticated administrators'
+    );
+    expect(createStatements).toEqual([{
+      Action: 'dynamodb:PutItem',
+      Condition: {
+        'ForAnyValue:StringEquals': {
+          'dynamodb:EnclosingOperation': ['TransactWriteItems']
+        }
+      },
+      Effect: 'Allow',
+      Resource: { 'Fn::GetAtt': [clubTableLogicalId, 'Arn'] }
+    }]);
+    const createActions = actionsForRole(roleForDescription(
+      'Creates Club clients for authenticated administrators'
+    ));
+    for (const forbiddenAction of [
+      'dynamodb:Query',
+      'dynamodb:GetItem',
+      'dynamodb:Scan',
+      'dynamodb:UpdateItem',
+      'dynamodb:DeleteItem'
+    ]) {
+      expect(createActions).not.toContain(forbiddenAction);
     }
+    expect(JSON.stringify(createStatements)).not.toContain(tableLogicalId);
+
+    const readStatements = dynamodbStatementsForRole(
+      'Reads Club clients for authenticated administrators'
+    );
+    expect(readStatements).toEqual([{
+      Action: ['dynamodb:GetItem', 'dynamodb:Query'],
+      Effect: 'Allow',
+      Resource: [{ 'Fn::GetAtt': [clubTableLogicalId, 'Arn'] }]
+    }]);
+    const readActions = actionsForRole(roleForDescription(
+      'Reads Club clients for authenticated administrators'
+    ));
+    for (const forbiddenAction of [
+      'dynamodb:PutItem',
+      'dynamodb:Scan',
+      'dynamodb:UpdateItem',
+      'dynamodb:DeleteItem'
+    ]) {
+      expect(readActions).not.toContain(forbiddenAction);
+    }
+    expect(JSON.stringify(readStatements)).not.toContain(tableLogicalId);
   });
 });
