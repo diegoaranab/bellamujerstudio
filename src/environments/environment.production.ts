@@ -4,9 +4,9 @@ export const environment: AppEnvironment = {
   production: true,
   // Replace with the deployed Worker URL for production builds.
   assistantApiBaseUrl: 'https://REPLACE_ME.workers.dev',
-  // Keep gift cards local until the admin panel can list and manage API-backed requests.
-  // Enabling the API now could persist a request that the admin panel cannot display.
-  giftCardDataMode: 'local',
+  // Public gift-card requests are persisted through the deployed API in production.
+  // Development remains local, and administrative mutations are not yet implemented remotely.
+  giftCardDataMode: 'api',
   bellaMujerApiBaseUrl: 'https://k6tjphkkg2.execute-api.us-east-1.amazonaws.com',
   authMode: 'cognito',
   cognito: {

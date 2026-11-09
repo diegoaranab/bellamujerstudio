@@ -2,7 +2,7 @@ import { environment as developmentEnvironment } from './environment';
 import { environment as productionEnvironment } from './environment.production';
 
 describe('production environment', () => {
-  it('uses the deployed Cognito and API configuration while gift cards remain local', () => {
+  it('uses the deployed Cognito and API configuration for gift cards', () => {
     expect(productionEnvironment.authMode).toBe('cognito');
     expect(productionEnvironment.cognito).toEqual({
       authority: 'https://cognito-idp.us-east-1.amazonaws.com/us-east-1_HNUyVXpqJ',
@@ -13,10 +13,11 @@ describe('production environment', () => {
     expect(productionEnvironment.bellaMujerApiBaseUrl).toBe(
       'https://k6tjphkkg2.execute-api.us-east-1.amazonaws.com',
     );
-    expect(productionEnvironment.giftCardDataMode).toBe('local');
+    expect(productionEnvironment.giftCardDataMode).toBe('api');
   });
 
-  it('keeps development authentication local', () => {
+  it('keeps development authentication and gift cards local', () => {
     expect(developmentEnvironment.authMode).toBe('local');
+    expect(developmentEnvironment.giftCardDataMode).toBe('local');
   });
 });
