@@ -134,27 +134,48 @@ export class DynamoGiftCardListPersistence implements GiftCardListPersistence {
   ) {}
 
   async list(limit: number, exclusiveStartKey?: ContinuationKey): Promise<GiftCardListPage> {
-    const result = await this.client.send(new ScanCommand({
-      TableName: this.tableName,
-      Limit: limit,
-      ...(exclusiveStartKey ? { ExclusiveStartKey: exclusiveStartKey } : {}),
-      FilterExpression: 'begins_with(#pk, :giftCardPrefix) AND #sk = :metadata',
-      ExpressionAttributeNames: {
-        '#pk': 'pk',
-        '#sk': 'sk'
-      },
-      ExpressionAttributeValues: {
-        ':giftCardPrefix': { S: 'GIFT_CARD#' },
-        ':metadata': { S: 'METADATA' }
-      }
-    }));
+    const items: GiftCard[] = [];
+    let scanCursor: ContinuationKey | undefined = exclusiveStartKey;
 
-    return {
-      items: (result.Items ?? []).map(toGiftCard),
-      ...(result.LastEvaluatedKey
-        ? { lastEvaluatedKey: asContinuationKey(result.LastEvaluatedKey) }
-        : {})
-    };
+    while (items.length < limit) {
+      const remaining = limit - items.length;
+      const result = await this.client.send(new ScanCommand({
+        TableName: this.tableName,
+        Limit: remaining,
+        ...(scanCursor ? { ExclusiveStartKey: scanCursor } : {}),
+        FilterExpression: 'begins_with(#pk, :giftCardPrefix) AND #sk = :metadata',
+        ExpressionAttributeNames: {
+          '#pk': 'pk',
+          '#sk': 'sk'
+        },
+        ExpressionAttributeValues: {
+          ':giftCardPrefix': { S: 'GIFT_CARD#' },
+          ':metadata': { S: 'METADATA' }
+        }
+      }));
+
+      const pageItems = (result.Items ?? []).map(toGiftCard);
+      if (pageItems.length > remaining) {
+        throw new Error('DynamoDB returned more gift cards than the requested scan limit');
+      }
+      items.push(...pageItems);
+
+      const lastEvaluatedKey = asContinuationKey(result.LastEvaluatedKey);
+      if (items.length === limit) {
+        if (lastEvaluatedKey && !validGiftCardContinuationKey(lastEvaluatedKey)) {
+          throw new Error('DynamoDB returned an unsafe external continuation key');
+        }
+        return {
+          items,
+          ...(lastEvaluatedKey ? { lastEvaluatedKey } : {})
+        };
+      }
+
+      if (!lastEvaluatedKey) return { items };
+      scanCursor = lastEvaluatedKey;
+    }
+
+    return { items };
   }
 }
 
