@@ -53,12 +53,17 @@ describe('BellaMujerApiStack', () => {
         ]
       }
     });
-    template.resourcePropertiesCountIs('AWS::Lambda::Function', {}, 11);
+    template.resourcePropertiesCountIs('AWS::Lambda::Function', {}, 13);
 
     for (const lambdaFunction of Object.values(template.findResources('AWS::Lambda::Function'))) {
-      expect(lambdaFunction.Properties.Environment.Variables).toMatchObject({
-        ALLOWED_FRONTEND_ORIGINS: 'http://localhost:4200,https://diegoaranab.github.io'
-      });
+      if ([
+        'Authorizes Bella Mujer Club member sessions',
+        'Confirms authenticated Bella Mujer Club member sessions'
+      ].includes(lambdaFunction.Properties.Description)) {
+        continue;
+      }
+      expect(lambdaFunction.Properties.Environment.Variables.ALLOWED_FRONTEND_ORIGINS)
+        .toBe('http://localhost:4200,https://diegoaranab.github.io');
     }
   });
 
@@ -173,14 +178,14 @@ describe('BellaMujerApiStack', () => {
   });
 
   it('bounds Lambda log retention to two weeks', () => {
-    template.resourcePropertiesCountIs('AWS::Logs::LogGroup', { RetentionInDays: 14 }, 11);
+    template.resourcePropertiesCountIs('AWS::Logs::LogGroup', { RetentionInDays: 14 }, 13);
   });
 
   it('uses the existing Cognito pool and SPA client for a JWT authorizer', () => {
     template.resourceCountIs('AWS::Cognito::UserPool', 1);
     template.resourceCountIs('AWS::Cognito::UserPoolClient', 1);
-    template.resourceCountIs('AWS::ApiGatewayV2::Authorizer', 1);
-    template.resourcePropertiesCountIs('AWS::Lambda::Function', {}, 11);
+    template.resourceCountIs('AWS::ApiGatewayV2::Authorizer', 2);
+    template.resourcePropertiesCountIs('AWS::Lambda::Function', {}, 13);
 
     const [[userPoolLogicalId]] = Object.entries(
       template.findResources('AWS::Cognito::UserPool')
@@ -188,32 +193,46 @@ describe('BellaMujerApiStack', () => {
     const [[userPoolClientLogicalId]] = Object.entries(
       template.findResources('AWS::Cognito::UserPoolClient')
     );
-    const [authorizer] = Object.values(
+    const authorizer = Object.values(
       template.findResources('AWS::ApiGatewayV2::Authorizer')
-    );
+    ).find((resource) => resource.Properties.AuthorizerType === 'JWT');
 
-    expect(authorizer.Properties).toMatchObject({
+    expect(authorizer).toBeDefined();
+    expect(authorizer!.Properties).toMatchObject({
       AuthorizerType: 'JWT',
       IdentitySource: ['$request.header.Authorization'],
       JwtConfiguration: {
         Audience: [{ Ref: userPoolClientLogicalId }]
       }
     });
-    expect(JSON.stringify(authorizer.Properties.JwtConfiguration.Issuer)).toContain(
+    expect(JSON.stringify(authorizer!.Properties.JwtConfiguration.Issuer)).toContain(
       userPoolLogicalId
     );
   });
 
-  it('exposes five public routes and eleven protected admin routes', () => {
-    template.resourceCountIs('AWS::ApiGatewayV2::Route', 16);
+  it('keeps public/member/admin authorization boundaries separate', () => {
+    template.resourceCountIs('AWS::ApiGatewayV2::Route', 17);
 
     const routes = Object.values(template.findResources('AWS::ApiGatewayV2::Route'));
     const routesByKey = Object.fromEntries(
       routes.map((route) => [route.Properties.RouteKey, route.Properties])
     );
-    const [[authorizerLogicalId]] = Object.entries(
-      template.findResources('AWS::ApiGatewayV2::Authorizer')
-    );
+    const authorizers = Object.entries(template.findResources('AWS::ApiGatewayV2::Authorizer'));
+    const [adminAuthorizerLogicalId, adminAuthorizer] = authorizers.find(([, resource]) =>
+      resource.Properties.AuthorizerType === 'JWT'
+    )!;
+    const [memberAuthorizerLogicalId, memberAuthorizer] = authorizers.find(([, resource]) =>
+      resource.Properties.AuthorizerType === 'REQUEST'
+    )!;
+
+    expect(adminAuthorizer.Properties.AuthorizerType).toBe('JWT');
+    expect(memberAuthorizer.Properties).toMatchObject({
+      AuthorizerType: 'REQUEST',
+      AuthorizerPayloadFormatVersion: '2.0',
+      EnableSimpleResponses: true,
+      AuthorizerResultTtlInSeconds: 0,
+      IdentitySource: ['$request.header.Authorization']
+    });
 
     expect(Object.keys(routesByKey).sort()).toEqual([
       'GET /admin/club/clients',
@@ -222,6 +241,7 @@ describe('BellaMujerApiStack', () => {
       'GET /admin/club/clients/{id}/ledger',
       'GET /admin/gift-cards',
       'GET /admin/health',
+      'GET /club/access/session',
       'GET /health',
       'PATCH /admin/gift-cards/{id}',
       'POST /admin/club/clients',
@@ -246,19 +266,24 @@ describe('BellaMujerApiStack', () => {
       expect(routesByKey[routeKey].AuthorizerId).toBeUndefined();
       expect(routesByKey[routeKey].AuthorizationScopes).toBeUndefined();
     }
+    expect(routesByKey['GET /club/access/session']).toMatchObject({
+      AuthorizationType: 'CUSTOM',
+      AuthorizerId: { Ref: memberAuthorizerLogicalId }
+    });
+    expect(routesByKey['GET /club/access/session'].AuthorizationScopes).toBeUndefined();
     expect(routesByKey['GET /admin/health']).toMatchObject({
       AuthorizationType: 'JWT',
-      AuthorizerId: { Ref: authorizerLogicalId },
+      AuthorizerId: { Ref: adminAuthorizerLogicalId },
       AuthorizationScopes: ['openid']
     });
     expect(routesByKey['GET /admin/gift-cards']).toMatchObject({
       AuthorizationType: 'JWT',
-      AuthorizerId: { Ref: authorizerLogicalId },
+      AuthorizerId: { Ref: adminAuthorizerLogicalId },
       AuthorizationScopes: ['openid']
     });
     expect(routesByKey['PATCH /admin/gift-cards/{id}']).toMatchObject({
       AuthorizationType: 'JWT',
-      AuthorizerId: { Ref: authorizerLogicalId },
+      AuthorizerId: { Ref: adminAuthorizerLogicalId },
       AuthorizationScopes: ['openid']
     });
     for (const routeKey of [
@@ -273,7 +298,7 @@ describe('BellaMujerApiStack', () => {
     ]) {
       expect(routesByKey[routeKey]).toMatchObject({
         AuthorizationType: 'JWT',
-        AuthorizerId: { Ref: authorizerLogicalId },
+        AuthorizerId: { Ref: adminAuthorizerLogicalId },
         AuthorizationScopes: ['openid']
       });
     }
@@ -351,7 +376,7 @@ describe('BellaMujerApiStack', () => {
       'dynamodb:PutItem',
       ['dynamodb:GetItem', 'dynamodb:Query']
     ]));
-    expect(dynamodbActions).toHaveLength(15);
+    expect(dynamodbActions).toHaveLength(16);
 
     const lambdaFunctions = Object.values(template.findResources('AWS::Lambda::Function'));
     const roleForDescription = (description: string): string => {
@@ -403,6 +428,12 @@ describe('BellaMujerApiStack', () => {
     expect(actionsForRole(roleForDescription(
       'Revokes Bella Mujer Club member sessions'
     ))).toEqual(['dynamodb:GetItem', 'dynamodb:PutItem']);
+    expect(actionsForRole(roleForDescription(
+      'Authorizes Bella Mujer Club member sessions'
+    ))).toEqual(['dynamodb:GetItem']);
+    expect(actionsForRole(roleForDescription(
+      'Confirms authenticated Bella Mujer Club member sessions'
+    ))).toEqual([]);
 
     const clubTableLogicalId = template.findOutputs('ClubTableName')
       .ClubTableName.Value.Ref as string;

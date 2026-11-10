@@ -1,6 +1,10 @@
 import * as cdk from 'aws-cdk-lib';
 import * as apigwv2 from 'aws-cdk-lib/aws-apigatewayv2';
-import { HttpUserPoolAuthorizer } from 'aws-cdk-lib/aws-apigatewayv2-authorizers';
+import {
+  HttpLambdaAuthorizer,
+  HttpLambdaResponseType,
+  HttpUserPoolAuthorizer
+} from 'aws-cdk-lib/aws-apigatewayv2-authorizers';
 import * as integrations from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
@@ -420,6 +424,44 @@ export class BellaMujerApiStack extends cdk.Stack {
       }
     }));
 
+    const memberAuthorizerFunction = new nodejs.NodejsFunction(
+      this,
+      'MemberClubAuthorizerFunction',
+      {
+        ...sharedLambdaProps,
+        entry: 'src/handlers/member-club-authorizer.ts',
+        handler: 'handler',
+        description: 'Authorizes Bella Mujer Club member sessions',
+        logGroup: new logs.LogGroup(this, 'MemberClubAuthorizerFunctionLogGroup', {
+          logGroupName: `/aws/lambda/${cdk.Stack.of(this).stackName}-member-club-authorizer`,
+          retention: logs.RetentionDays.TWO_WEEKS,
+          removalPolicy: cdk.RemovalPolicy.DESTROY
+        }),
+        environment: {
+          CLUB_ACCESS_TABLE_NAME: clubAccessTable.tableName
+        }
+      }
+    );
+
+    clubAccessTable.grant(memberAuthorizerFunction, 'dynamodb:GetItem');
+
+    const memberSessionFunction = new nodejs.NodejsFunction(
+      this,
+      'MemberClubSessionFunction',
+      {
+        ...sharedLambdaProps,
+        entry: 'src/handlers/member-club-session.ts',
+        handler: 'handler',
+        description: 'Confirms authenticated Bella Mujer Club member sessions',
+        logGroup: new logs.LogGroup(this, 'MemberClubSessionFunctionLogGroup', {
+          logGroupName: `/aws/lambda/${cdk.Stack.of(this).stackName}-member-club-session`,
+          retention: logs.RetentionDays.TWO_WEEKS,
+          removalPolicy: cdk.RemovalPolicy.DESTROY
+        }),
+        environment: {}
+      }
+    );
+
     const api = new apigwv2.HttpApi(this, 'BellaMujerHttpApi', {
       apiName: 'bella-mujer-api',
       corsPreflight: {
@@ -451,6 +493,16 @@ export class BellaMujerApiStack extends cdk.Stack {
     const adminAuthorizer = new HttpUserPoolAuthorizer('AdminAuthorizer', adminUserPool, {
       userPoolClients: [adminUserPoolClient]
     });
+
+    const memberAuthorizer = new HttpLambdaAuthorizer(
+      'MemberClubAuthorizer',
+      memberAuthorizerFunction,
+      {
+        responseTypes: [HttpLambdaResponseType.SIMPLE],
+        identitySource: ['$request.header.Authorization'],
+        resultsCacheTtl: cdk.Duration.seconds(0)
+      }
+    );
 
     api.addRoutes({
       path: '/health',
@@ -492,6 +544,16 @@ export class BellaMujerApiStack extends cdk.Stack {
         'MemberClubLogoutIntegration',
         memberLogoutFunction
       )
+    });
+
+    api.addRoutes({
+      path: '/club/access/session',
+      methods: [apigwv2.HttpMethod.GET],
+      integration: new integrations.HttpLambdaIntegration(
+        'MemberClubSessionIntegration',
+        memberSessionFunction
+      ),
+      authorizer: memberAuthorizer
     });
 
     api.addRoutes({

@@ -114,13 +114,13 @@ This phase makes no code, infrastructure, or deployment changes.
 
 ### Phase 5B — Member-access persistence and backend auth foundation
 
-Future implementation:
+Implementation status:
 
-- create `ClubAccessTable` without speculative indexes;
-- implement the PIN KDF and Secrets Manager pepper boundary;
-- implement invitations, sessions, credential versioning, and throttling;
-- add the separate member Lambda authorizer; and
-- add admin-protected invitation/reset APIs.
+- **5B1 complete:** `ClubAccessTable`, persistence, crypto, and pepper foundations;
+- **5B2 complete:** administrator invitation and full-reset lifecycle;
+- **5B3 complete:** member enrollment, login, logout, and sessions; and
+- **5B4 implemented by this PR:** the separate zero-cache member session Lambda authorizer
+  and its minimal authenticated session probe.
 
 No member UI is included. Production/security validation follows this slice before UI work.
 

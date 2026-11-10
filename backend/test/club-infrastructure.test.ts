@@ -80,12 +80,12 @@ describe('Club infrastructure', () => {
     const functions = Object.values(template.findResources('AWS::Lambda::Function'));
     const policies = Object.values(template.findResources('AWS::IAM::Policy'));
     const routes = Object.values(template.findResources('AWS::ApiGatewayV2::Route'));
-    const [[authorizerLogicalId]] = Object.entries(
+    const [authorizerLogicalId] = Object.entries(
       template.findResources('AWS::ApiGatewayV2::Authorizer')
-    );
+    ).find(([, resource]) => resource.Properties.AuthorizerType === 'JWT')!;
 
-    expect(functions).toHaveLength(11);
-    expect(routes).toHaveLength(16);
+    expect(functions).toHaveLength(13);
+    expect(routes).toHaveLength(17);
     const accessFunctions = functions.filter((lambdaFunction) =>
       lambdaFunction.Properties.Description ===
         'Manages Club member access for authenticated administrators'
@@ -99,10 +99,11 @@ describe('Club infrastructure', () => {
     for (const lambdaFunction of functions.filter((value) =>
       !accessFunctions.includes(value) && ![
         'Enrolls and authenticates Bella Mujer Club members',
-        'Revokes Bella Mujer Club member sessions'
+        'Revokes Bella Mujer Club member sessions',
+        'Authorizes Bella Mujer Club member sessions'
       ].includes(value.Properties.Description)
     )) {
-      expect(lambdaFunction.Properties.Environment.Variables.CLUB_ACCESS_TABLE_NAME).toBeUndefined();
+      expect(lambdaFunction.Properties.Environment?.Variables?.CLUB_ACCESS_TABLE_NAME).toBeUndefined();
     }
 
     const routesByKey = Object.fromEntries(
@@ -242,6 +243,89 @@ describe('Club infrastructure', () => {
     );
   });
 
+  it('creates a zero-cache member authorizer and permissionless protected probe', () => {
+    const accessLogicalId = template.findOutputs('ClubAccessTableName')
+      .ClubAccessTableName.Value.Ref as string;
+    const clubLogicalId = template.findOutputs('ClubTableName').ClubTableName.Value.Ref as string;
+    const functions = Object.values(template.findResources('AWS::Lambda::Function'));
+    const authorizerFunction = functions.find((resource) =>
+      resource.Properties.Description === 'Authorizes Bella Mujer Club member sessions'
+    );
+    const probeFunction = functions.find((resource) =>
+      resource.Properties.Description ===
+        'Confirms authenticated Bella Mujer Club member sessions'
+    );
+    expect(authorizerFunction).toBeDefined();
+    expect(probeFunction).toBeDefined();
+    expect(authorizerFunction!.Properties.Environment.Variables).toEqual({
+      CLUB_ACCESS_TABLE_NAME: { Ref: accessLogicalId }
+    });
+    expect(probeFunction!.Properties.Environment).toBeUndefined();
+
+    const policies = Object.values(template.findResources('AWS::IAM::Policy'));
+    const statementsFor = (lambdaFunction: NonNullable<typeof authorizerFunction>) => {
+      const role = lambdaFunction.Properties.Role['Fn::GetAtt'][0];
+      return policies.flatMap((policy) => policy.Properties.Roles.some(
+        (candidate: { Ref?: string }) => candidate.Ref === role
+      ) ? policy.Properties.PolicyDocument.Statement : []);
+    };
+    const authorizerStatements = statementsFor(authorizerFunction!);
+    expect(authorizerStatements).toEqual([{
+      Action: 'dynamodb:GetItem',
+      Effect: 'Allow',
+      Resource: [{ 'Fn::GetAtt': [accessLogicalId, 'Arn'] }]
+    }]);
+    const probeStatements = statementsFor(probeFunction!);
+    expect(probeStatements).toEqual([]);
+    const serializedAuthorizationBoundary = JSON.stringify({
+      authorizerStatements,
+      probeStatements,
+      authorizerEnvironment: authorizerFunction!.Properties.Environment,
+      probeEnvironment: probeFunction!.Properties.Environment
+    });
+    for (const forbidden of [
+      'dynamodb:PutItem', 'dynamodb:UpdateItem', 'dynamodb:DeleteItem',
+      'dynamodb:Query', 'dynamodb:Scan', 'dynamodb:TransactWriteItems',
+      'secretsmanager:', 'CLUB_PIN_PEPPER', clubLogicalId
+    ]) expect(serializedAuthorizationBoundary).not.toContain(forbidden);
+
+    const authorizers = Object.entries(template.findResources('AWS::ApiGatewayV2::Authorizer'));
+    expect(authorizers).toHaveLength(2);
+    const [memberAuthorizerLogicalId, memberAuthorizer] = authorizers.find(([, resource]) =>
+      resource.Properties.AuthorizerType === 'REQUEST'
+    )!;
+    const [adminAuthorizerLogicalId, adminAuthorizer] = authorizers.find(([, resource]) =>
+      resource.Properties.AuthorizerType === 'JWT'
+    )!;
+    expect(memberAuthorizer.Properties).toMatchObject({
+      AuthorizerType: 'REQUEST',
+      AuthorizerPayloadFormatVersion: '2.0',
+      EnableSimpleResponses: true,
+      AuthorizerResultTtlInSeconds: 0,
+      IdentitySource: ['$request.header.Authorization']
+    });
+    expect(adminAuthorizer.Properties.AuthorizerType).toBe('JWT');
+
+    const routes = Object.values(template.findResources('AWS::ApiGatewayV2::Route'));
+    const routesByKey = Object.fromEntries(
+      routes.map((route) => [route.Properties.RouteKey, route.Properties])
+    );
+    expect(routesByKey['GET /club/access/session']).toMatchObject({
+      AuthorizationType: 'CUSTOM',
+      AuthorizerId: { Ref: memberAuthorizerLogicalId }
+    });
+    for (const routeKey of [
+      'POST /club/access/enroll', 'POST /club/access/login', 'POST /club/access/logout'
+    ]) expect(routesByKey[routeKey]).toMatchObject({ AuthorizationType: 'NONE' });
+    for (const routeKey of [
+      'GET /admin/health', 'GET /admin/club/clients',
+      'POST /admin/club/clients/{id}/access/reset'
+    ]) expect(routesByKey[routeKey]).toMatchObject({
+      AuthorizationType: 'JWT',
+      AuthorizerId: { Ref: adminAuthorizerLogicalId }
+    });
+  });
+
   it('injects the Club table and server-controlled studio only into Club Lambdas', () => {
     const clubTableLogicalId = template.findOutputs('ClubTableName').ClubTableName.Value.Ref;
     const functions = Object.values(template.findResources('AWS::Lambda::Function'));
@@ -262,7 +346,7 @@ describe('Club infrastructure', () => {
       });
     }
     for (const lambdaFunction of functions.filter((resource) => !clubFunctions.includes(resource))) {
-      expect(lambdaFunction.Properties.Environment.Variables.CLUB_STUDIO_ID).toBeUndefined();
+      expect(lambdaFunction.Properties.Environment?.Variables?.CLUB_STUDIO_ID).toBeUndefined();
     }
   });
 });
