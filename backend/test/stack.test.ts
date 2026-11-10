@@ -14,7 +14,7 @@ describe('BellaMujerApiStack', () => {
   const template = synthesizeTemplate();
 
   it('defines gift-card DynamoDB table with on-demand billing', () => {
-    template.resourceCountIs('AWS::DynamoDB::Table', 2);
+    template.resourceCountIs('AWS::DynamoDB::Table', 3);
     template.hasResourceProperties('AWS::DynamoDB::Table', {
       BillingMode: 'PAY_PER_REQUEST',
       KeySchema: [
