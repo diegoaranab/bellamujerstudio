@@ -1,9 +1,9 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { APIGatewayProxyEventV2, APIGatewayProxyStructuredResultV2 } from 'aws-lambda';
+import { createClubClientId } from '../club/club-id';
 import { ClubClient, LoyaltyBalance } from '../club/club-model';
 import { DynamoClubPersistence } from '../club/club-persistence';
 import { originsFromEnvironment } from '../shared/frontend-configuration';
-import { createClubClientId } from '../shared/id';
 import { jsonResponse, payloadTooLargeResponse, validationErrorResponse } from '../shared/response';
 import { Clock, currentDate, currentISO } from '../shared/time';
 
