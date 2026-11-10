@@ -573,7 +573,14 @@ export class ClubDashboardComponent implements OnInit {
 
         this.selectedClientId.set(result.detail.client.clientId);
         this.selectedClient.set(result.detail.client);
-        this.selectedBalance.set(result.detail.balance);
+        const currentBalance = this.selectedBalance();
+        if (
+          !currentBalance ||
+          currentBalance.clientId !== result.detail.balance.clientId ||
+          result.detail.balance.version > currentBalance.version
+        ) {
+          this.selectedBalance.set(result.detail.balance);
+        }
         this.clients.set(this.replaceClient(this.clients(), result.detail.client));
       });
   }
