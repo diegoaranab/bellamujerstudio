@@ -88,6 +88,7 @@
                 class="client-row"
                 [class.client-row--selected]="selectedClientId() === client.clientId"
                 (click)="selectClient(client)"
+                [disabled]="accessMutationLoading()"
                 [attr.data-client-id]="client.clientId"
               >
                 <span class="client-row__avatar" aria-hidden="true">{{
@@ -216,6 +217,277 @@
         }
       </section>
 
+      <section
+        class="section-card access-card"
+        aria-labelledby="access-title"
+        data-testid="client-access"
+      >
+        <div class="section-card__header">
+          <div>
+            <p class="eyebrow">Cuenta Club</p>
+            <h2 id="access-title">Acceso de clienta</h2>
+          </div>
+          <mat-icon aria-hidden="true">key</mat-icon>
+        </div>
+
+        @if (selectedClient(); as client) {
+          <p class="access-client">Acceso de <strong>{{ client.name }}</strong></p>
+
+          @if (accessLoading() && selectedAccess() === null) {
+            <div class="inline-state" data-testid="access-loading">
+              <mat-spinner diameter="28" />
+              <span>Consultando acceso…</span>
+            </div>
+          } @else if (accessReadError() && selectedAccess() === null) {
+            <div class="error-state" data-testid="access-read-error" role="alert">
+              <p>{{ accessReadError() }}</p>
+              <button mat-stroked-button type="button" (click)="refreshClientAccess()">
+                Actualizar estado
+              </button>
+            </div>
+          } @else {
+            @if (selectedAccess(); as access) {
+              <div
+                class="access-status service-selector visit-outcome__title"
+                [attr.data-access-status]="access.status"
+              >
+                @switch (access.status) {
+                  @case ('invited') {
+                    <mat-icon aria-hidden="true">mark_email_unread</mat-icon>
+                    <div>
+                      <h3>Invitación pendiente</h3>
+                      <p>La clienta todavía no ha configurado su NIP.</p>
+                      <p>Al regenerar, el enlace anterior sin usar dejará de funcionar.</p>
+                    </div>
+                  }
+                  @case ('active') {
+                    <mat-icon aria-hidden="true">verified_user</mat-icon>
+                    <div>
+                      <h3>Acceso activo</h3>
+                      <p>La clienta ya configuró su NIP.</p>
+                    </div>
+                  }
+                  @case ('disabled') {
+                    <mat-icon aria-hidden="true">lock</mat-icon>
+                    <div>
+                      <h3>Acceso deshabilitado</h3>
+                      <p>Este acceso necesita restablecerse antes de volver a usarse.</p>
+                    </div>
+                  }
+                }
+              </div>
+              <p class="access-updated">
+                Estado actualizado: {{ formatAccessDate(access.updatedAtISO) }}
+              </p>
+
+              @if (access.status === 'invited') {
+                <button
+                  mat-flat-button
+                  type="button"
+                  (click)="generateAccessInvitation()"
+                  [disabled]="
+                    accessMutationLoading() || accessLoading() || accessMutationError() !== null
+                  "
+                  data-testid="access-invitation-action"
+                >
+                  @if (accessMutationLoading()) {
+                    <mat-spinner diameter="18" />
+                  } @else {
+                    <mat-icon aria-hidden="true">refresh</mat-icon>
+                  }
+                  {{ accessMutationLoading() ? 'Generando…' : 'Regenerar enlace' }}
+                </button>
+              } @else {
+                <button
+                  mat-stroked-button
+                  type="button"
+                  (click)="requestAccessReset()"
+                  [disabled]="
+                    accessMutationLoading() || accessLoading() || accessMutationError() !== null
+                  "
+                  data-testid="access-reset-action"
+                >
+                  <mat-icon aria-hidden="true">lock_reset</mat-icon>
+                  Restablecer acceso
+                </button>
+              }
+            } @else {
+              <div
+                class="access-status service-selector visit-outcome__title"
+                data-access-status="none"
+              >
+                <mat-icon aria-hidden="true">person_off</mat-icon>
+                <div>
+                  <h3>Acceso no configurado</h3>
+                  <p>Esta clienta todavía no tiene acceso a Bella Mujer Club.</p>
+                </div>
+              </div>
+              <button
+                mat-flat-button
+                type="button"
+                (click)="generateAccessInvitation()"
+                [disabled]="
+                  accessMutationLoading() || accessLoading() || accessMutationError() !== null
+                "
+                data-testid="access-invitation-action"
+              >
+                @if (accessMutationLoading()) {
+                  <mat-spinner diameter="18" />
+                } @else {
+                  <mat-icon aria-hidden="true">mail</mat-icon>
+                }
+                {{ accessMutationLoading() ? 'Generando…' : 'Generar invitación' }}
+              </button>
+            }
+          }
+
+          @if (accessLoading() && selectedAccess() !== null) {
+            <p class="form-message" data-testid="access-refreshing" role="status">
+              Actualizando estado…
+            </p>
+          }
+
+          @if (accessReadError() && selectedAccess() !== null) {
+            <div
+              class="access-error visit-attempt"
+              data-testid="access-refresh-error"
+              role="alert"
+            >
+              <p>{{ accessReadError() }}</p>
+              <button mat-stroked-button type="button" (click)="refreshClientAccess()">
+                Actualizar estado
+              </button>
+            </div>
+          }
+
+          @if (accessMutationError(); as error) {
+            <div
+              class="access-error visit-attempt"
+              data-testid="access-mutation-error"
+              role="alert"
+            >
+              <strong>No se pudo confirmar la operación</strong>
+              <p>{{ error }}</p>
+              <p>
+                La solicitud pudo haber llegado al servidor. Actualiza el estado antes de volver a
+                intentarlo.
+              </p>
+              <button mat-stroked-button type="button" (click)="refreshClientAccess()">
+                Actualizar estado
+              </button>
+            </div>
+          }
+
+          @if (resetConfirmationOpen()) {
+            <div
+              class="access-confirmation visit-attempt"
+              data-testid="access-reset-confirmation"
+              role="alert"
+            >
+              <h3>Restablecer acceso</h3>
+              <p>
+                El NIP actual y las sesiones activas dejarán de funcionar. Se generará un nuevo
+                enlace privado para que la clienta configure su acceso nuevamente.
+              </p>
+              <div class="access-actions visit-attempt__actions">
+                <button
+                  mat-stroked-button
+                  type="button"
+                  (click)="cancelAccessReset()"
+                  [disabled]="accessMutationLoading()"
+                  data-testid="access-reset-cancel"
+                >
+                  Cancelar
+                </button>
+                <button
+                  mat-flat-button
+                  type="button"
+                  (click)="confirmAccessReset()"
+                  [disabled]="accessMutationLoading()"
+                  data-testid="access-reset-confirm"
+                >
+                  @if (accessMutationLoading()) {
+                    <mat-spinner diameter="18" />
+                    Restableciendo…
+                  } @else {
+                    Restablecer acceso
+                  }
+                </button>
+              </div>
+            </div>
+          }
+
+          @if (oneTimeInvitation(); as invitation) {
+            <div
+              class="one-time-invitation visit-outcome"
+              data-testid="one-time-invitation"
+              role="status"
+            >
+              <div class="one-time-invitation__title visit-outcome__title">
+                <mat-icon aria-hidden="true">vpn_key</mat-icon>
+                <div>
+                  <h3>Enlace privado listo</h3>
+                  <p>Copia o comparte este enlace ahora.</p>
+                </div>
+              </div>
+              <p>
+                Por seguridad, Bella Mujer no podrá volver a mostrar este mismo enlace. Si se pierde
+                antes de que la clienta configure su NIP, tendrás que regenerarlo.
+              </p>
+              <p class="access-updated">
+                Disponible hasta {{ formatAccessDate(invitation.expiresAtISO) }}.
+              </p>
+              <div class="access-actions visit-attempt__actions">
+                <button
+                  mat-flat-button
+                  type="button"
+                  (click)="copyAccessInvitation()"
+                  data-testid="access-copy-link"
+                >
+                  <mat-icon aria-hidden="true">content_copy</mat-icon>
+                  Copiar enlace
+                </button>
+                @if (nativeShareAvailable) {
+                  <button
+                    mat-stroked-button
+                    type="button"
+                    (click)="shareAccessInvitation()"
+                    data-testid="access-share-link"
+                  >
+                    <mat-icon aria-hidden="true">share</mat-icon>
+                    Compartir
+                  </button>
+                }
+                <button
+                  mat-button
+                  type="button"
+                  (click)="discardOneTimeInvitation()"
+                  data-testid="access-close-link"
+                >
+                  Cerrar
+                </button>
+              </div>
+              @if (copyFeedback(); as feedback) {
+                <p class="form-message" data-testid="access-copy-feedback" role="status">
+                  {{ feedback }}
+                </p>
+              }
+              @if (shareFeedback(); as feedback) {
+                <p class="form-message" data-testid="access-share-feedback" role="status">
+                  {{ feedback }}
+                </p>
+              }
+            </div>
+          }
+        } @else {
+          <div class="empty-state" data-testid="access-no-client">
+            <mat-icon aria-hidden="true">touch_app</mat-icon>
+            <h3>Selecciona una clienta</h3>
+            <p>Su estado de acceso aparecerá aquí.</p>
+          </div>
+        }
+      </section>
+
       <section class="section-card create-card" aria-labelledby="create-title">
         <div class="section-card__header">
           <div>
@@ -260,7 +532,7 @@
           <button
             mat-flat-button
             type="submit"
-            [disabled]="!isConfigured || createLoading()"
+            [disabled]="!isConfigured || createLoading() || accessMutationLoading()"
             data-testid="create-client-submit"
           >
             @if (createLoading()) {

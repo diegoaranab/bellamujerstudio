@@ -226,6 +226,11 @@
   background: var(--bm-surface-accent);
 }
 
+.client-row:disabled {
+  cursor: wait;
+  opacity: 0.62;
+}
+
 .client-row:focus-visible {
   outline: 3px solid color-mix(in srgb, var(--bm-brand-rose) 38%, transparent);
   outline-offset: 2px;
@@ -379,6 +384,15 @@
 .create-card form {
   display: grid;
   margin-top: 1.25rem;
+}
+
+.access-card {
+  display: grid;
+  gap: 1rem;
+}
+
+.access-card > button {
+  justify-self: start;
 }
 
 .create-card button {

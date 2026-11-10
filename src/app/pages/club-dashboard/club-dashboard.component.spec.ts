@@ -9,6 +9,9 @@ import {
   Service
 } from '../../core/models';
 import {
+  AdminClubAccessMutationResponse,
+  AdminClubAccessReadResponse,
+  AdminClubAccessSummary,
   AdminClubApiClient,
   AdminClubApiError,
   AdminClubClientCreateResponse,
@@ -20,7 +23,10 @@ import {
 } from '../../core/services/admin-club-api.client';
 import { DbFacadeService } from '../../core/services/db-facade.service';
 import { ServicesDbSeed } from '../../core/services/seed-db.service';
-import { ClubDashboardComponent } from './club-dashboard.component';
+import {
+  buildClubActivationUrl,
+  ClubDashboardComponent
+} from './club-dashboard.component';
 
 const ana: ClubClient = {
   studioId: 'studio-1',
@@ -74,6 +80,43 @@ const serviceCatalog: ServicesDbSeed = {
 const UUID_ONE = '11111111-1111-4111-8111-111111111111';
 const UUID_TWO = '22222222-2222-4222-8222-222222222222';
 
+const invitedAccess: AdminClubAccessSummary = {
+  status: 'invited',
+  credentialVersion: 4,
+  invitationGeneration: 2,
+  hasPin: false,
+  updatedAtISO: '2026-11-10T16:00:00.000Z'
+};
+
+const activeAccess: AdminClubAccessSummary = {
+  ...invitedAccess,
+  status: 'active',
+  hasPin: true,
+  updatedAtISO: '2026-11-10T17:00:00.000Z'
+};
+
+const disabledAccess: AdminClubAccessSummary = {
+  ...activeAccess,
+  status: 'disabled',
+  updatedAtISO: '2026-11-10T18:00:00.000Z'
+};
+
+const activationFragment =
+  '#/club/activar?access=opaque-access-handle&invite=one-time-invitation-token';
+
+function accessMutation(
+  access: AdminClubAccessSummary = invitedAccess,
+  fragment = activationFragment
+): AdminClubAccessMutationResponse {
+  return {
+    access,
+    invitation: {
+      activationFragment: fragment,
+      expiresAtISO: '2026-11-11T16:00:00.000Z'
+    }
+  };
+}
+
 interface VisitTestActions {
   registerVisit(): void;
   retryVisit(): void;
@@ -81,6 +124,20 @@ interface VisitTestActions {
   toggleService(serviceId: string, checked: boolean): void;
   pendingVisitAttempt(): unknown;
   selectedBalance(): LoyaltyBalance | null;
+}
+
+interface AccessTestActions {
+  selectClient(client: ClubClient): void;
+  generateAccessInvitation(): void;
+  requestAccessReset(): void;
+  cancelAccessReset(): void;
+  confirmAccessReset(): void;
+  refreshClientAccess(): void;
+  copyAccessInvitation(): Promise<void>;
+  shareAccessInvitation(): Promise<void>;
+  selectedAccess(): AdminClubAccessSummary | null;
+  oneTimeInvitation(): { activationUrl: string; expiresAtISO: string } | null;
+  accessMutationLoading(): boolean;
 }
 
 function balance(
@@ -201,6 +258,15 @@ describe('ClubDashboardComponent', () => {
       ) => Observable<AdminClubLedgerListResponse>
     >
   >;
+  let getClientAccess: ReturnType<
+    typeof vi.fn<(clientId: string) => Observable<AdminClubAccessReadResponse>>
+  >;
+  let generateClientAccessInvitation: ReturnType<
+    typeof vi.fn<(clientId: string) => Observable<AdminClubAccessMutationResponse>>
+  >;
+  let resetClientAccess: ReturnType<
+    typeof vi.fn<(clientId: string) => Observable<AdminClubAccessMutationResponse>>
+  >;
 
   async function configure(options: {
     configured?: boolean;
@@ -217,6 +283,11 @@ describe('ClubDashboardComponent', () => {
       limit?: number,
       nextToken?: string
     ) => Observable<AdminClubLedgerListResponse>;
+    accessResponse?: (clientId: string) => Observable<AdminClubAccessReadResponse>;
+    invitationResponse?: (
+      clientId: string
+    ) => Observable<AdminClubAccessMutationResponse>;
+    resetResponse?: (clientId: string) => Observable<AdminClubAccessMutationResponse>;
     servicesResponse?: Observable<ServicesDbSeed>;
   } = {}): Promise<void> {
     listClients = vi.fn(
@@ -244,6 +315,15 @@ describe('ClubDashboardComponent', () => {
       (clientId, limit, nextToken) =>
         options.ledgerResponse?.(clientId, limit, nextToken) ?? of({ items: [] })
     );
+    getClientAccess = vi.fn(
+      (clientId) => options.accessResponse?.(clientId) ?? of({ access: null })
+    );
+    generateClientAccessInvitation = vi.fn(
+      (clientId) => options.invitationResponse?.(clientId) ?? of(accessMutation())
+    );
+    resetClientAccess = vi.fn(
+      (clientId) => options.resetResponse?.(clientId) ?? of(accessMutation())
+    );
 
     await TestBed.configureTestingModule({
       imports: [ClubDashboardComponent],
@@ -257,7 +337,10 @@ describe('ClubDashboardComponent', () => {
             getClient,
             createClient,
             registerVisit,
-            listLedgerEntries
+            listLedgerEntries,
+            getClientAccess,
+            generateClientAccessInvitation,
+            resetClientAccess
           }
         },
         {
@@ -320,8 +403,16 @@ describe('ClubDashboardComponent', () => {
     return fixture.componentInstance as unknown as VisitTestActions;
   }
 
+  function accessActions(
+    fixture: ComponentFixture<ClubDashboardComponent>
+  ): AccessTestActions {
+    return fixture.componentInstance as unknown as AccessTestActions;
+  }
+
   afterEach(() => {
     vi.restoreAllMocks();
+    Reflect.deleteProperty(window.navigator, 'clipboard');
+    Reflect.deleteProperty(window.navigator, 'share');
     TestBed.resetTestingModule();
   });
 
@@ -469,6 +560,388 @@ describe('ClubDashboardComponent', () => {
 
     expect(component.selectedClient()).toEqual(beatriz);
     expect(component.selectedBalance()).toEqual(balance(beatriz.clientId, 2, 700));
+  });
+
+  it('loads access independently when a client is selected', async () => {
+    await configure({ accessResponse: () => of({ access: activeAccess }) });
+    const fixture = render();
+
+    click(fixture, '[data-client-id="client-ana"]');
+
+    expect(getClientAccess).toHaveBeenCalledWith(ana.clientId);
+    expect(text(fixture)).toContain('Acceso activo');
+    expect(text(fixture)).toContain('La clienta ya configuró su NIP.');
+  });
+
+  it('keeps detail, balance, and history intact when access loading fails and retries independently', async () => {
+    const accessError = new AdminClubApiError('network', 'No fue posible cargar el acceso.');
+    const keptLedger = ledgerEntry({
+      entryId: 'kept-during-access-read-error',
+      type: 'ADMIN_ADJUSTMENT',
+      reason: 'Historial independiente'
+    });
+    await configure({ ledgerResponse: () => of({ items: [keptLedger] }) });
+    getClientAccess
+      .mockReturnValueOnce(throwError(() => accessError))
+      .mockReturnValueOnce(of({ access: activeAccess }));
+    const fixture = render();
+
+    click(fixture, '[data-client-id="client-ana"]');
+
+    expect(text(fixture)).toContain(accessError.message);
+    expect(text(fixture)).toContain('1 sello acumulado');
+    expect(text(fixture)).toContain('Historial independiente');
+    click(fixture, '[data-testid="access-read-error"] button');
+
+    expect(getClientAccess).toHaveBeenCalledTimes(2);
+    expect(text(fixture)).toContain('Acceso activo');
+    expect(text(fixture)).toContain('1 sello acumulado');
+    expect(text(fixture)).toContain('Historial independiente');
+  });
+
+  it('renders asynchronous access reads and mutations in the zoneless fixture', async () => {
+    const pendingAccess = new Subject<AdminClubAccessReadResponse>();
+    const pendingInvitation = new Subject<AdminClubAccessMutationResponse>();
+    await configure({
+      accessResponse: () => pendingAccess,
+      invitationResponse: () => pendingInvitation
+    });
+    const fixture = render();
+
+    click(fixture, '[data-client-id="client-ana"]');
+    expect(fixture.nativeElement.querySelector('[data-testid="access-loading"]')).toBeTruthy();
+    pendingAccess.next({ access: null });
+    pendingAccess.complete();
+    await fixture.whenStable();
+    expect(text(fixture)).toContain('Acceso no configurado');
+
+    click(fixture, '[data-testid="access-invitation-action"]');
+    pendingInvitation.next(accessMutation());
+    pendingInvitation.complete();
+    await fixture.whenStable();
+
+    expect(text(fixture)).toContain('Invitación pendiente');
+    expect(fixture.nativeElement.querySelector('[data-testid="one-time-invitation"]')).toBeTruthy();
+  });
+
+  it('never lets a late client A access response replace client B access', async () => {
+    const anaAccess = new Subject<AdminClubAccessReadResponse>();
+    const beatrizAccess = new Subject<AdminClubAccessReadResponse>();
+    await configure({
+      accessResponse: (clientId) =>
+        clientId === ana.clientId ? anaAccess : beatrizAccess
+    });
+    const fixture = render();
+
+    click(fixture, '[data-client-id="client-ana"]');
+    click(fixture, '[data-client-id="client-beatriz"]');
+    beatrizAccess.next({ access: disabledAccess });
+    anaAccess.next({ access: invitedAccess });
+    fixture.detectChanges();
+
+    expect(accessActions(fixture).selectedAccess()).toEqual(disabledAccess);
+    expect(text(fixture)).toContain('Acceso deshabilitado');
+    expect(text(fixture)).not.toContain('Invitación pendiente');
+  });
+
+  it('does not let a stale access read overwrite a successful mutation result', async () => {
+    const staleRead = new Subject<AdminClubAccessReadResponse>();
+    const authoritative = { ...invitedAccess, invitationGeneration: 9 };
+    await configure({
+      accessResponse: () => staleRead,
+      invitationResponse: () => of(accessMutation(authoritative))
+    });
+    const fixture = render();
+
+    click(fixture, '[data-client-id="client-ana"]');
+    accessActions(fixture).generateAccessInvitation();
+    staleRead.next({ access: activeAccess });
+    fixture.detectChanges();
+
+    expect(accessActions(fixture).selectedAccess()).toEqual(authoritative);
+    expect(text(fixture)).toContain('Invitación pendiente');
+    expect(text(fixture)).not.toContain('Acceso activo');
+  });
+
+  it.each([
+    [null, 'Acceso no configurado', 'Generar invitación', false],
+    [invitedAccess, 'Invitación pendiente', 'Regenerar enlace', false],
+    [activeAccess, 'Acceso activo', 'Restablecer acceso', true],
+    [disabledAccess, 'Acceso deshabilitado', 'Restablecer acceso', true]
+  ] as const)(
+    'renders the authoritative access state %# with only its valid operation',
+    async (access, stateText, actionText, expectsReset) => {
+      await configure({ accessResponse: () => of({ access }) });
+      const fixture = render();
+
+      click(fixture, '[data-client-id="client-ana"]');
+
+      const accessCard = fixture.nativeElement.querySelector(
+        '[data-testid="client-access"]'
+      ) as HTMLElement;
+      expect(accessCard.textContent).toContain(stateText);
+      expect(accessCard.textContent).toContain(actionText);
+      expect(
+        accessCard.querySelector('[data-testid="access-reset-action"]') !== null
+      ).toBe(expectsReset);
+      expect(
+        accessCard.querySelector('[data-testid="access-invitation-action"]') !== null
+      ).toBe(!expectsReset);
+    }
+  );
+
+  it('requires explicit reset confirmation and cancellation sends no mutation', async () => {
+    await configure({ accessResponse: () => of({ access: activeAccess }) });
+    const fixture = render();
+
+    click(fixture, '[data-client-id="client-ana"]');
+    click(fixture, '[data-testid="access-reset-action"]');
+
+    expect(resetClientAccess).not.toHaveBeenCalled();
+    expect(text(fixture)).toContain('El NIP actual y las sesiones activas dejarán de funcionar.');
+    click(fixture, '[data-testid="access-reset-cancel"]');
+    expect(resetClientAccess).not.toHaveBeenCalled();
+    expect(
+      fixture.nativeElement.querySelector('[data-testid="access-reset-confirmation"]')
+    ).toBeNull();
+  });
+
+  it('applies an initial invitation response and keeps its private link in component memory', async () => {
+    const mutation = accessMutation();
+    await configure({ invitationResponse: () => of(mutation) });
+    const fixture = render();
+
+    click(fixture, '[data-client-id="client-ana"]');
+    click(fixture, '[data-testid="access-invitation-action"]');
+
+    expect(generateClientAccessInvitation).toHaveBeenCalledWith(ana.clientId);
+    expect(accessActions(fixture).selectedAccess()).toEqual(mutation.access);
+    expect(accessActions(fixture).oneTimeInvitation()?.activationUrl).toBe(
+      new URL(activationFragment, document.baseURI).toString()
+    );
+    expect(fixture.nativeElement.querySelector('[data-testid="one-time-invitation"]')).toBeTruthy();
+  });
+
+  it('replaces an earlier one-time invitation with a successful regeneration result', async () => {
+    const firstFragment = '#/club/activar?access=first-handle&invite=first-token';
+    const secondFragment = '#/club/activar?access=second-handle&invite=second-token';
+    await configure({ accessResponse: () => of({ access: invitedAccess }) });
+    generateClientAccessInvitation
+      .mockReturnValueOnce(of(accessMutation(invitedAccess, firstFragment)))
+      .mockReturnValueOnce(of(accessMutation(invitedAccess, secondFragment)));
+    const fixture = render();
+
+    click(fixture, '[data-client-id="client-ana"]');
+    click(fixture, '[data-testid="access-invitation-action"]');
+    expect(accessActions(fixture).oneTimeInvitation()?.activationUrl).toContain('first-handle');
+    click(fixture, '[data-testid="access-invitation-action"]');
+
+    expect(generateClientAccessInvitation).toHaveBeenCalledTimes(2);
+    expect(accessActions(fixture).oneTimeInvitation()?.activationUrl).toContain('second-handle');
+    expect(accessActions(fixture).oneTimeInvitation()?.activationUrl).not.toContain('first-handle');
+  });
+
+  it('applies a full reset response, closes confirmation, and shows the one-time panel', async () => {
+    await configure({
+      accessResponse: () => of({ access: activeAccess }),
+      resetResponse: () => of(accessMutation(invitedAccess))
+    });
+    const fixture = render();
+
+    click(fixture, '[data-client-id="client-ana"]');
+    click(fixture, '[data-testid="access-reset-action"]');
+    click(fixture, '[data-testid="access-reset-confirm"]');
+
+    expect(resetClientAccess).toHaveBeenCalledWith(ana.clientId);
+    expect(accessActions(fixture).selectedAccess()).toEqual(invitedAccess);
+    expect(
+      fixture.nativeElement.querySelector('[data-testid="access-reset-confirmation"]')
+    ).toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="one-time-invitation"]')).toBeTruthy();
+  });
+
+  it('does not persist or render activation secrets or access implementation metadata', async () => {
+    const localStorageWrite = vi.spyOn(Storage.prototype, 'setItem');
+    const pushState = vi.spyOn(window.history, 'pushState');
+    const replaceState = vi.spyOn(window.history, 'replaceState');
+    const originalUrl = window.location.href;
+    const metadataHeavyAccess = {
+      ...invitedAccess,
+      credentialVersion: 987654,
+      invitationGeneration: 876543
+    };
+    await configure({
+      invitationResponse: () => of(accessMutation(metadataHeavyAccess))
+    });
+    const fixture = render();
+
+    click(fixture, '[data-client-id="client-ana"]');
+    click(fixture, '[data-testid="access-invitation-action"]');
+
+    expect(localStorageWrite).not.toHaveBeenCalled();
+    expect(pushState).not.toHaveBeenCalled();
+    expect(replaceState).not.toHaveBeenCalled();
+    expect(window.location.href).toBe(originalUrl);
+    const adminDom = (fixture.nativeElement as HTMLElement).outerHTML;
+    expect(adminDom).not.toContain('opaque-access-handle');
+    expect(adminDom).not.toContain('one-time-invitation-token');
+    expect(adminDom).not.toContain('987654');
+    expect(adminDom).not.toContain('876543');
+    expect(adminDom).not.toContain('digest');
+    expect(adminDom).not.toContain('verifier');
+  });
+
+  it('builds activation URLs against localhost and GitHub Pages base paths only for the expected route', () => {
+    expect(
+      buildClubActivationUrl(
+        activationFragment,
+        'http://localhost:4200/'
+      )
+    ).toBe(`http://localhost:4200/${activationFragment}`);
+    expect(
+      buildClubActivationUrl(
+        activationFragment,
+        'https://diegoaranab.github.io/bellamujerstudio/'
+      )
+    ).toBe(`https://diegoaranab.github.io/bellamujerstudio/${activationFragment}`);
+    expect(
+      buildClubActivationUrl('https://evil.example/steal', 'http://localhost:4200/')
+    ).toBeNull();
+    expect(buildClubActivationUrl('#/otro?invite=secret', 'http://localhost:4200/')).toBeNull();
+  });
+
+  it('copies the exact full activation URL and reports success safely', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(window.navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText }
+    });
+    await configure();
+    const fixture = render();
+
+    click(fixture, '[data-client-id="client-ana"]');
+    click(fixture, '[data-testid="access-invitation-action"]');
+    await accessActions(fixture).copyAccessInvitation();
+    fixture.detectChanges();
+
+    expect(writeText).toHaveBeenCalledWith(new URL(activationFragment, document.baseURI).toString());
+    expect(text(fixture)).toContain('Enlace copiado.');
+  });
+
+  it('shows clipboard failure without exposing the private URL', async () => {
+    const writeText = vi.fn().mockRejectedValue(new Error('secret transport failure'));
+    Object.defineProperty(window.navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText }
+    });
+    await configure();
+    const fixture = render();
+
+    click(fixture, '[data-client-id="client-ana"]');
+    click(fixture, '[data-testid="access-invitation-action"]');
+    await accessActions(fixture).copyAccessInvitation();
+    fixture.detectChanges();
+
+    expect(text(fixture)).toContain('No pudimos copiar el enlace automáticamente.');
+    expect(text(fixture)).not.toContain('opaque-access-handle');
+    expect(text(fixture)).not.toContain('secret transport failure');
+  });
+
+  it('uses native share with the exact activation URL when available', async () => {
+    const share = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(window.navigator, 'share', {
+      configurable: true,
+      value: share
+    });
+    await configure();
+    const fixture = render();
+
+    click(fixture, '[data-client-id="client-ana"]');
+    click(fixture, '[data-testid="access-invitation-action"]');
+    expect(fixture.nativeElement.querySelector('[data-testid="access-share-link"]')).toBeTruthy();
+    await accessActions(fixture).shareAccessInvitation();
+    fixture.detectChanges();
+
+    expect(share).toHaveBeenCalledWith({
+      title: 'Acceso a Bella Mujer Club',
+      text: 'Configura tu acceso privado a Bella Mujer Club.',
+      url: new URL(activationFragment, document.baseURI).toString()
+    });
+    expect(text(fixture)).toContain('Enlace compartido.');
+  });
+
+  it('hides native share safely when unsupported', async () => {
+    await configure();
+    const fixture = render();
+
+    click(fixture, '[data-client-id="client-ana"]');
+    click(fixture, '[data-testid="access-invitation-action"]');
+
+    expect(fixture.nativeElement.querySelector('[data-testid="access-share-link"]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="access-copy-link"]')).toBeTruthy();
+  });
+
+  it('locks client selection during a sensitive mutation and applies the result to its frozen client', async () => {
+    const pendingMutation = new Subject<AdminClubAccessMutationResponse>();
+    await configure({ invitationResponse: () => pendingMutation });
+    const fixture = render();
+    const actions = accessActions(fixture);
+
+    click(fixture, '[data-client-id="client-ana"]');
+    actions.generateAccessInvitation();
+    actions.selectClient(beatriz);
+
+    expect(actions.accessMutationLoading()).toBe(true);
+    expect(getClientAccess).toHaveBeenCalledTimes(1);
+    expect(getClientAccess).toHaveBeenCalledWith(ana.clientId);
+    pendingMutation.next(accessMutation());
+    pendingMutation.complete();
+    fixture.detectChanges();
+    expect(text(fixture)).toContain('Acceso de Ana López');
+  });
+
+  it('clears a one-time invitation when deliberately selecting another client', async () => {
+    await configure();
+    const fixture = render();
+
+    click(fixture, '[data-client-id="client-ana"]');
+    click(fixture, '[data-testid="access-invitation-action"]');
+    expect(accessActions(fixture).oneTimeInvitation()).not.toBeNull();
+    click(fixture, '[data-client-id="client-beatriz"]');
+
+    expect(accessActions(fixture).oneTimeInvitation()).toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="one-time-invitation"]')).toBeNull();
+    expect(text(fixture)).toContain('Acceso de Beatriz Ramos');
+  });
+
+  it('does not retry a failed mutation and refreshes access without disturbing detail or history', async () => {
+    const mutationError = new AdminClubApiError('network', 'No se pudo confirmar el cambio.');
+    const keptLedger = ledgerEntry({
+      entryId: 'kept-after-access-error',
+      type: 'ADMIN_ADJUSTMENT',
+      reason: 'Movimiento conservado'
+    });
+    await configure({
+      accessResponse: () => of({ access: invitedAccess }),
+      invitationResponse: () => throwError(() => mutationError),
+      ledgerResponse: () => of({ items: [keptLedger] })
+    });
+    const fixture = render();
+
+    click(fixture, '[data-client-id="client-ana"]');
+    click(fixture, '[data-testid="access-invitation-action"]');
+
+    expect(generateClientAccessInvitation).toHaveBeenCalledTimes(1);
+    expect(text(fixture)).toContain(mutationError.message);
+    expect(text(fixture)).toContain('Invitación pendiente');
+    expect(text(fixture)).toContain('1 sello acumulado');
+    expect(text(fixture)).toContain('Movimiento conservado');
+    click(fixture, '[data-testid="access-mutation-error"] button');
+
+    expect(getClientAccess).toHaveBeenCalledTimes(2);
+    expect(generateClientAccessInvitation).toHaveBeenCalledTimes(1);
+    expect(text(fixture)).toContain('1 sello acumulado');
+    expect(text(fixture)).toContain('Movimiento conservado');
   });
 
   it('loads the selected client ledger in server order and presents safe movement details', async () => {
@@ -774,6 +1247,7 @@ describe('ClubDashboardComponent', () => {
     expect(text(fixture)).toContain('$825');
     expect(text(fixture)).toContain('Clienta creada correctamente.');
     expect(getClient).not.toHaveBeenCalled();
+    expect(getClientAccess).toHaveBeenCalledWith(canonical.clientId);
     expect(
       (fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>(
         'input[formcontrolname="name"]'

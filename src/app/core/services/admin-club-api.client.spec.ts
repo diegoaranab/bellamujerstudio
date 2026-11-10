@@ -6,6 +6,8 @@ import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../auth/auth.service';
 import { ClubClient, ClubVisit, LoyaltyBalance, LoyaltyLedgerEntry } from '../models';
 import {
+  AdminClubAccessMutationResponse,
+  AdminClubAccessSummary,
   AdminClubApiClient,
   AdminClubApiError,
   AdminClubVisitCreateRequest
@@ -57,6 +59,22 @@ const ledgerEntry: LoyaltyLedgerEntry = {
   eligibleSpendCarryAfterMXN: 350,
   createdByAdminSub: 'admin-sub',
   visitId: 'visit-1'
+};
+
+const accessSummary: AdminClubAccessSummary = {
+  status: 'invited',
+  credentialVersion: 2,
+  invitationGeneration: 3,
+  hasPin: false,
+  updatedAtISO: '2026-11-10T12:00:00.000Z'
+};
+
+const accessMutationResponse: AdminClubAccessMutationResponse = {
+  access: accessSummary,
+  invitation: {
+    activationFragment: '#/club/activar?access=opaque-handle&invite=one-time-token',
+    expiresAtISO: '2026-11-11T12:00:00.000Z'
+  }
 };
 
 describe('AdminClubApiClient', () => {
@@ -216,6 +234,84 @@ describe('AdminClubApiClient', () => {
       items: [ledgerEntry],
       nextToken: 'another-token'
     });
+  });
+
+  it.each([
+    ['a null access state', null],
+    ['an existing typed access state', accessSummary]
+  ])('gets encoded client access with the access token and preserves %s', async (_label, access) => {
+    const client = configure();
+    const promise = firstValueFrom(client.getClientAccess('client/id +?á'));
+    await Promise.resolve();
+
+    const request = http.expectOne(
+      'https://api.example.test/admin/club/clients/client%2Fid%20%2B%3F%C3%A1/access'
+    );
+    expect(request.request.method).toBe('GET');
+    expect(request.request.headers.get('Authorization')).toBe('Bearer access-token');
+    expect(request.request.urlWithParams).not.toContain('access-token');
+    request.flush({ access });
+
+    await expect(promise).resolves.toEqual({ access });
+    expect(getAccessToken).toHaveBeenCalledOnce();
+    expect(getToken).not.toHaveBeenCalled();
+  });
+
+  it('generates an invitation at the encoded URL with no request body', async () => {
+    const client = configure();
+    const promise = firstValueFrom(client.generateClientAccessInvitation('client/id +?á'));
+    await Promise.resolve();
+
+    const request = http.expectOne(
+      'https://api.example.test/admin/club/clients/client%2Fid%20%2B%3F%C3%A1/access/invitation'
+    );
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toBeNull();
+    expect(request.request.headers.get('Authorization')).toBe('Bearer access-token');
+    expect(request.request.urlWithParams).not.toContain('access-token');
+    request.flush(accessMutationResponse);
+
+    await expect(promise).resolves.toEqual(accessMutationResponse);
+    expect(getAccessToken).toHaveBeenCalledOnce();
+    expect(getToken).not.toHaveBeenCalled();
+  });
+
+  it('resets access at the encoded URL with no request body and no ID-token fallback', async () => {
+    const client = configure();
+    const promise = firstValueFrom(client.resetClientAccess('client/id +?á'));
+    await Promise.resolve();
+
+    const request = http.expectOne(
+      'https://api.example.test/admin/club/clients/client%2Fid%20%2B%3F%C3%A1/access/reset'
+    );
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toBeNull();
+    expect(request.request.headers.get('Authorization')).toBe('Bearer access-token');
+    request.flush(accessMutationResponse);
+
+    await expect(promise).resolves.toEqual(accessMutationResponse);
+    expect(getAccessToken).toHaveBeenCalledOnce();
+    expect(getToken).not.toHaveBeenCalled();
+  });
+
+  it('does not fall back to an ID token for access lifecycle requests', async () => {
+    const client = configure();
+    getAccessToken.mockResolvedValue(null);
+
+    await expect(
+      firstValueFrom(client.generateClientAccessInvitation(clubClient.clientId))
+    ).rejects.toMatchObject({ kind: 'authentication' });
+    await expect(
+      firstValueFrom(client.resetClientAccess(clubClient.clientId))
+    ).rejects.toMatchObject({ kind: 'authentication' });
+    expect(getAccessToken).toHaveBeenCalledTimes(2);
+    expect(getToken).not.toHaveBeenCalled();
+    http.expectNone(
+      `https://api.example.test/admin/club/clients/${clubClient.clientId}/access/invitation`
+    );
+    http.expectNone(
+      `https://api.example.test/admin/club/clients/${clubClient.clientId}/access/reset`
+    );
   });
 
   it('rejects an unbounded limit without making an HTTP request', async () => {
