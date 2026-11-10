@@ -144,7 +144,7 @@ describe('administrative Club visit creation handler', () => {
     [{ noSub: true }],
     [{ sub: '' }],
     [{ sub: ' padded' }],
-    [{ sub: 'bad\\nsubject' }],
+    [{ sub: 'bad\nsubject' }],
     [{ sub: 'x'.repeat(257) }]
   ])('rejects malformed identity input %j before DynamoDB', async (options) => {
     const { handler, getClient } = setup();
