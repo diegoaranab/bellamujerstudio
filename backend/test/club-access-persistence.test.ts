@@ -237,6 +237,8 @@ describe('DynamoClubAccessPersistence', () => {
   it('exposes no generic or workflow mutation methods', () => {
     const prototypeMethods = Object.getOwnPropertyNames(DynamoClubAccessPersistence.prototype);
     expect(prototypeMethods.sort()).toEqual([
+      'completeEnrollment',
+      'completeSuccessfulLogin',
       'constructor',
       'createInitialInvitation',
       'fullResetAccess',
@@ -244,8 +246,124 @@ describe('DynamoClubAccessPersistence', () => {
       'getInvitation',
       'getMemberAccess',
       'getSession',
+      'recordFailedPinAttempt',
+      'revokeSession',
       'rotatePreEnrollmentInvitation'
     ].sort());
+  });
+
+  it('completes enrollment with four atomic exact-condition puts and commit-time expiry', async () => {
+    send.mockResolvedValueOnce({});
+    const expectedState: MemberAccessState = {
+      studioId: 'bella-mujer', clientId: 'client-01', handleDigest: DIGEST_A,
+      accessStatus: 'invited', credentialVersion: 0, invitationGeneration: 1,
+      failedPinAttempts: 0, createdAtISO: CREATED_AT, updatedAtISO: CREATED_AT
+    };
+    const expectedLookup = {
+      handleDigest: DIGEST_A, studioId: 'bella-mujer', clientId: 'client-01',
+      accessStatus: 'invited' as const, credentialVersion: 0,
+      createdAtISO: CREATED_AT, updatedAtISO: CREATED_AT
+    };
+    const expectedInvitation = {
+      invitationDigest: DIGEST_B, studioId: 'bella-mujer', clientId: 'client-01',
+      handleDigest: DIGEST_A, generation: 1, createdAtISO: CREATED_AT,
+      expiresAtISO: '2026-11-17T12:00:00.000Z', expiresAtEpoch: 1794916800,
+      consumed: false
+    };
+    const nextState: MemberAccessState = {
+      ...expectedState, accessStatus: 'active', pinVerifier: verifier, updatedAtISO: UPDATED_AT
+    };
+    const nextLookup = {
+      ...expectedLookup, accessStatus: 'active' as const, updatedAtISO: UPDATED_AT
+    };
+    const consumedInvitation = {
+      ...expectedInvitation, consumed: true, consumedAtISO: UPDATED_AT
+    };
+    const newSession = {
+      sessionDigest: DIGEST_C, studioId: 'bella-mujer', clientId: 'client-01',
+      credentialVersion: 0, createdAtISO: UPDATED_AT,
+      expiresAtISO: '2026-11-10T20:05:00.000Z', expiresAtEpoch: 1794341100,
+      revoked: false
+    };
+
+    await persistence.completeEnrollment(
+      expectedState, expectedLookup, expectedInvitation, nextState, nextLookup,
+      consumedInvitation, newSession, UPDATED_AT
+    );
+
+    const items = send.mock.calls[0][0].input.TransactItems ?? [];
+    expect(items).toHaveLength(4);
+    expect(items[0].Put?.ConditionExpression).toContain('attribute_not_exists(#pinAlgorithm)');
+    expect(items[1].Put?.ConditionExpression).toContain('#updatedAtISO = :updatedAtISO');
+    expect(items[2].Put?.ConditionExpression).toContain('#consumed = :notConsumed');
+    expect(items[2].Put?.ConditionExpression).toContain('#expiresAtISO > :commitAtISO');
+    expect(items[2].Put?.ExpressionAttributeValues).toMatchObject({
+      ':generation': { N: '1' }, ':notConsumed': { BOOL: false },
+      ':commitAtISO': { S: UPDATED_AT }
+    });
+    expect(items[3].Put?.ConditionExpression).toBe(
+      'attribute_not_exists(#pk) AND attribute_not_exists(#sk)'
+    );
+    expect(JSON.stringify(items)).not.toMatch(/accessHandle|invitationToken|sessionToken|"pin"/);
+  });
+
+  it('protects failed-attempt CAS with exact counter, backoff, credential, and verifier metadata', async () => {
+    send.mockResolvedValueOnce({});
+    const expected: MemberAccessState = {
+      ...state, failedPinAttempts: 3, nextAllowedAtISO: UPDATED_AT
+    };
+    const next: MemberAccessState = {
+      ...expected, failedPinAttempts: 4, nextAllowedAtISO: '2026-11-10T12:08:00.000Z',
+      updatedAtISO: '2026-11-10T12:06:00.000Z'
+    };
+    await persistence.recordFailedPinAttempt(expected, next);
+    const put = send.mock.calls[0][0].input.TransactItems[0].Put;
+    expect(put.ConditionExpression).toContain('#failedPinAttempts = :failedPinAttempts');
+    expect(put.ConditionExpression).toContain('#nextAllowedAtISO = :nextAllowedAtISO');
+    expect(put.ConditionExpression).toContain('#credentialVersion = :credentialVersion');
+    expect(put.ConditionExpression).toContain('#pinSaltBase64Url = :pinSaltBase64Url');
+    expect(put.ConditionExpression).toContain('#pinVerifierBase64Url = :pinVerifierBase64Url');
+    expect(put.ExpressionAttributeValues).toMatchObject({
+      ':failedPinAttempts': { N: '3' }, ':nextAllowedAtISO': { S: UPDATED_AT },
+      ':credentialVersion': { N: '2' }
+    });
+    expect(put.Item.failedPinAttempts).toEqual({ N: '4' });
+    expect(put.Item.nextAllowedAtISO).toEqual({ S: '2026-11-10T12:08:00.000Z' });
+  });
+
+  it('atomically resets exact verified state and conditionally creates a login session', async () => {
+    send.mockResolvedValueOnce({});
+    const authenticatedAt = '2026-11-10T12:06:00.000Z';
+    const next: MemberAccessState = {
+      ...state, failedPinAttempts: 0, nextAllowedAtISO: undefined,
+      updatedAtISO: authenticatedAt
+    };
+    const newSession = {
+      sessionDigest: DIGEST_C, studioId: state.studioId, clientId: state.clientId,
+      credentialVersion: state.credentialVersion, createdAtISO: authenticatedAt,
+      expiresAtISO: '2026-11-10T20:06:00.000Z', expiresAtEpoch: 1794341160,
+      revoked: false
+    };
+    await persistence.completeSuccessfulLogin(state, next, newSession);
+    const items = send.mock.calls[0][0].input.TransactItems;
+    expect(items).toHaveLength(2);
+    expect(items[0].Put.ConditionExpression).toContain('#updatedAtISO = :updatedAtISO');
+    expect(items[0].Put.Item.failedPinAttempts).toEqual({ N: '0' });
+    expect(items[0].Put.Item.nextAllowedAtISO).toBeUndefined();
+    expect(items[1].Put.ConditionExpression).toContain('attribute_not_exists(#pk)');
+  });
+
+  it('revokes a session through an exact false-to-true conditional replacement', async () => {
+    send.mockResolvedValueOnce({});
+    const expected = { ...session, revoked: false as const, revokedAtISO: undefined };
+    const next = { ...expected, revoked: true as const, revokedAtISO: UPDATED_AT };
+    await persistence.revokeSession(expected, next);
+    const put = send.mock.calls[0][0].input.TransactItems[0].Put;
+    expect(put.ConditionExpression).toContain('#sessionDigest = :sessionDigest');
+    expect(put.ConditionExpression).toContain('#credentialVersion = :credentialVersion');
+    expect(put.ConditionExpression).toContain('#expiresAtISO = :expiresAtISO');
+    expect(put.ConditionExpression).toContain('#revoked = :notRevoked');
+    expect(put.Item).toMatchObject({ revoked: { BOOL: true }, revokedAtISO: { S: UPDATED_AT } });
   });
 
   it('creates initial access, handle, and invitation with three conditional atomic puts', async () => {

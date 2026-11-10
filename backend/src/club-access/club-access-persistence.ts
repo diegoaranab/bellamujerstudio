@@ -11,6 +11,7 @@ import {
   sessionKey,
   validateSecretDigest
 } from './club-access-keys';
+import { failedPinTransition, SESSION_LIFETIME_MS } from './club-access-auth';
 import {
   AccessInvitation,
   AccessSession,
@@ -390,7 +391,15 @@ const expectedStateCondition = (expected: MemberAccessState, requireNoPin: boole
       : ['#nextAllowedAtISO = :nextAllowedAtISO']),
     ...(requireNoPin || expected.pinVerifier === undefined
       ? ['attribute_not_exists(#pinAlgorithm)']
-      : ['#pinVerifierBase64Url = :pinVerifierBase64Url'])
+      : [
+          '#pinAlgorithm = :pinAlgorithm', '#pinKdfVersion = :pinKdfVersion',
+          '#pinSaltBase64Url = :pinSaltBase64Url',
+          '#pinVerifierBase64Url = :pinVerifierBase64Url',
+          '#pinPepperVersion = :pinPepperVersion', '#pinScryptN = :pinScryptN',
+          '#pinScryptR = :pinScryptR', '#pinScryptP = :pinScryptP',
+          '#pinScryptMaxmem = :pinScryptMaxmem', '#pinKeyLength = :pinKeyLength',
+          '#pinCreatedAtISO = :pinCreatedAtISO', '#pinUpdatedAtISO = :pinUpdatedAtISO'
+        ])
   ].join(' AND '),
   ExpressionAttributeNames: {
     '#entityType': 'entityType', '#studioId': 'studioId', '#clientId': 'clientId',
@@ -401,7 +410,15 @@ const expectedStateCondition = (expected: MemberAccessState, requireNoPin: boole
     '#nextAllowedAtISO': 'nextAllowedAtISO',
     ...(requireNoPin || expected.pinVerifier === undefined
       ? { '#pinAlgorithm': 'pinAlgorithm' }
-      : { '#pinVerifierBase64Url': 'pinVerifierBase64Url' })
+      : {
+          '#pinAlgorithm': 'pinAlgorithm', '#pinKdfVersion': 'pinKdfVersion',
+          '#pinSaltBase64Url': 'pinSaltBase64Url',
+          '#pinVerifierBase64Url': 'pinVerifierBase64Url',
+          '#pinPepperVersion': 'pinPepperVersion', '#pinScryptN': 'pinScryptN',
+          '#pinScryptR': 'pinScryptR', '#pinScryptP': 'pinScryptP',
+          '#pinScryptMaxmem': 'pinScryptMaxmem', '#pinKeyLength': 'pinKeyLength',
+          '#pinCreatedAtISO': 'pinCreatedAtISO', '#pinUpdatedAtISO': 'pinUpdatedAtISO'
+        })
   },
   ExpressionAttributeValues: {
     ':memberType': s('MEMBER_ACCESS'), ':studioId': s(expected.studioId),
@@ -416,7 +433,19 @@ const expectedStateCondition = (expected: MemberAccessState, requireNoPin: boole
       : { ':nextAllowedAtISO': s(expected.nextAllowedAtISO) }),
     ...(requireNoPin || expected.pinVerifier === undefined
       ? {}
-      : { ':pinVerifierBase64Url': s(expected.pinVerifier.verifierBase64Url) })
+      : {
+          ':pinAlgorithm': s(expected.pinVerifier.algorithm),
+          ':pinKdfVersion': n(expected.pinVerifier.kdfVersion),
+          ':pinSaltBase64Url': s(expected.pinVerifier.saltBase64Url),
+          ':pinVerifierBase64Url': s(expected.pinVerifier.verifierBase64Url),
+          ':pinPepperVersion': s(expected.pinVerifier.pepperVersion),
+          ':pinScryptN': n(expected.pinVerifier.N), ':pinScryptR': n(expected.pinVerifier.r),
+          ':pinScryptP': n(expected.pinVerifier.p),
+          ':pinScryptMaxmem': n(expected.pinVerifier.maxmem),
+          ':pinKeyLength': n(expected.pinVerifier.keyLength),
+          ':pinCreatedAtISO': s(expected.pinVerifier.createdAtISO),
+          ':pinUpdatedAtISO': s(expected.pinVerifier.updatedAtISO)
+        })
   }
 });
 
@@ -441,6 +470,165 @@ const expectedHandleCondition = (expected: MemberAccessState) => ({
     ':credentialVersion': n(expected.credentialVersion)
   }
 });
+
+const exactHandleCondition = (expected: HandleLookup) => ({
+  ConditionExpression: [
+    '#entityType = :handleType', '#studioId = :studioId', '#clientId = :clientId',
+    '#accessStatus = :accessStatus', '#handleDigest = :handleDigest',
+    '#credentialVersion = :credentialVersion', '#createdAtISO = :createdAtISO',
+    '#updatedAtISO = :updatedAtISO'
+  ].join(' AND '),
+  ExpressionAttributeNames: {
+    '#entityType': 'entityType', '#studioId': 'studioId', '#clientId': 'clientId',
+    '#accessStatus': 'accessStatus', '#handleDigest': 'handleDigest',
+    '#credentialVersion': 'credentialVersion', '#createdAtISO': 'createdAtISO',
+    '#updatedAtISO': 'updatedAtISO'
+  },
+  ExpressionAttributeValues: {
+    ':handleType': s('HANDLE'), ':studioId': s(expected.studioId),
+    ':clientId': s(expected.clientId), ':accessStatus': s(expected.accessStatus),
+    ':handleDigest': s(expected.handleDigest),
+    ':credentialVersion': n(expected.credentialVersion),
+    ':createdAtISO': s(expected.createdAtISO), ':updatedAtISO': s(expected.updatedAtISO)
+  }
+});
+
+const expectedInvitationCondition = (
+  expected: AccessInvitation,
+  commitAtISO: string
+) => ({
+  ConditionExpression: [
+    '#entityType = :inviteType', '#studioId = :studioId', '#clientId = :clientId',
+    '#invitationDigest = :invitationDigest', '#handleDigest = :handleDigest',
+    '#generation = :generation', '#createdAtISO = :createdAtISO',
+    '#expiresAtISO = :expiresAtISO', '#expiresAtEpoch = :expiresAtEpoch',
+    '#consumed = :notConsumed', 'attribute_not_exists(#consumedAtISO)',
+    '#expiresAtISO > :commitAtISO'
+  ].join(' AND '),
+  ExpressionAttributeNames: {
+    '#entityType': 'entityType', '#studioId': 'studioId', '#clientId': 'clientId',
+    '#invitationDigest': 'invitationDigest', '#handleDigest': 'handleDigest',
+    '#generation': 'generation', '#createdAtISO': 'createdAtISO',
+    '#expiresAtISO': 'expiresAtISO', '#expiresAtEpoch': 'expiresAtEpoch',
+    '#consumed': 'consumed', '#consumedAtISO': 'consumedAtISO'
+  },
+  ExpressionAttributeValues: {
+    ':inviteType': s('INVITE'), ':studioId': s(expected.studioId),
+    ':clientId': s(expected.clientId), ':invitationDigest': s(expected.invitationDigest),
+    ':handleDigest': s(expected.handleDigest), ':generation': n(expected.generation),
+    ':createdAtISO': s(expected.createdAtISO), ':expiresAtISO': s(expected.expiresAtISO),
+    ':expiresAtEpoch': n(expected.expiresAtEpoch), ':notConsumed': b(false),
+    ':commitAtISO': s(commitAtISO)
+  }
+});
+
+const expectedSessionCondition = (expected: AccessSession) => ({
+  ConditionExpression: [
+    '#entityType = :sessionType', '#sessionDigest = :sessionDigest',
+    '#studioId = :studioId', '#clientId = :clientId',
+    '#credentialVersion = :credentialVersion', '#createdAtISO = :createdAtISO',
+    '#expiresAtISO = :expiresAtISO', '#expiresAtEpoch = :expiresAtEpoch',
+    '#revoked = :notRevoked', 'attribute_not_exists(#revokedAtISO)'
+  ].join(' AND '),
+  ExpressionAttributeNames: {
+    '#entityType': 'entityType', '#sessionDigest': 'sessionDigest',
+    '#studioId': 'studioId', '#clientId': 'clientId',
+    '#credentialVersion': 'credentialVersion', '#createdAtISO': 'createdAtISO',
+    '#expiresAtISO': 'expiresAtISO', '#expiresAtEpoch': 'expiresAtEpoch',
+    '#revoked': 'revoked', '#revokedAtISO': 'revokedAtISO'
+  },
+  ExpressionAttributeValues: {
+    ':sessionType': s('SESSION'), ':sessionDigest': s(expected.sessionDigest),
+    ':studioId': s(expected.studioId), ':clientId': s(expected.clientId),
+    ':credentialVersion': n(expected.credentialVersion),
+    ':createdAtISO': s(expected.createdAtISO), ':expiresAtISO': s(expected.expiresAtISO),
+    ':expiresAtEpoch': n(expected.expiresAtEpoch), ':notRevoked': b(false)
+  }
+});
+
+const sameVerifier = (left: PinVerifierMetadata | undefined, right: PinVerifierMetadata | undefined) =>
+  JSON.stringify(left) === JSON.stringify(right);
+
+const sameAccessIdentity = (left: MemberAccessState, right: MemberAccessState): boolean =>
+  left.studioId === right.studioId && left.clientId === right.clientId &&
+  left.handleDigest === right.handleDigest &&
+  left.credentialVersion === right.credentialVersion &&
+  left.invitationGeneration === right.invitationGeneration &&
+  left.createdAtISO === right.createdAtISO;
+
+const validNewSessionLifetime = (session: AccessSession): boolean => {
+  const createdAt = new Date(session.createdAtISO).getTime();
+  const expiresAt = new Date(session.expiresAtISO).getTime();
+  return expiresAt - createdAt === SESSION_LIFETIME_MS &&
+    Math.floor(expiresAt / 1000) === session.expiresAtEpoch;
+};
+
+const validateEnrollmentTransition = (
+  expectedState: MemberAccessState,
+  expectedLookup: HandleLookup,
+  expectedInvitation: AccessInvitation,
+  nextState: MemberAccessState,
+  nextLookup: HandleLookup,
+  consumedInvitation: AccessInvitation,
+  session: AccessSession,
+  commitAtISO: string
+): void => {
+  validateInvitationAggregate(expectedState, expectedLookup, expectedInvitation);
+  validateMemberAccessState(nextState);
+  validateHandleLookup(nextLookup);
+  validateAccessInvitation(consumedInvitation);
+  validateAccessSession(session);
+  const commitTime = new Date(commitAtISO);
+  if (!Number.isFinite(commitTime.getTime()) || commitTime.toISOString() !== commitAtISO ||
+    !sameAccessIdentity(expectedState, nextState) || nextState.accessStatus !== 'active' ||
+    nextState.failedPinAttempts !== 0 || nextState.nextAllowedAtISO !== undefined ||
+    nextState.pinVerifier === undefined || nextState.updatedAtISO !== commitAtISO ||
+    nextLookup.studioId !== expectedLookup.studioId ||
+    nextLookup.clientId !== expectedLookup.clientId ||
+    nextLookup.handleDigest !== expectedLookup.handleDigest ||
+    nextLookup.credentialVersion !== expectedLookup.credentialVersion ||
+    nextLookup.createdAtISO !== expectedLookup.createdAtISO ||
+    nextLookup.updatedAtISO !== commitAtISO || nextLookup.accessStatus !== 'active' ||
+    consumedInvitation.invitationDigest !== expectedInvitation.invitationDigest ||
+    consumedInvitation.studioId !== expectedInvitation.studioId ||
+    consumedInvitation.clientId !== expectedInvitation.clientId ||
+    consumedInvitation.handleDigest !== expectedInvitation.handleDigest ||
+    consumedInvitation.generation !== expectedInvitation.generation ||
+    consumedInvitation.createdAtISO !== expectedInvitation.createdAtISO ||
+    consumedInvitation.expiresAtISO !== expectedInvitation.expiresAtISO ||
+    consumedInvitation.expiresAtEpoch !== expectedInvitation.expiresAtEpoch ||
+    !consumedInvitation.consumed || consumedInvitation.consumedAtISO !== commitAtISO ||
+    session.studioId !== expectedState.studioId || session.clientId !== expectedState.clientId ||
+    session.credentialVersion !== expectedState.credentialVersion || session.revoked ||
+    session.revokedAtISO !== undefined || session.createdAtISO !== commitAtISO ||
+    !validNewSessionLifetime(session)) {
+    throw new Error('Invalid Club access enrollment transition');
+  }
+};
+
+const validateAuthenticationTransition = (
+  expected: MemberAccessState,
+  next: MemberAccessState,
+  kind: 'failure' | 'success'
+): void => {
+  validateMemberAccessState(expected);
+  validateMemberAccessState(next);
+  const failedTransition = kind === 'failure'
+    ? failedPinTransition(expected.failedPinAttempts, new Date(next.updatedAtISO))
+    : undefined;
+  if (!sameAccessIdentity(expected, next) || expected.accessStatus !== 'active' ||
+    next.accessStatus !== 'active' || expected.pinVerifier === undefined ||
+    !sameVerifier(expected.pinVerifier, next.pinVerifier) ||
+    (kind === 'failure' && (next.failedPinAttempts !== failedTransition?.failedPinAttempts ||
+      next.nextAllowedAtISO !== failedTransition.nextAllowedAtISO ||
+      (expected.nextAllowedAtISO !== undefined &&
+        (next.nextAllowedAtISO === undefined ||
+          next.nextAllowedAtISO < expected.nextAllowedAtISO)))) ||
+    (kind === 'success' &&
+      (next.failedPinAttempts !== 0 || next.nextAllowedAtISO !== undefined))) {
+    throw new Error(`Invalid Club access authentication ${kind} transition`);
+  }
+};
 
 export class DynamoClubAccessPersistence {
   constructor(
@@ -497,6 +685,95 @@ export class DynamoClubAccessPersistence {
         ConditionExpression: CREATE_CONDITION, ExpressionAttributeNames: CREATE_NAMES
       } }
     ] }));
+  }
+
+  async completeEnrollment(
+    expectedState: MemberAccessState,
+    expectedLookup: HandleLookup,
+    expectedInvitation: AccessInvitation,
+    nextState: MemberAccessState,
+    nextLookup: HandleLookup,
+    consumedInvitation: AccessInvitation,
+    session: AccessSession,
+    commitAtISO: string
+  ): Promise<void> {
+    validateEnrollmentTransition(
+      expectedState, expectedLookup, expectedInvitation, nextState, nextLookup,
+      consumedInvitation, session, commitAtISO
+    );
+    await this.client.send(new TransactWriteItemsCommand({ TransactItems: [
+      { Put: {
+        TableName: this.tableName, Item: memberAccessStateToDynamoItem(nextState),
+        ...expectedStateCondition(expectedState, true)
+      } },
+      { Put: {
+        TableName: this.tableName, Item: handleLookupToDynamoItem(nextLookup),
+        ...exactHandleCondition(expectedLookup)
+      } },
+      { Put: {
+        TableName: this.tableName, Item: accessInvitationToDynamoItem(consumedInvitation),
+        ...expectedInvitationCondition(expectedInvitation, commitAtISO)
+      } },
+      { Put: {
+        TableName: this.tableName, Item: accessSessionToDynamoItem(session),
+        ConditionExpression: CREATE_CONDITION, ExpressionAttributeNames: CREATE_NAMES
+      } }
+    ] }));
+  }
+
+  async recordFailedPinAttempt(
+    expected: MemberAccessState,
+    next: MemberAccessState
+  ): Promise<void> {
+    validateAuthenticationTransition(expected, next, 'failure');
+    await this.client.send(new TransactWriteItemsCommand({ TransactItems: [{ Put: {
+      TableName: this.tableName,
+      Item: memberAccessStateToDynamoItem(next),
+      ...expectedStateCondition(expected, false)
+    } }] }));
+  }
+
+  async completeSuccessfulLogin(
+    expected: MemberAccessState,
+    next: MemberAccessState,
+    session: AccessSession
+  ): Promise<void> {
+    validateAuthenticationTransition(expected, next, 'success');
+    validateAccessSession(session);
+    if (session.studioId !== expected.studioId || session.clientId !== expected.clientId ||
+      session.credentialVersion !== expected.credentialVersion || session.revoked ||
+      session.revokedAtISO !== undefined || session.createdAtISO !== next.updatedAtISO ||
+      !validNewSessionLifetime(session)) {
+      throw new Error('Invalid Club access login session');
+    }
+    await this.client.send(new TransactWriteItemsCommand({ TransactItems: [
+      { Put: {
+        TableName: this.tableName, Item: memberAccessStateToDynamoItem(next),
+        ...expectedStateCondition(expected, false)
+      } },
+      { Put: {
+        TableName: this.tableName, Item: accessSessionToDynamoItem(session),
+        ConditionExpression: CREATE_CONDITION, ExpressionAttributeNames: CREATE_NAMES
+      } }
+    ] }));
+  }
+
+  async revokeSession(expected: AccessSession, next: AccessSession): Promise<void> {
+    validateAccessSession(expected);
+    validateAccessSession(next);
+    if (expected.revoked || expected.revokedAtISO !== undefined || !next.revoked ||
+      next.revokedAtISO === undefined || expected.sessionDigest !== next.sessionDigest ||
+      expected.studioId !== next.studioId || expected.clientId !== next.clientId ||
+      expected.credentialVersion !== next.credentialVersion ||
+      expected.createdAtISO !== next.createdAtISO || expected.expiresAtISO !== next.expiresAtISO ||
+      expected.expiresAtEpoch !== next.expiresAtEpoch) {
+      throw new Error('Invalid Club access session revocation');
+    }
+    await this.client.send(new TransactWriteItemsCommand({ TransactItems: [{ Put: {
+      TableName: this.tableName,
+      Item: accessSessionToDynamoItem(next),
+      ...expectedSessionCondition(expected)
+    } }] }));
   }
 
   async rotatePreEnrollmentInvitation(

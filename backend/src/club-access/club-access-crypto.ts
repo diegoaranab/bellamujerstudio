@@ -26,6 +26,17 @@ export const generateAccessHandle = generateOpaqueToken;
 export const generateInvitationToken = generateOpaqueToken;
 export const generateSessionToken = generateOpaqueToken;
 
+export const validateCanonicalOpaqueToken = (value: unknown): string => {
+  if (typeof value !== 'string' || value.length !== 43 || !/^[A-Za-z0-9_-]+$/.test(value)) {
+    throw new Error('Invalid Club access opaque token');
+  }
+  const decoded = Buffer.from(value, 'base64url');
+  if (decoded.length !== OPAQUE_TOKEN_BYTES || decoded.toString('base64url') !== value) {
+    throw new Error('Invalid Club access opaque token');
+  }
+  return value;
+};
+
 export const digestSecret = (rawSecret: string): string => {
   if (
     typeof rawSecret !== 'string' ||

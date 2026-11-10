@@ -8,6 +8,7 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as nodejs from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as logs from 'aws-cdk-lib/aws-logs';
+import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import { Construct } from 'constructs';
 
 import {
@@ -61,6 +62,15 @@ export class BellaMujerApiStack extends cdk.Stack {
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       removalPolicy: cdk.RemovalPolicy.RETAIN,
       timeToLiveAttribute: 'expiresAtEpoch'
+    });
+
+    const clubPinPepperSecret = new secretsmanager.Secret(this, 'ClubPinPepperSecret', {
+      description: 'Bella Mujer Club PIN HMAC pepper',
+      generateSecretString: {
+        passwordLength: 64,
+        excludePunctuation: true
+      },
+      removalPolicy: cdk.RemovalPolicy.RETAIN
     });
 
     const adminUserPool = new cognito.UserPool(this, 'AdminUserPool', {
@@ -340,6 +350,76 @@ export class BellaMujerApiStack extends cdk.Stack {
       }
     }));
 
+    const memberCredentialFunction = new nodejs.NodejsFunction(
+      this,
+      'MemberClubCredentialFunction',
+      {
+        ...sharedLambdaProps,
+        memorySize: 512,
+        timeout: cdk.Duration.seconds(15),
+        entry: 'src/handlers/member-club-auth.ts',
+        handler: 'handler',
+        description: 'Enrolls and authenticates Bella Mujer Club members',
+        logGroup: new logs.LogGroup(this, 'MemberClubCredentialFunctionLogGroup', {
+          logGroupName: `/aws/lambda/${cdk.Stack.of(this).stackName}-member-club-credential`,
+          retention: logs.RetentionDays.TWO_WEEKS,
+          removalPolicy: cdk.RemovalPolicy.DESTROY
+        }),
+        environment: {
+          ...sharedLambdaProps.environment,
+          CLUB_ACCESS_TABLE_NAME: clubAccessTable.tableName,
+          CLUB_PIN_PEPPER_SECRET_ARN: clubPinPepperSecret.secretArn,
+          CLUB_PIN_PEPPER_VERSION: 'v1'
+        }
+      }
+    );
+
+    clubAccessTable.grant(memberCredentialFunction, 'dynamodb:GetItem');
+    memberCredentialFunction.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['dynamodb:PutItem'],
+      resources: [clubAccessTable.tableArn],
+      conditions: {
+        'ForAnyValue:StringEquals': {
+          'dynamodb:EnclosingOperation': ['TransactWriteItems']
+        }
+      }
+    }));
+    memberCredentialFunction.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['secretsmanager:GetSecretValue'],
+      resources: [clubPinPepperSecret.secretArn]
+    }));
+
+    const memberLogoutFunction = new nodejs.NodejsFunction(
+      this,
+      'MemberClubLogoutFunction',
+      {
+        ...sharedLambdaProps,
+        entry: 'src/handlers/member-club-logout.ts',
+        handler: 'handler',
+        description: 'Revokes Bella Mujer Club member sessions',
+        logGroup: new logs.LogGroup(this, 'MemberClubLogoutFunctionLogGroup', {
+          logGroupName: `/aws/lambda/${cdk.Stack.of(this).stackName}-member-club-logout`,
+          retention: logs.RetentionDays.TWO_WEEKS,
+          removalPolicy: cdk.RemovalPolicy.DESTROY
+        }),
+        environment: {
+          ...sharedLambdaProps.environment,
+          CLUB_ACCESS_TABLE_NAME: clubAccessTable.tableName
+        }
+      }
+    );
+
+    clubAccessTable.grant(memberLogoutFunction, 'dynamodb:GetItem');
+    memberLogoutFunction.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['dynamodb:PutItem'],
+      resources: [clubAccessTable.tableArn],
+      conditions: {
+        'ForAnyValue:StringEquals': {
+          'dynamodb:EnclosingOperation': ['TransactWriteItems']
+        }
+      }
+    }));
+
     const api = new apigwv2.HttpApi(this, 'BellaMujerHttpApi', {
       apiName: 'bella-mujer-api',
       corsPreflight: {
@@ -357,6 +437,16 @@ export class BellaMujerApiStack extends cdk.Stack {
     const defaultStage = api.defaultStage?.node.defaultChild as apigwv2.CfnStage | undefined;
     defaultStage?.addPropertyOverride('DefaultRouteSettings.ThrottlingRateLimit', 5);
     defaultStage?.addPropertyOverride('DefaultRouteSettings.ThrottlingBurstLimit', 20);
+    defaultStage?.addPropertyOverride('RouteSettings', {
+      'POST /club/access/enroll': {
+        ThrottlingRateLimit: 1,
+        ThrottlingBurstLimit: 3
+      },
+      'POST /club/access/login': {
+        ThrottlingRateLimit: 2,
+        ThrottlingBurstLimit: 5
+      }
+    });
 
     const adminAuthorizer = new HttpUserPoolAuthorizer('AdminAuthorizer', adminUserPool, {
       userPoolClients: [adminUserPoolClient]
@@ -374,6 +464,33 @@ export class BellaMujerApiStack extends cdk.Stack {
       integration: new integrations.HttpLambdaIntegration(
         'GiftCardRequestIntegration',
         giftCardRequestFunction
+      )
+    });
+
+    api.addRoutes({
+      path: '/club/access/enroll',
+      methods: [apigwv2.HttpMethod.POST],
+      integration: new integrations.HttpLambdaIntegration(
+        'MemberClubEnrollmentIntegration',
+        memberCredentialFunction
+      )
+    });
+
+    api.addRoutes({
+      path: '/club/access/login',
+      methods: [apigwv2.HttpMethod.POST],
+      integration: new integrations.HttpLambdaIntegration(
+        'MemberClubLoginIntegration',
+        memberCredentialFunction
+      )
+    });
+
+    api.addRoutes({
+      path: '/club/access/logout',
+      methods: [apigwv2.HttpMethod.POST],
+      integration: new integrations.HttpLambdaIntegration(
+        'MemberClubLogoutIntegration',
+        memberLogoutFunction
       )
     });
 
