@@ -12,7 +12,7 @@ import {
 const clientId = '11111111-1111-4111-8111-111111111111';
 const visitId = 'AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA';
 const normalizedVisitId = visitId.toLowerCase();
-const adminSub = '22222222-2222-4222-8222-222222222222';
+const adminSub = 'C4C88408-2222-8222-0222-222222220A75';
 const occurredAtISO = '2026-11-09T17:00:00.000Z';
 const nowISO = '2026-11-09T18:00:00.000Z';
 const client: ClubClient = {
@@ -142,11 +142,21 @@ describe('administrative Club visit creation handler', () => {
     [{ key: 'bad' }],
     [{ key: '' }],
     [{ noSub: true }],
-    [{ sub: 'bad' }]
+    [{ sub: '' }],
+    [{ sub: ' padded' }],
+    [{ sub: 'bad\nsubject' }],
+    [{ sub: 'x'.repeat(257) }]
   ])('rejects malformed identity input %j before DynamoDB', async (options) => {
     const { handler, getClient } = setup();
     expect((await handler(eventFor(validBody, options))).statusCode).toBe(400);
     expect(getClient).not.toHaveBeenCalled();
+  });
+
+  it('accepts and preserves an opaque Cognito subject', async () => {
+    const { handler, commitVisitOutcome } = setup();
+    const response = await handler(eventFor());
+    expect(response.statusCode).toBe(201);
+    expect(commitVisitOutcome.mock.calls[0][0].visit.createdByAdminSub).toBe(adminSub);
   });
 
   it('rejects an oversized request before DynamoDB', async () => {
