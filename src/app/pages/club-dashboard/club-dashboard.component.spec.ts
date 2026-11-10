@@ -270,8 +270,8 @@ describe('ClubDashboardComponent', () => {
     const fixture = render();
     const component = fixture.componentInstance as unknown as {
       selectClient(client: ClubClient): void;
-      selectedClient: ClubClient | null;
-      selectedBalance: LoyaltyBalance | null;
+      selectedClient(): ClubClient | null;
+      selectedBalance(): LoyaltyBalance | null;
     };
 
     component.selectClient(ana);
@@ -279,8 +279,8 @@ describe('ClubDashboardComponent', () => {
     beatrizResponse.next({ client: beatriz, balance: balance(beatriz.clientId, 2, 700) });
     anaResponse.next({ client: ana, balance: balance(ana.clientId, 9, 999) });
 
-    expect(component.selectedClient).toEqual(beatriz);
-    expect(component.selectedBalance).toEqual(balance(beatriz.clientId, 2, 700));
+    expect(component.selectedClient()).toEqual(beatriz);
+    expect(component.selectedBalance()).toEqual(balance(beatriz.clientId, 2, 700));
   });
 
   it('does not submit an invalid create form', async () => {
@@ -336,6 +336,73 @@ describe('ClubDashboardComponent', () => {
     ).toBe('');
   });
 
+  it('renders completed asynchronous Club states in the zoneless test environment', async () => {
+    const firstPage = new Subject<AdminClubClientListResponse>();
+    const loadMorePage = new Subject<AdminClubClientListResponse>();
+    const detailResponse = new Subject<AdminClubClientDetailResponse>();
+    const createResponse = new Subject<AdminClubClientCreateResponse>();
+    const created: ClubClient = {
+      ...ana,
+      clientId: 'client-zoneless-created',
+      name: 'Carla Asíncrona',
+      phone: '2385550000'
+    };
+
+    await configure({
+      listResponse: firstPage,
+      detailResponse: () => detailResponse,
+      createResponse
+    });
+    const fixture = render();
+
+    expect(fixture.nativeElement.querySelector('[data-testid="clients-loading"]')).toBeTruthy();
+
+    firstPage.next({ items: [ana], nextToken: 'zoneless-next' });
+    firstPage.complete();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(text(fixture)).toContain('Ana López');
+    expect(fixture.nativeElement.querySelector('[data-testid="load-more"]')).toBeTruthy();
+
+    listClients.mockReturnValueOnce(loadMorePage);
+    click(fixture, '[data-testid="load-more"]');
+    loadMorePage.next({ items: [beatriz] });
+    loadMorePage.complete();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(text(fixture)).toContain('Beatriz Ramos');
+
+    click(fixture, '[data-client-id="client-ana"]');
+    expect(fixture.nativeElement.querySelector('[data-testid="detail-loading"]')).toBeTruthy();
+
+    detailResponse.next({ client: ana, balance: balance(ana.clientId, 3, 575) });
+    detailResponse.complete();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(text(fixture)).toContain('3 sellos acumulados');
+    expect(text(fixture)).toContain('$575');
+
+    setInput(fixture, 'input[formcontrolname="name"]', 'Carla Asíncrona');
+    setInput(fixture, 'input[formcontrolname="phone"]', '2385550000');
+    click(fixture, '[data-testid="create-client-submit"]');
+
+    createResponse.next({
+      client: created,
+      balance: balance(created.clientId, 1, 625)
+    });
+    createResponse.complete();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(text(fixture)).toContain('Carla Asíncrona');
+    expect(text(fixture)).toContain('1 sello acumulado');
+    expect(text(fixture)).toContain('$625');
+    expect(text(fixture)).toContain('Clienta creada correctamente.');
+  });
+
   it('preserves a created client when an older initial page resolves afterward', async () => {
     const pendingList = new Subject<AdminClubClientListResponse>();
     const created: ClubClient = {
@@ -363,6 +430,7 @@ describe('ClubDashboardComponent', () => {
 
     pendingList.next({ items: [ana, beatriz] });
     pendingList.complete();
+    await fixture.whenStable();
     fixture.detectChanges();
 
     const createdRows = fixture.nativeElement.querySelectorAll(
@@ -401,6 +469,7 @@ describe('ClubDashboardComponent', () => {
 
     retryPage.next({ items: [ana] });
     retryPage.complete();
+    await fixture.whenStable();
     fixture.detectChanges();
 
     expect(
