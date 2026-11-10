@@ -45,7 +45,7 @@ const n = (value: number): AttributeValue => ({ N: String(value) });
 
 const requiredString = (item: DynamoItem, field: string, maxLength = 1000): string => {
   const value = item[field]?.S;
-  if (typeof value !== 'string' || value.length === 0 || value.length > maxLength) {
+  if (typeof value !== 'string' || value.length === 0 || Array.from(value).length > maxLength) {
     throw new Error(`Invalid Club persisted field: ${field}`);
   }
   return value;
