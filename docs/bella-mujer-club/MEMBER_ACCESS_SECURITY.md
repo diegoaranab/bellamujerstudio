@@ -48,9 +48,9 @@ Exact attribute names can be finalized in Phase 5B without changing these access
 
 ## Opaque member access handle
 
-Each member receives a stable opaque access handle separate from `clientId`. It is generated with a cryptographically secure RNG, contains at least 128 bits of entropy (256 bits is preferred for consistency with other opaque secrets), uses a base64url-safe representation, and contains no name, phone, email, studio name, or other PII.
+Each member receives an opaque access handle separate from `clientId`. It is generated with a cryptographically secure RNG, contains at least 128 bits of entropy (256 bits is preferred for consistency with other opaque secrets), uses a base64url-safe representation, and contains no name, phone, email, studio name, or other PII. It may be rotated while access is still in pre-enrollment state and is rotated by full access reset for established access.
 
-The handle identifies the credential to verify; it is not an authenticator by itself. Authentication still requires the PIN. A SHA-256 digest of the handle may be the physical lookup key so the raw handle need not be stored as a key.
+The handle identifies the credential to verify; it is not an authenticator by itself. Authentication still requires the PIN. Only its SHA-256 digest is persisted; the raw handle is returned once as part of the private activation URL and is never stored in DynamoDB, Club operational records, or logs.
 
 Phone number, client name, raw DynamoDB physical keys, QR payload, and administrative Cognito identity must not be used as the member login identifier.
 
@@ -86,7 +86,7 @@ Admin creates Club client
     ↓
 Admin generates private access invitation
     ↓
-Server creates or reuses opaque access handle
+Server creates opaque access handle
     ↓
 Server creates one-time invitation token
     ↓
@@ -256,7 +256,18 @@ The operational `ClubTable` remains the loyalty authority, and Visit/Ledger muta
 
 ### Regenerate invitation
 
-For incomplete enrollment or a lost/expired link, regeneration increments or replaces the invitation generation, immediately invalidates previous unused invitations, retains the member access handle unless a full reset is requested, and does not alter loyalty data.
+Ordinary invitation regeneration is valid only for pre-enrollment access: a member whose access state is `invited` has not completed PIN enrollment. For a lost, expired, or unused activation link, regeneration creates a new opaque access handle and a new one-time invitation token, increments the authoritative invitation generation, and returns the newly generated private activation URL once. The raw handle and token remain unpersisted; only their SHA-256 digests are stored.
+
+The old handle, old invitation token, old invitation generation, and old handle lookup must become logically invalid as part of the same atomic/conditional state transition. That transition verifies the expected current member-access state and invitation generation/current handle state, creates the new handle mapping and invitation, advances the invitation generation, updates the member-access record to the new handle digest, and invalidates or removes the old handle mapping. It must not be implemented as an unsafe application-level read-modify-write flow. A stale concurrent regeneration must not restore an old handle or invitation generation, make a superseded invitation valid again, or leave two handles valid simultaneously.
+
+Pre-enrollment regeneration does not by itself increment `credentialVersion`; the new handle mapping remains consistent with the current access/credential version. The lifecycle is therefore:
+
+```text
+no access state → initial handle + invitation → status = invited
+lost/expired/unused link → NEW handle + NEW invitation → old values invalid
+```
+
+After successful PIN enrollment, access becomes `active` and ordinary invitation regeneration is no longer the recovery mechanism. Access recovery for an enrolled member uses full access reset. Losing a pre-enrollment link is handled by generating completely new opaque values, never by attempting to recover a raw handle from its stored digest. This does not alter loyalty data.
 
 ### Full access reset
 
@@ -268,6 +279,8 @@ For compromised access or complete recovery, reset:
 - removes or invalidates the current PIN verifier;
 - rotates the opaque access handle so the old one no longer resolves for login; and
 - creates a new enrollment state and invitation.
+
+Full access reset remains the recovery path for enrolled or otherwise established access, including PIN recovery or compromised access. Unlike pre-enrollment invitation regeneration, it increments the credential/access version, invalidates sessions by version mismatch, invalidates the PIN verifier, rotates the handle, and creates fresh enrollment state. It leaves loyalty data untouched.
 
 It leaves `ClubClient`, `Balance`, `Visit`, and `LoyaltyLedger` untouched. Member-access recovery never deletes loyalty history.
 
