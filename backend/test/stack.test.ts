@@ -53,7 +53,7 @@ describe('BellaMujerApiStack', () => {
         ]
       }
     });
-    template.resourcePropertiesCountIs('AWS::Lambda::Function', {}, 6);
+    template.resourcePropertiesCountIs('AWS::Lambda::Function', {}, 8);
 
     for (const lambdaFunction of Object.values(template.findResources('AWS::Lambda::Function'))) {
       expect(lambdaFunction.Properties.Environment.Variables).toMatchObject({
@@ -163,14 +163,14 @@ describe('BellaMujerApiStack', () => {
   });
 
   it('bounds Lambda log retention to two weeks', () => {
-    template.resourcePropertiesCountIs('AWS::Logs::LogGroup', { RetentionInDays: 14 }, 6);
+    template.resourcePropertiesCountIs('AWS::Logs::LogGroup', { RetentionInDays: 14 }, 8);
   });
 
   it('uses the existing Cognito pool and SPA client for a JWT authorizer', () => {
     template.resourceCountIs('AWS::Cognito::UserPool', 1);
     template.resourceCountIs('AWS::Cognito::UserPoolClient', 1);
     template.resourceCountIs('AWS::ApiGatewayV2::Authorizer', 1);
-    template.resourcePropertiesCountIs('AWS::Lambda::Function', {}, 6);
+    template.resourcePropertiesCountIs('AWS::Lambda::Function', {}, 8);
 
     const [[userPoolLogicalId]] = Object.entries(
       template.findResources('AWS::Cognito::UserPool')
@@ -194,8 +194,8 @@ describe('BellaMujerApiStack', () => {
     );
   });
 
-  it('exposes exactly two public routes and six protected admin routes', () => {
-    template.resourceCountIs('AWS::ApiGatewayV2::Route', 8);
+  it('exposes exactly two public routes and eight protected admin routes', () => {
+    template.resourceCountIs('AWS::ApiGatewayV2::Route', 10);
 
     const routes = Object.values(template.findResources('AWS::ApiGatewayV2::Route'));
     const routesByKey = Object.fromEntries(
@@ -208,11 +208,13 @@ describe('BellaMujerApiStack', () => {
     expect(Object.keys(routesByKey).sort()).toEqual([
       'GET /admin/club/clients',
       'GET /admin/club/clients/{id}',
+      'GET /admin/club/clients/{id}/ledger',
       'GET /admin/gift-cards',
       'GET /admin/health',
       'GET /health',
       'PATCH /admin/gift-cards/{id}',
       'POST /admin/club/clients',
+      'POST /admin/club/clients/{id}/visits',
       'POST /gift-cards/request'
     ]);
     expect(routesByKey['GET /health']).toMatchObject({ AuthorizationType: 'NONE' });
@@ -239,7 +241,9 @@ describe('BellaMujerApiStack', () => {
     for (const routeKey of [
       'POST /admin/club/clients',
       'GET /admin/club/clients',
-      'GET /admin/club/clients/{id}'
+      'GET /admin/club/clients/{id}',
+      'POST /admin/club/clients/{id}/visits',
+      'GET /admin/club/clients/{id}/ledger'
     ]) {
       expect(routesByKey[routeKey]).toMatchObject({
         AuthorizationType: 'JWT',
@@ -321,7 +325,7 @@ describe('BellaMujerApiStack', () => {
       'dynamodb:PutItem',
       ['dynamodb:GetItem', 'dynamodb:Query']
     ]));
-    expect(dynamodbActions).toHaveLength(5);
+    expect(dynamodbActions).toHaveLength(8);
 
     const lambdaFunctions = Object.values(template.findResources('AWS::Lambda::Function'));
     const roleForDescription = (description: string): string => {
@@ -355,6 +359,12 @@ describe('BellaMujerApiStack', () => {
     ))).toEqual(['dynamodb:PutItem']);
     expect(actionsForRole(roleForDescription(
       'Reads Club clients for authenticated administrators'
+    ))).toEqual(['dynamodb:GetItem', 'dynamodb:Query']);
+    expect(actionsForRole(roleForDescription(
+      'Registers Club visits and loyalty for authenticated administrators'
+    ))).toEqual(['dynamodb:GetItem', 'dynamodb:PutItem', 'dynamodb:UpdateItem']);
+    expect(actionsForRole(roleForDescription(
+      'Reads Club loyalty ledger for authenticated administrators'
     ))).toEqual(['dynamodb:GetItem', 'dynamodb:Query']);
 
     const clubTableLogicalId = template.findOutputs('ClubTableName')
@@ -421,5 +431,47 @@ describe('BellaMujerApiStack', () => {
       expect(readActions).not.toContain(forbiddenAction);
     }
     expect(JSON.stringify(readStatements)).not.toContain(tableLogicalId);
+
+    const visitStatements = dynamodbStatementsForRole(
+      'Registers Club visits and loyalty for authenticated administrators'
+    );
+    expect(visitStatements).toEqual(expect.arrayContaining([
+      {
+        Action: 'dynamodb:GetItem',
+        Effect: 'Allow',
+        Resource: [{ 'Fn::GetAtt': [clubTableLogicalId, 'Arn'] }]
+      },
+      {
+        Action: ['dynamodb:PutItem', 'dynamodb:UpdateItem'],
+        Condition: {
+          'ForAnyValue:StringEquals': {
+            'dynamodb:EnclosingOperation': ['TransactWriteItems']
+          }
+        },
+        Effect: 'Allow',
+        Resource: { 'Fn::GetAtt': [clubTableLogicalId, 'Arn'] }
+      }
+    ]));
+    expect(JSON.stringify(visitStatements)).not.toContain(tableLogicalId);
+    for (const forbidden of ['dynamodb:Query', 'dynamodb:Scan', 'dynamodb:DeleteItem']) {
+      expect(actionsForRole(roleForDescription(
+        'Registers Club visits and loyalty for authenticated administrators'
+      ))).not.toContain(forbidden);
+    }
+
+    const ledgerStatements = dynamodbStatementsForRole(
+      'Reads Club loyalty ledger for authenticated administrators'
+    );
+    expect(ledgerStatements).toEqual([{
+      Action: ['dynamodb:GetItem', 'dynamodb:Query'],
+      Effect: 'Allow',
+      Resource: [{ 'Fn::GetAtt': [clubTableLogicalId, 'Arn'] }]
+    }]);
+    expect(JSON.stringify(ledgerStatements)).not.toContain(tableLogicalId);
+    for (const forbidden of [
+      'dynamodb:PutItem', 'dynamodb:UpdateItem', 'dynamodb:DeleteItem', 'dynamodb:Scan'
+    ]) expect(actionsForRole(roleForDescription(
+      'Reads Club loyalty ledger for authenticated administrators'
+    ))).not.toContain(forbidden);
   });
 });

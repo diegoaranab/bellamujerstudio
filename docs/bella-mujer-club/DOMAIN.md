@@ -1,6 +1,6 @@
 # Bella Mujer Club conceptual domain
 
-This document defines product concepts and invariants and records the physical persistence architecture selected in Phase 2. Phase 2 is deployed successfully in production. The first incremental Phase 3 slice adds protected administrator client creation and reads; visits, loyalty computation, and ledger/history APIs remain a later slice.
+This document defines product concepts and invariants and records the physical persistence architecture selected in Phase 2. Phase 2 and the first protected client-management slice are deployed successfully in production and have passed their production smoke tests. The current incremental Phase 3 slice implements protected administrator visit registration, loyalty computation, and ledger/history reads; it is not yet production-deployed.
 
 ## Domain boundaries
 
@@ -181,11 +181,13 @@ The `$500` is not discarded. It remains eligible on future visits, with the one-
 
 ## Idempotency and duplicate protection
 
-**CONFIRMED required architecture property** — Registering or processing the same visit twice must not award loyalty twice. Future visit creation and loyalty processing endpoints must be idempotent or otherwise protected from duplicate processing.
+**CONFIRMED required architecture property** — Registering or processing the same visit twice must not award loyalty twice. The protected visit endpoint requires an `Idempotency-Key` UUID that maps one-to-one to the immutable Visit identity. Replaying the same normalized logical request is safe and returns the original visit outcome; reusing the key for different logical content is rejected.
 
 **CONFIRMED** — QR scanning alone creates no visit and no loyalty ledger entry. The administrator deliberately confirms/registers the visit, after which server logic determines eligibility and records auditable movements.
 
-**SELECTED IN PHASE 2** — A future visit API will use a UUID idempotency key as the immutable `visitId`, or preserve an exact one-to-one mapping. The visit stores an opaque SHA-256 request fingerprint. Conditional creation prevents duplicate visit writes; Phase 3 will compare fingerprints to distinguish safe replay from conflict.
+**IMPLEMENTED IN PHASE 3** — The visit API uses the normalized UUID idempotency key as the immutable `visitId`. The Visit stores an opaque SHA-256 fingerprint of normalized business content. Conditional creation and transactional writes prevent duplicate Visit/Ledger mutations, while fingerprint comparison distinguishes safe replay from conflict.
+
+The API client supplies eligible spend, but never computes or supplies stamps, carry, balance version, or ledger movements. The server-controlled `studioId`, authenticated administrator actor, loyalty calculation, and resulting audit entries remain authoritative.
 
 ## Security and privacy principles
 
@@ -237,4 +239,4 @@ The timestamp-first ledger key supports deterministic chronological lexical quer
 
 No GSI or LSI is included initially because all confirmed Phase 2 access patterns are supported by the base keys. An index may be introduced later only for a reviewed Phase 3 query pattern.
 
-Phase 2 persistence architecture is deployed successfully in production. The protected Phase 3 client APIs are not considered production-deployed until their own post-merge AWS deployment gate succeeds.
+Phase 2 persistence architecture and the protected Phase 3 client-management APIs are deployed successfully in production and production-smoke-tested. This visit/loyalty/ledger slice is not considered production-deployed until its later post-merge AWS deployment gate succeeds. Rewards, referrals, QR, member access, and administrative-adjustment APIs remain later work.

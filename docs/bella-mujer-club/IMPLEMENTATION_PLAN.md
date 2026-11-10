@@ -51,6 +51,8 @@ Build Phase 3 as small, independently testable slices.
 
 ### Client-management foundation
 
+**Deployed successfully in production and production-smoke-tested.**
+
 The first slice adds protected administrator APIs to:
 
 - create a client with an atomic zero-balance aggregate;
@@ -59,17 +61,21 @@ The first slice adds protected administrator APIs to:
 
 All client records are scoped by the server-controlled `CLUB_STUDIO_ID=bella-mujer` configuration. HTTP clients do not submit or select tenant identity. This is tenant-aware data scoping for the current single studio, not multi-tenant authorization. Phone uniqueness, phone/name search, QR, invitations, PINs, and member access are outside this slice.
 
-This client API slice is not considered production-deployed until its post-merge AWS deployment gate succeeds.
+### Visit, loyalty, and ledger slice
 
-### Next Phase 3 slice
+**Implemented in this PR; not yet production-deployed.**
 
-The next slice will add:
+This slice adds protected administrator APIs for:
 
 - visit registration;
 - server-authoritative loyalty computation; and
 - ledger/history reads.
 
-That transaction boundary must preserve duplicate-visit protection, auditable ledger movements, and optimistic Balance updates. QR identification remains a separate later capability; QR lookup alone must not create visits or ledger movements.
+The server-controlled `CLUB_STUDIO_ID=bella-mujer` scopes every operation. HTTP clients supply eligible spend but never compute or supply stamps, carry, balance versions, or ledger movements. The confirmed algorithm awards one stamp when accumulated eligible spend reaches `$300 MXN`, caps the result at one stamp per visit, and retains all excess carry.
+
+`Idempotency-Key` maps one-to-one to immutable Visit identity. The same normalized request can be replayed safely without another award; conflicting reuse is rejected. Each new outcome remains one transaction containing immutable Visit and append-style Ledger puts plus an optimistic Balance update. The Ledger remains the audit source, and the history API uses a bounded, newest-first Query without Scan or secondary indexes.
+
+QR identification, rewards, referrals, member access, and an `ADMIN_ADJUSTMENT` mutation API remain separate later capabilities.
 
 ## Phase 4 — Connect Club admin UI
 
