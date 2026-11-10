@@ -26,11 +26,17 @@ import {
   switchMap
 } from 'rxjs';
 
-import { ClubClient, LoyaltyBalance, Service } from '../../core/models';
+import {
+  ClubClient,
+  LoyaltyBalance,
+  LoyaltyLedgerEntry,
+  Service
+} from '../../core/models';
 import {
   AdminClubApiClient,
   AdminClubApiError,
   AdminClubClientDetailResponse,
+  AdminClubLedgerListResponse,
   AdminClubVisitCreateRequest,
   AdminClubVisitCreateResponse
 } from '../../core/services/admin-club-api.client';
@@ -43,6 +49,19 @@ type DetailIntent =
 type DetailResult =
   | { kind: 'success'; detail: AdminClubClientDetailResponse }
   | { kind: 'error'; message: string };
+
+interface HistoryFirstPageIntent {
+  clientId: string;
+  generation: number;
+}
+
+type HistoryFirstPageResult =
+  | {
+      kind: 'success';
+      intent: HistoryFirstPageIntent;
+      response: AdminClubLedgerListResponse;
+    }
+  | { kind: 'error'; intent: HistoryFirstPageIntent; message: string };
 
 interface PendingVisitAttempt {
   clientId: string;
@@ -112,7 +131,9 @@ export class ClubDashboardComponent implements OnInit {
   private readonly dbFacade = inject(DbFacadeService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly detailIntents = new Subject<DetailIntent>();
+  private readonly historyFirstPageIntents = new Subject<HistoryFirstPageIntent>();
   private directoryRevision = 0;
+  private historyGeneration = 0;
   private readonly createdClientRevisions = new Map<string, number>();
 
   protected readonly isConfigured = this.clubApi.isConfigured;
@@ -182,6 +203,14 @@ export class ClubDashboardComponent implements OnInit {
   protected readonly detailLoading = signal(false);
   protected readonly detailError = signal<string | null>(null);
 
+  protected readonly historyClientId = signal<string | null>(null);
+  protected readonly ledgerEntries = signal<LoyaltyLedgerEntry[]>([]);
+  protected readonly historyFirstPageLoading = signal(false);
+  protected readonly historyFirstPageError = signal<string | null>(null);
+  protected readonly historyNextToken = signal<string | undefined>(undefined);
+  protected readonly historyLoadMoreLoading = signal(false);
+  protected readonly historyLoadMoreError = signal<string | null>(null);
+
   protected readonly createLoading = signal(false);
   protected readonly createError = signal<string | null>(null);
   protected readonly createSuccess = signal<string | null>(null);
@@ -222,6 +251,7 @@ export class ClubDashboardComponent implements OnInit {
 
   ngOnInit(): void {
     this.connectDetailSelection();
+    this.connectHistoryFirstPageLoading();
     if (this.isConfigured) {
       this.loadFirstPage();
     }
@@ -288,6 +318,7 @@ export class ClubDashboardComponent implements OnInit {
 
   protected selectClient(client: ClubClient): void {
     this.detailIntents.next({ kind: 'load', client });
+    this.loadHistoryFirstPage(client.clientId, false);
   }
 
   protected createClient(): void {
@@ -326,6 +357,7 @@ export class ClubDashboardComponent implements OnInit {
           this.createdClientRevisions.set(detail.client.clientId, this.directoryRevision);
           this.clients.set(this.replaceClient(this.clients(), detail.client));
           this.detailIntents.next({ kind: 'resolved', detail });
+          this.loadHistoryFirstPage(detail.client.clientId, false);
           this.createForm.reset({ name: '', phone: '' });
           this.createSuccess.set('Clienta creada correctamente.');
         },
@@ -469,6 +501,82 @@ export class ClubDashboardComponent implements OnInit {
     }).format(new Date(occurredAtISO));
   }
 
+  protected ledgerTypeLabel(entry: LoyaltyLedgerEntry): string {
+    switch (entry.type) {
+      case 'ELIGIBLE_SPEND_ADDED':
+        return 'Consumo elegible agregado';
+      case 'STAMP_EARNED':
+        return 'Sello ganado';
+      case 'ADMIN_ADJUSTMENT':
+        return 'Ajuste administrativo';
+    }
+  }
+
+  protected ledgerDescription(entry: LoyaltyLedgerEntry): string | null {
+    if (entry.type !== 'ADMIN_ADJUSTMENT') {
+      return null;
+    }
+    return entry.reason?.trim() || 'Ajuste administrativo';
+  }
+
+  protected formatSignedMXN(amount: number): string {
+    return amount > 0 ? `+${this.formatMXN(amount)}` : this.formatMXN(amount);
+  }
+
+  protected formatStampDelta(delta: number): string {
+    const sign = delta > 0 ? '+' : '';
+    return `${sign}${delta} ${Math.abs(delta) === 1 ? 'sello' : 'sellos'}`;
+  }
+
+  protected retryHistoryFirstPage(): void {
+    const clientId = this.historyClientId();
+    if (!clientId || clientId !== this.selectedClientId()) {
+      return;
+    }
+    this.loadHistoryFirstPage(clientId, this.ledgerEntries().length > 0);
+  }
+
+  protected loadMoreHistory(): void {
+    const clientId = this.historyClientId();
+    const token = this.historyNextToken();
+    if (
+      !clientId ||
+      clientId !== this.selectedClientId() ||
+      !token ||
+      this.historyLoadMoreLoading() ||
+      this.historyFirstPageLoading()
+    ) {
+      return;
+    }
+
+    const generation = this.historyGeneration;
+    this.historyLoadMoreLoading.set(true);
+    this.historyLoadMoreError.set(null);
+
+    this.clubApi
+      .listLedgerEntries(clientId, 50, token)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (response) => {
+          if (!this.isCurrentHistoryRequest(clientId, generation)) {
+            return;
+          }
+          this.ledgerEntries.set(
+            this.uniqueLedgerEntries([...this.ledgerEntries(), ...response.items])
+          );
+          this.historyNextToken.set(response.nextToken);
+          this.historyLoadMoreLoading.set(false);
+        },
+        error: (error: unknown) => {
+          if (!this.isCurrentHistoryRequest(clientId, generation)) {
+            return;
+          }
+          this.historyLoadMoreError.set(this.safeErrorMessage(error));
+          this.historyLoadMoreLoading.set(false);
+        }
+      });
+  }
+
   protected stampAwardLabel(outcome: VisitOutcome): string {
     const awarded = outcome.response.loyalty.stampsAwarded === 1;
     if (outcome.response.replayed) {
@@ -502,6 +610,7 @@ export class ClubDashboardComponent implements OnInit {
           });
           if (this.selectedClientId() === attempt.clientId) {
             this.selectedBalance.set(response.balance);
+            this.loadHistoryFirstPage(attempt.clientId, true);
           }
           this.pendingVisitAttempt.set(null);
           this.visitError.set(null);
@@ -585,6 +694,70 @@ export class ClubDashboardComponent implements OnInit {
       });
   }
 
+  private connectHistoryFirstPageLoading(): void {
+    this.historyFirstPageIntents
+      .pipe(
+        switchMap((intent): Observable<HistoryFirstPageResult> =>
+          this.clubApi.listLedgerEntries(intent.clientId, 50).pipe(
+            map(
+              (response) =>
+                ({ kind: 'success', intent, response }) as HistoryFirstPageResult
+            ),
+            catchError((error: unknown) =>
+              of({
+                kind: 'error',
+                intent,
+                message: this.safeErrorMessage(error)
+              } as HistoryFirstPageResult)
+            )
+          )
+        ),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe((result) => {
+        if (
+          !this.isCurrentHistoryRequest(
+            result.intent.clientId,
+            result.intent.generation
+          )
+        ) {
+          return;
+        }
+
+        this.historyFirstPageLoading.set(false);
+        if (result.kind === 'error') {
+          this.historyFirstPageError.set(result.message);
+          return;
+        }
+
+        this.ledgerEntries.set(this.uniqueLedgerEntries(result.response.items));
+        this.historyNextToken.set(result.response.nextToken);
+        this.historyFirstPageError.set(null);
+      });
+  }
+
+  private loadHistoryFirstPage(clientId: string, preserveEntries: boolean): void {
+    const generation = ++this.historyGeneration;
+    this.historyClientId.set(clientId);
+    this.historyFirstPageLoading.set(true);
+    this.historyFirstPageError.set(null);
+    this.historyLoadMoreLoading.set(false);
+    this.historyLoadMoreError.set(null);
+    this.historyNextToken.set(undefined);
+    if (!preserveEntries) {
+      this.ledgerEntries.set([]);
+    }
+    this.historyFirstPageIntents.next({ clientId, generation });
+  }
+
+  private isCurrentHistoryRequest(clientId: string, generation: number): boolean {
+    return (
+      generation === this.historyGeneration &&
+      clientId === this.historyClientId() &&
+      clientId === this.selectedClientId()
+    );
+  }
+
   private uniqueClients(clients: ClubClient[]): ClubClient[] {
     const seen = new Set<string>();
     return clients.filter((client) => {
@@ -602,6 +775,17 @@ export class ClubDashboardComponent implements OnInit {
       return [client, ...clients];
     }
     return clients.map((item) => (item.clientId === client.clientId ? client : item));
+  }
+
+  private uniqueLedgerEntries(entries: LoyaltyLedgerEntry[]): LoyaltyLedgerEntry[] {
+    const seen = new Set<string>();
+    return entries.filter((entry) => {
+      if (seen.has(entry.entryId)) {
+        return false;
+      }
+      seen.add(entry.entryId);
+      return true;
+    });
   }
 
   private safeErrorMessage(error: unknown): string {
