@@ -27,6 +27,11 @@ const validBody = {
   occurredAtISO, amountMXN: 250, eligibleAmountMXN: 250, serviceIds: ['service-a']
 };
 
+const transactionCanceled = (codes?: unknown[]) => Object.assign(new Error('transaction canceled'), {
+  name: 'TransactionCanceledException',
+  ...(codes === undefined ? {} : { CancellationReasons: codes.map((Code) => ({ Code })) })
+});
+
 const eventFor = (
   body: unknown = validBody,
   options: { base64?: boolean; id?: string; key?: string; sub?: string; noSub?: boolean } = {}
@@ -201,11 +206,44 @@ describe('administrative Club visit creation handler', () => {
     expect(commitVisitOutcome).not.toHaveBeenCalled();
   });
 
+  it('replays a committed Visit before classifying its transaction cancellation', async () => {
+    const seed = setup();
+    await seed.handler(eventFor());
+    const committedVisit = seed.commitVisitOutcome.mock.calls[0][0].visit;
+    const { handler, commitVisitOutcome, getVisit, getLedgerEntry, getBalance } = setup();
+    getVisit.mockResolvedValueOnce(undefined).mockResolvedValueOnce(committedVisit);
+    getLedgerEntry.mockResolvedValue({
+      studioId: 'bella-mujer', clientId, entryId: `${normalizedVisitId}-01-spend`,
+      type: 'ELIGIBLE_SPEND_ADDED', occurredAtISO, createdAtISO: nowISO, stampDelta: 0,
+      eligibleSpendDeltaMXN: 250, stampCountAfter: 3, eligibleSpendCarryAfterMXN: 250,
+      createdByAdminSub: adminSub, visitId: normalizedVisitId
+    });
+    commitVisitOutcome.mockRejectedValue(transactionCanceled());
+    const response = await handler(eventFor());
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body ?? '{}').replayed).toBe(true);
+    expect(commitVisitOutcome).toHaveBeenCalledOnce();
+    expect(getBalance).toHaveBeenCalledTimes(2);
+  });
+
+  it('rejects a conflicting committed Visit before classifying its cancellation', async () => {
+    const { handler, commitVisitOutcome, getVisit, getBalance } = setup();
+    getVisit.mockResolvedValueOnce(undefined).mockResolvedValueOnce({
+      studioId: 'bella-mujer', clientId, visitId: normalizedVisitId, ...validBody,
+      source: 'admin', createdByAdminSub: adminSub, requestFingerprint: 'a'.repeat(64),
+      createdAtISO: nowISO
+    });
+    commitVisitOutcome.mockRejectedValue(transactionCanceled());
+    const response = await handler(eventFor());
+    expect(response.statusCode).toBe(409);
+    expect(JSON.parse(response.body ?? '{}').error).toBe('CLUB_VISIT_IDEMPOTENCY_CONFLICT');
+    expect(commitVisitOutcome).toHaveBeenCalledOnce();
+    expect(getBalance).toHaveBeenCalledOnce();
+  });
+
   it('retries a bounded number of optimistic transaction cancellations', async () => {
     const { handler, commitVisitOutcome, getVisit, getBalance } = setup();
-    const canceled = Object.assign(new Error('private transaction details'), {
-      name: 'TransactionCanceledException'
-    });
+    const canceled = transactionCanceled(['None', 'None', 'ConditionalCheckFailed']);
     commitVisitOutcome.mockRejectedValue(canceled);
     const response = await handler(eventFor());
     expect(response.statusCode).toBe(409);
@@ -218,7 +256,7 @@ describe('administrative Club visit creation handler', () => {
   it('re-reads and recomputes from the latest balance after an optimistic race', async () => {
     const { handler, commitVisitOutcome, getVisit, getBalance } = setup();
     commitVisitOutcome
-      .mockRejectedValueOnce(Object.assign(new Error('race'), { name: 'TransactionCanceledException' }))
+      .mockRejectedValueOnce(transactionCanceled(['None', 'None', 'ConditionalCheckFailed']))
       .mockResolvedValueOnce();
     getBalance
       .mockResolvedValueOnce(balance)
@@ -237,6 +275,59 @@ describe('administrative Club visit creation handler', () => {
         { stampCountAfter: 4, eligibleSpendCarryAfterMXN: 50 }
       ]
     });
+  });
+
+  it('retries a final Balance conditional failure for a two-ledger outcome', async () => {
+    const { handler, commitVisitOutcome, getVisit, getBalance } = setup();
+    getBalance.mockResolvedValueOnce({ ...balance, eligibleSpendCarryMXN: 250 });
+    commitVisitOutcome
+      .mockRejectedValueOnce(transactionCanceled([
+        'None', 'None', 'None', 'ConditionalCheckFailed'
+      ]))
+      .mockResolvedValueOnce();
+    const response = await handler(eventFor({
+      ...validBody, amountMXN: 100, eligibleAmountMXN: 100
+    }));
+    expect(response.statusCode).toBe(201);
+    expect(commitVisitOutcome).toHaveBeenCalledTimes(2);
+    expect(getVisit).toHaveBeenCalledTimes(2);
+    expect(getBalance).toHaveBeenCalledTimes(2);
+  });
+
+  it('retries a DynamoDB transaction conflict when no Visit was committed', async () => {
+    const { handler, commitVisitOutcome, getVisit, getBalance } = setup();
+    commitVisitOutcome
+      .mockRejectedValueOnce(transactionCanceled(['None', 'TransactionConflict', 'None']))
+      .mockResolvedValueOnce();
+    const response = await handler(eventFor());
+    expect(response.statusCode).toBe(201);
+    expect(commitVisitOutcome).toHaveBeenCalledTimes(2);
+    expect(getVisit).toHaveBeenCalledTimes(2);
+    expect(getBalance).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    ['throughput cancellation', transactionCanceled([
+      'None', 'None', 'ProvisionedThroughputExceeded'
+    ])],
+    ['Ledger conditional failure', transactionCanceled([
+      'None', 'ConditionalCheckFailed', 'None'
+    ])],
+    ['missing cancellation reasons', transactionCanceled()],
+    ['malformed cancellation reasons', Object.assign(new Error('transaction canceled'), {
+      name: 'TransactionCanceledException', CancellationReasons: [{ Code: 'None' }]
+    })]
+  ])('does not retry a non-optimistic %s', async (_description, cancellation) => {
+    const { handler, commitVisitOutcome, getVisit, getBalance } = setup();
+    commitVisitOutcome.mockRejectedValue(cancellation);
+    const log = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const response = await handler(eventFor());
+    expect(response.statusCode).toBe(500);
+    expect(JSON.parse(response.body ?? '{}').error).toBe('SERVER_ERROR');
+    expect(commitVisitOutcome).toHaveBeenCalledOnce();
+    expect(getVisit).toHaveBeenCalledTimes(2);
+    expect(getBalance).toHaveBeenCalledOnce();
+    log.mockRestore();
   });
 
   it('does not retry infrastructure failures or leak request data in logs', async () => {

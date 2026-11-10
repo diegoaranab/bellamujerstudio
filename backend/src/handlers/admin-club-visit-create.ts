@@ -89,6 +89,27 @@ const transactionCanceled = (error: unknown): boolean =>
   !!error && typeof error === 'object' &&
   ('name' in error && error.name === 'TransactionCanceledException');
 
+const retryableVisitTransactionCancellation = (
+  error: unknown,
+  expectedTransactionItemCount: number
+): boolean => {
+  if (!transactionCanceled(error) || !('CancellationReasons' in error) ||
+    !Array.isArray(error.CancellationReasons) ||
+    error.CancellationReasons.length !== expectedTransactionItemCount) return false;
+  const codes = error.CancellationReasons.map((reason) =>
+    reason && typeof reason === 'object' && 'Code' in reason && typeof reason.Code === 'string'
+      ? reason.Code
+      : undefined
+  );
+  if (codes.some((code) => code === undefined)) return false;
+
+  const balanceConditionalFailure = codes[expectedTransactionItemCount - 1] ===
+    'ConditionalCheckFailed' && codes.slice(0, -1).every((code) => code === 'None');
+  const transactionConflict = codes.some((code) => code === 'TransactionConflict') &&
+    codes.every((code) => code === 'None' || code === 'TransactionConflict');
+  return balanceConditionalFailure || transactionConflict;
+};
+
 const safeVisit = ({ requestFingerprint: _fingerprint, ...visit }: ClubVisit) => visit;
 
 const logFailure = (event: APIGatewayProxyEventV2, operation: string, error?: unknown): void => {
@@ -286,6 +307,9 @@ export const createAdminClubVisitCreateHandler = ({
             return outcomeResponse(200, committed, replay.stampsAwarded, replay.finalEntry,
               currentBalance, true, origin, allowedOrigins);
           }
+          if (!retryableVisitTransactionCancellation(
+            error, outcome.ledgerEntries.length + 2
+          )) throw error;
           if (attempt === MAX_VISIT_COMMIT_ATTEMPTS - 1) return jsonResponse(409, {
             error: 'CLUB_VISIT_CONCURRENT_UPDATE',
             message: 'El saldo cambió al registrar la visita. Intenta de nuevo.'
