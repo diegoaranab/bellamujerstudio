@@ -40,6 +40,8 @@ export class ClubDashboardComponent implements OnInit {
   private readonly clubApi = inject(AdminClubApiClient);
   private readonly destroyRef = inject(DestroyRef);
   private readonly detailIntents = new Subject<DetailIntent>();
+  private directoryRevision = 0;
+  private readonly createdClientRevisions = new Map<string, number>();
 
   protected readonly isConfigured = this.clubApi.isConfigured;
   protected readonly filterControl = new FormControl('', { nonNullable: true });
@@ -95,6 +97,7 @@ export class ClubDashboardComponent implements OnInit {
     this.initialLoading = true;
     this.initialError = null;
     this.loadMoreError = null;
+    const requestRevision = this.directoryRevision;
 
     this.clubApi
       .listClients(50)
@@ -104,7 +107,14 @@ export class ClubDashboardComponent implements OnInit {
       )
       .subscribe({
         next: (response) => {
-          this.clients = this.uniqueClients(response.items);
+          const clientsCreatedAfterRequest = this.clients.filter(
+            (client) =>
+              (this.createdClientRevisions.get(client.clientId) ?? 0) > requestRevision
+          );
+          this.clients = this.uniqueClients([
+            ...clientsCreatedAfterRequest,
+            ...response.items
+          ]);
           this.nextToken = response.nextToken;
         },
         error: (error: unknown) => {
@@ -173,6 +183,8 @@ export class ClubDashboardComponent implements OnInit {
       )
       .subscribe({
         next: (detail) => {
+          this.directoryRevision += 1;
+          this.createdClientRevisions.set(detail.client.clientId, this.directoryRevision);
           this.clients = this.replaceClient(this.clients, detail.client);
           this.detailIntents.next({ kind: 'resolved', detail });
           this.createForm.reset({ name: '', phone: '' });
