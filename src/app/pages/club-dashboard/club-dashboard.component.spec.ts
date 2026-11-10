@@ -77,13 +77,18 @@ interface VisitTestActions {
   selectedBalance(): LoyaltyBalance | null;
 }
 
-function balance(clientId: string, stampCount: number, carry: number): LoyaltyBalance {
+function balance(
+  clientId: string,
+  stampCount: number,
+  carry: number,
+  version = 2
+): LoyaltyBalance {
   return {
     studioId: 'studio-1',
     clientId,
     stampCount,
     eligibleSpendCarryMXN: carry,
-    version: 2,
+    version,
     updatedAtISO: '2026-11-09T12:00:00.000Z'
   };
 }
@@ -97,6 +102,7 @@ function visitResponse(options: {
   stampsAwarded?: 0 | 1;
   replayed?: boolean;
   occurredAtISO?: string;
+  balanceVersion?: number;
 } = {}): AdminClubVisitCreateResponse {
   const clientId = options.clientId ?? ana.clientId;
   const occurredAtISO = options.occurredAtISO ?? '2026-11-10T15:30:00.000Z';
@@ -118,7 +124,12 @@ function visitResponse(options: {
       stampCountAfter: options.stampCount ?? 7,
       eligibleSpendCarryAfterMXN: options.carry ?? 650
     },
-    balance: balance(clientId, options.stampCount ?? 7, options.carry ?? 650),
+    balance: balance(
+      clientId,
+      options.stampCount ?? 7,
+      options.carry ?? 650,
+      options.balanceVersion ?? 2
+    ),
     replayed: options.replayed ?? false
   };
 }
@@ -889,6 +900,83 @@ describe('ClubDashboardComponent', () => {
     expect(actions.selectedBalance()).toEqual(beatrizBalance);
     expect(text(fixture)).toContain('Ana López');
     expect(fixture.nativeElement.querySelector('[data-testid="visit-outcome"]')).toBeTruthy();
+  });
+
+  it('keeps the newer visit balance when an older same-client detail response arrives later', async () => {
+    const pendingDetail = new Subject<AdminClubClientDetailResponse>();
+    const canonicalVisit = visitResponse({
+      stampCount: 8,
+      carry: 725,
+      balanceVersion: 5
+    });
+    await configure({
+      detailResponse: (clientId) =>
+        clientId === ana.clientId
+          ? pendingDetail
+          : of({
+              client: beatriz,
+              balance: balance(beatriz.clientId, 1, 550)
+            }),
+      visitResponse: () => of(canonicalVisit)
+    });
+    const fixture = render();
+    const actions = visitActions(fixture);
+    vi.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue(UUID_ONE);
+    prepareVisit(fixture);
+
+    expect(actions.selectedBalance()).toBeNull();
+
+    actions.registerVisit();
+    fixture.detectChanges();
+
+    expect(actions.selectedBalance()).toEqual(canonicalVisit.balance);
+    expect(text(fixture)).toContain('8 sellos acumulados');
+    expect(text(fixture)).toContain('$725');
+
+    pendingDetail.next({
+      client: ana,
+      balance: balance(ana.clientId, 3, 125, 4)
+    });
+    pendingDetail.complete();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(actions.selectedBalance()).toEqual(canonicalVisit.balance);
+    expect(actions.selectedBalance()?.version).toBe(5);
+    expect(text(fixture)).toContain('8 sellos acumulados');
+    expect(text(fixture)).toContain('$725');
+  });
+
+  it('accepts a genuinely newer same-client detail balance', async () => {
+    const firstDetail = new Subject<AdminClubClientDetailResponse>();
+    const newerDetail = balance(ana.clientId, 10, 875, 6);
+    await configure({
+      detailResponse: () => firstDetail,
+      visitResponse: () =>
+        of(
+          visitResponse({
+            stampCount: 8,
+            carry: 725,
+            balanceVersion: 5
+          })
+        )
+    });
+    const fixture = render();
+    const actions = visitActions(fixture);
+    vi.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue(UUID_ONE);
+    prepareVisit(fixture);
+
+    actions.registerVisit();
+    expect(actions.selectedBalance()?.version).toBe(5);
+
+    firstDetail.next({ client: ana, balance: newerDetail });
+    firstDetail.complete();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(actions.selectedBalance()).toEqual(newerDetail);
+    expect(text(fixture)).toContain('10 sellos acumulados');
+    expect(text(fixture)).toContain('$875');
   });
 
   it('renders only normalized visit failures and preserves conflicts for explicit action', async () => {
