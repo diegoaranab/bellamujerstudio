@@ -1,6 +1,6 @@
 # Bella Mujer Club conceptual domain
 
-This document defines product concepts and invariants and records the physical persistence architecture selected in Phase 2. Phase 2 and the first protected client-management slice are deployed successfully in production and have passed their production smoke tests. The current incremental Phase 3 slice implements protected administrator visit registration, loyalty computation, and ledger/history reads; it is not yet production-deployed.
+This document defines product concepts and invariants and records the physical persistence architecture selected in Phase 2. Phases 2 and 3 are deployed successfully in production and have passed production smoke testing. The protected administrator surface now includes client creation/list/detail, visit registration, server-authoritative loyalty computation, safe idempotent replay, and ledger/history reads.
 
 ## Domain boundaries
 
@@ -239,4 +239,4 @@ The timestamp-first ledger key supports deterministic chronological lexical quer
 
 No GSI or LSI is included initially because all confirmed Phase 2 access patterns are supported by the base keys. An index may be introduced later only for a reviewed Phase 3 query pattern.
 
-Phase 2 persistence architecture and the protected Phase 3 client-management APIs are deployed successfully in production and production-smoke-tested. This visit/loyalty/ledger slice is not considered production-deployed until its later post-merge AWS deployment gate succeeds. Rewards, referrals, QR, member access, and administrative-adjustment APIs remain later work.
+Phase 2 persistence architecture and all current Phase 3 protected administrator APIs are deployed successfully in production and production-smoke-tested. Production validation confirmed the accumulated-spend threshold, one-stamp-per-visit cap, carry preservation, idempotent replay, ledger ordering/content, and Balance consistency. Rewards, referrals, QR, member access, and administrative-adjustment APIs remain later work.
