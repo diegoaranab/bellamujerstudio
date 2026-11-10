@@ -336,6 +336,79 @@ describe('ClubDashboardComponent', () => {
     ).toBe('');
   });
 
+  it('preserves a created client when an older initial page resolves afterward', async () => {
+    const pendingList = new Subject<AdminClubClientListResponse>();
+    const created: ClubClient = {
+      ...ana,
+      clientId: 'client-created',
+      name: 'Carla Nueva',
+      phone: '2383330000'
+    };
+    await configure({
+      listResponse: pendingList,
+      createResponse: of({
+        client: created,
+        balance: balance(created.clientId, 3, 650)
+      })
+    });
+    const fixture = render();
+
+    setInput(fixture, 'input[formcontrolname="name"]', 'Carla Nueva');
+    setInput(fixture, 'input[formcontrolname="phone"]', '2383330000');
+    click(fixture, '[data-testid="create-client-submit"]');
+
+    expect(text(fixture)).toContain('Carla Nueva');
+    expect(text(fixture)).toContain('3 sellos acumulados');
+    expect(text(fixture)).toContain('$650');
+
+    pendingList.next({ items: [ana, beatriz] });
+    fixture.detectChanges();
+
+    const createdRows = fixture.nativeElement.querySelectorAll(
+      '[data-client-id="client-created"]'
+    );
+    expect(createdRows).toHaveLength(1);
+    expect(text(fixture)).toContain('Carla Nueva');
+    expect(text(fixture)).toContain('3 sellos acumulados');
+    expect(text(fixture)).toContain('$650');
+  });
+
+  it('preserves a created client when an older first-page retry resolves afterward', async () => {
+    const firstError = new AdminClubApiError('network', 'No se pudo conectar.');
+    const retryPage = new Subject<AdminClubClientListResponse>();
+    const created: ClubClient = {
+      ...ana,
+      clientId: 'client-created-retry',
+      name: 'Daniela Nueva',
+      phone: '2384440000'
+    };
+    await configure({
+      listResponse: throwError(() => firstError),
+      createResponse: of({
+        client: created,
+        balance: balance(created.clientId, 2, 725)
+      })
+    });
+    const fixture = render();
+
+    listClients.mockReturnValueOnce(retryPage);
+    click(fixture, '[data-testid="clients-error"] button');
+
+    setInput(fixture, 'input[formcontrolname="name"]', 'Daniela Nueva');
+    setInput(fixture, 'input[formcontrolname="phone"]', '2384440000');
+    click(fixture, '[data-testid="create-client-submit"]');
+
+    retryPage.next({ items: [ana] });
+    fixture.detectChanges();
+
+    expect(
+      fixture.nativeElement.querySelectorAll('[data-client-id="client-created-retry"]')
+    ).toHaveLength(1);
+    expect(text(fixture)).toContain('Daniela Nueva');
+    expect(text(fixture)).toContain('2 sellos acumulados');
+    expect(text(fixture)).toContain('$725');
+  });
+
   it('prevents duplicate create submissions while the first is pending', async () => {
     const pending = new Subject<AdminClubClientCreateResponse>();
     await configure({ createResponse: pending });
