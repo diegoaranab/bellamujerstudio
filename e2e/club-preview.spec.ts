@@ -11,24 +11,32 @@ async function expectNoHorizontalOverflow(page: Page): Promise<void> {
   expect(widths.document).toBeLessThanOrEqual(widths.viewport);
 }
 
-test('desktop Club preview renders in the authenticated admin shell', async ({ page }) => {
+test('desktop Club administration renders its safe local configuration state', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto('/#/admin/club');
 
   await expect(page.getByTestId('admin-shell')).toBeVisible();
   await expect(page.getByTestId('public-shell')).toHaveCount(0);
   await expect(page.getByRole('heading', { level: 1, name: 'Bella Mujer Club' })).toBeVisible();
-  await expect(page.getByText('Vista previa').first()).toBeVisible();
-  await expect(page.getByTestId('club-preview-notice')).toContainText('Datos de demostración');
-  await expect(page.getByTestId('club-demo-metrics')).toContainText('Clientas Club');
-  await expect(page.getByText('3 sellos acumulados', { exact: true })).toBeVisible();
+  await expect(page.getByTestId('club-not-configured')).toContainText(
+    'Servicio de Club no configurado'
+  );
+  await expect(page.getByText('Datos de demostración')).toHaveCount(0);
+  await expect(page.getByText('Clienta demo A')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Clientas Club' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Agregar clienta' })).toBeVisible();
+  await expect(page.getByTestId('create-client-submit')).toBeDisabled();
+  await expectNoHorizontalOverflow(page);
 });
 
-test('mobile Club preview remains readable and is discoverable from Inicio', async ({ page }) => {
+test('mobile Club administration remains readable and is discoverable from Inicio', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/#/admin/club');
 
   await expect(page.getByRole('heading', { level: 1, name: 'Bella Mujer Club' })).toBeVisible();
+  await expect(page.getByTestId('club-not-configured')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Detalle de clienta' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Agregar clienta' })).toBeVisible();
   await expectNoHorizontalOverflow(page);
 
   const bottomNav = page.getByTestId('admin-bottom-nav');

@@ -2,18 +2,17 @@
   <header class="club-hero">
     <div class="club-hero__content">
       <div class="club-hero__meta">
-        <span class="bm-preview-badge">
-          <mat-icon aria-hidden="true">visibility</mat-icon>
-          Vista previa
+        <span class="club-hero__badge">
+          <mat-icon aria-hidden="true">admin_panel_settings</mat-icon>
+          Administración
         </span>
-        <span class="club-hero__context">Bella Mujer Studio</span>
+        <span>Bella Mujer Studio</span>
       </div>
       <p class="club-hero__eyebrow">Programa de fidelidad</p>
       <h1>Bella Mujer Club</h1>
-      <p class="club-hero__lead">Fidelidad que se siente personal.</p>
+      <p class="club-hero__lead">Cada clienta, atendida con cercanía.</p>
       <p class="club-hero__description">
-        Una experiencia cálida para reconocer cada visita y acompañar la relación con nuestras
-        clientas.
+        Consulta perfiles, revisa su saldo actual y suma nuevas clientas al Club.
       </p>
     </div>
     <div class="club-hero__mark" aria-hidden="true">
@@ -22,128 +21,257 @@
     </div>
   </header>
 
-  <section class="preview-notice" aria-labelledby="preview-notice-title" data-testid="club-preview-notice">
-    <mat-icon aria-hidden="true">info</mat-icon>
-    <div>
-      <h2 id="preview-notice-title">Datos de demostración</h2>
-      <p>
-        Esta pantalla todavía no registra ni modifica información real de clientas. Los valores se
-        muestran únicamente para validar la experiencia visual.
-      </p>
-    </div>
-  </section>
-
-  <section aria-labelledby="metrics-title">
-    <div class="section-heading">
+  @if (!isConfigured) {
+    <section
+      class="state-notice"
+      data-testid="club-not-configured"
+      aria-labelledby="configuration-title"
+    >
+      <mat-icon aria-hidden="true">settings</mat-icon>
       <div>
-        <p class="section-heading__eyebrow">Resumen ilustrativo</p>
-        <h2 id="metrics-title">Un vistazo al Club</h2>
-      </div>
-      <span>Todos los datos son demo</span>
-    </div>
-    <div class="metric-grid" data-testid="club-demo-metrics">
-      @for (metric of metrics; track metric.label) {
-        <article class="metric-card">
-          <div class="metric-card__icon" aria-hidden="true"><mat-icon>{{ metric.icon }}</mat-icon></div>
-          <p class="metric-card__label">{{ metric.label }}</p>
-          <p class="metric-card__value">{{ metric.value }}</p>
-          <p class="metric-card__detail">{{ metric.detail }}</p>
-        </article>
-      }
-    </div>
-  </section>
-
-  <div class="club-grid club-grid--featured">
-    <section class="section-card loyalty-example" aria-labelledby="loyalty-title">
-      <div class="section-card__header">
-        <div>
-          <p class="section-heading__eyebrow">Ejemplo de fidelidad</p>
-          <h2 id="loyalty-title">Clienta demo A</h2>
-        </div>
-        <span class="demo-label">Demo</span>
-      </div>
-      <p class="loyalty-example__intro">Una vista clara de su posición actual, sin definir todavía una meta de recompensa.</p>
-      <div class="stamp-row" role="img" aria-label="3 sellos acumulados">
-        @for (stamp of [1, 2, 3]; track stamp) {
-          <span class="stamp"><mat-icon aria-hidden="true">spa</mat-icon></span>
-        }
-      </div>
-      <p class="loyalty-example__count">3 sellos acumulados</p>
-      <div class="balance-note">
-        <span>Saldo elegible</span>
-        <strong>$130</strong>
-        <small>Acumulado para una próxima visita</small>
+        <h2 id="configuration-title">Servicio de Club no configurado</h2>
+        <p>
+          La administración de clientas estará disponible cuando este entorno tenga conexión
+          segura con el servicio de Club.
+        </p>
       </div>
     </section>
+  }
 
-    <section class="section-card" aria-labelledby="clients-title" data-testid="club-demo-clients">
+  <div class="workspace-grid">
+    <section class="section-card directory-card" aria-labelledby="clients-title">
       <div class="section-card__header">
         <div>
-          <p class="section-heading__eyebrow">Ejemplos recientes</p>
+          <p class="eyebrow">Directorio</p>
           <h2 id="clients-title">Clientas Club</h2>
         </div>
         <mat-icon aria-hidden="true">groups</mat-icon>
       </div>
-      <div class="client-list">
-        @for (client of demoClients; track client.name) {
-          <article class="client-row">
-            <span class="client-row__avatar" aria-hidden="true">{{ client.name.slice(-1) }}</span>
-            <div class="client-row__main">
-              <h3>{{ client.name }}</h3>
-              <p>{{ stampLabel(client.stamps) }} · {{ client.note }}</p>
-            </div>
-            <div class="client-row__balance">
-              <strong>{{ client.eligibleBalance }}</strong>
-              <span>Saldo elegible</span>
-            </div>
-          </article>
+
+      @if (isConfigured) {
+        <mat-form-field appearance="outline" class="filter-field">
+          <mat-label>Buscar entre clientas cargadas</mat-label>
+          <mat-icon matPrefix aria-hidden="true">search</mat-icon>
+          <input matInput [formControl]="filterControl" data-testid="client-filter" />
+          <mat-hint>La búsqueda considera solo los perfiles ya cargados.</mat-hint>
+        </mat-form-field>
+
+        @if (initialLoading()) {
+          <div class="inline-state" data-testid="clients-loading">
+            <mat-spinner diameter="28" />
+            <span>Cargando clientas…</span>
+          </div>
+        } @else if (initialError(); as error) {
+          <div class="error-state" data-testid="clients-error" role="alert">
+            <p>{{ error }}</p>
+            <button mat-stroked-button type="button" (click)="loadFirstPage()">
+              Intentar de nuevo
+            </button>
+          </div>
+        } @else if (clients().length === 0) {
+          <div class="empty-state" data-testid="clients-empty">
+            <mat-icon aria-hidden="true">person_add</mat-icon>
+            <h3>Aún no hay clientas en el Club</h3>
+            <p>Registra la primera clienta con el formulario.</p>
+          </div>
+        } @else if (filteredClients().length === 0) {
+          <div class="empty-state" data-testid="filter-empty">
+            <mat-icon aria-hidden="true">search_off</mat-icon>
+            <h3>Sin coincidencias</h3>
+            <p>Prueba con otro nombre o teléfono entre las clientas cargadas.</p>
+          </div>
+        } @else {
+          <div class="client-list" data-testid="client-list">
+            @for (client of filteredClients(); track client.clientId) {
+              <button
+                type="button"
+                class="client-row"
+                [class.client-row--selected]="selectedClientId() === client.clientId"
+                (click)="selectClient(client)"
+                [attr.data-client-id]="client.clientId"
+              >
+                <span class="client-row__avatar" aria-hidden="true">{{
+                  client.name.charAt(0)
+                }}</span>
+                <span class="client-row__main">
+                  <strong>{{ client.name }}</strong>
+                  <span>{{ client.phone }}</span>
+                </span>
+                <span
+                  class="status-pill"
+                  [class.status-pill--inactive]="client.status === 'inactive'"
+                  >{{ statusLabel(client) }}</span
+                >
+                <mat-icon aria-hidden="true">chevron_right</mat-icon>
+              </button>
+            }
+          </div>
         }
-      </div>
+
+        @if (!initialLoading() && !initialError() && nextToken()) {
+          <div class="pagination">
+            @if (loadMoreError(); as error) {
+              <p
+                class="form-message form-message--error"
+                data-testid="load-more-error"
+                role="alert"
+              >
+                {{ error }}
+              </p>
+            }
+            <button
+              mat-stroked-button
+              type="button"
+              (click)="loadMore()"
+              [disabled]="loadMoreLoading()"
+              data-testid="load-more"
+            >
+              @if (loadMoreLoading()) {
+                <mat-spinner diameter="18" />
+              } @else {
+                <mat-icon aria-hidden="true">expand_more</mat-icon>
+              }
+              {{
+                loadMoreLoading()
+                  ? 'Cargando…'
+                  : loadMoreError()
+                    ? 'Reintentar carga'
+                    : 'Cargar más'
+              }}
+            </button>
+          </div>
+        }
+      } @else {
+        <div class="empty-state">
+          <mat-icon aria-hidden="true">cloud_off</mat-icon>
+          <h3>Directorio no disponible</h3>
+          <p>No se cargarán perfiles hasta configurar el servicio.</p>
+        </div>
+      }
     </section>
+
+    <div class="side-column">
+      <section
+        class="section-card detail-card"
+        aria-labelledby="detail-title"
+        data-testid="client-detail"
+      >
+        <div class="section-card__header">
+          <div>
+            <p class="eyebrow">Saldo actual</p>
+            <h2 id="detail-title">Detalle de clienta</h2>
+          </div>
+          <mat-icon aria-hidden="true">loyalty</mat-icon>
+        </div>
+
+        @if (detailLoading()) {
+          <div class="inline-state" data-testid="detail-loading">
+            <mat-spinner diameter="28" />
+            <span>Consultando saldo…</span>
+          </div>
+        } @else if (detailError(); as error) {
+          <div class="error-state" data-testid="detail-error" role="alert">
+            <p>{{ error }}</p>
+            @if (selectedClient(); as client) {
+              <button mat-stroked-button type="button" (click)="selectClient(client)">
+                Intentar de nuevo
+              </button>
+            }
+          </div>
+        } @else if (selectedDetail(); as detail) {
+          <div class="client-detail__profile">
+            <span class="client-detail__avatar" aria-hidden="true">{{
+              detail.client.name.charAt(0)
+            }}</span>
+            <div>
+              <h3>{{ detail.client.name }}</h3>
+              <p>{{ detail.client.phone }}</p>
+              <span
+                class="status-pill"
+                [class.status-pill--inactive]="detail.client.status === 'inactive'"
+                >{{ statusLabel(detail.client) }}</span
+              >
+            </div>
+          </div>
+          <div class="balance-grid">
+            <div>
+              <mat-icon aria-hidden="true">spa</mat-icon>
+              <strong data-testid="stamp-count">{{
+                stampLabel(detail.balance.stampCount)
+              }}</strong>
+            </div>
+            <div>
+              <span>Saldo elegible acumulado</span>
+              <strong data-testid="eligible-balance">{{
+                formatMXN(detail.balance.eligibleSpendCarryMXN)
+              }}</strong>
+            </div>
+          </div>
+        } @else {
+          <div class="empty-state">
+            <mat-icon aria-hidden="true">touch_app</mat-icon>
+            <h3>Selecciona una clienta</h3>
+            <p>Su saldo de fidelidad se consultará directamente en el servicio.</p>
+          </div>
+        }
+      </section>
+
+      <section class="section-card create-card" aria-labelledby="create-title">
+        <div class="section-card__header">
+          <div>
+            <p class="eyebrow">Nuevo perfil</p>
+            <h2 id="create-title">Agregar clienta</h2>
+          </div>
+          <mat-icon aria-hidden="true">person_add</mat-icon>
+        </div>
+        <form
+          [formGroup]="createForm"
+          (ngSubmit)="createClient()"
+          data-testid="create-client-form"
+        >
+          <mat-form-field appearance="outline">
+            <mat-label>Nombre</mat-label>
+            <input matInput formControlName="name" maxlength="200" autocomplete="name" />
+            @if (createForm.controls.name.hasError('required')) {
+              <mat-error>El nombre es obligatorio.</mat-error>
+            }
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Teléfono</mat-label>
+            <input matInput formControlName="phone" maxlength="50" autocomplete="tel" />
+            @if (createForm.controls.phone.hasError('required')) {
+              <mat-error>El teléfono es obligatorio.</mat-error>
+            }
+          </mat-form-field>
+          @if (createError(); as error) {
+            <p class="form-message form-message--error" data-testid="create-error" role="alert">
+              {{ error }}
+            </p>
+          }
+          @if (createSuccess(); as success) {
+            <p
+              class="form-message form-message--success"
+              data-testid="create-success"
+              role="status"
+            >
+              {{ success }}
+            </p>
+          }
+          <button
+            mat-flat-button
+            type="submit"
+            [disabled]="!isConfigured || createLoading()"
+            data-testid="create-client-submit"
+          >
+            @if (createLoading()) {
+              <mat-spinner diameter="18" />
+            } @else {
+              <mat-icon aria-hidden="true">add</mat-icon>
+            }
+            {{ createLoading() ? 'Guardando…' : 'Crear clienta' }}
+          </button>
+        </form>
+      </section>
+    </div>
   </div>
-
-  <section class="section-card activity-card" aria-labelledby="activity-title">
-    <div class="section-card__header">
-      <div>
-        <p class="section-heading__eyebrow">Historial ilustrativo</p>
-        <h2 id="activity-title">Actividad de fidelidad</h2>
-      </div>
-      <span class="demo-label">Solo demostración</span>
-    </div>
-    <p class="activity-card__intro">Cada movimiento futuro tendrá una razón visible y un historial auditable.</p>
-    <div class="activity-list">
-      @for (activity of activities; track activity.title) {
-        <article class="activity-row">
-          <span class="activity-row__icon" aria-hidden="true"><mat-icon>{{ activity.icon }}</mat-icon></span>
-          <div>
-            <h3>{{ activity.title }}</h3>
-            <p>{{ activity.detail }}</p>
-          </div>
-          <strong>{{ activity.value }}</strong>
-        </article>
-      }
-    </div>
-  </section>
-
-  <section aria-labelledby="areas-title" data-testid="club-future-areas">
-    <div class="section-heading">
-      <div>
-        <p class="section-heading__eyebrow">Evolución del producto</p>
-        <h2 id="areas-title">Próximas áreas del Club</h2>
-      </div>
-      <span>Sin acciones disponibles en esta vista</span>
-    </div>
-    <div class="area-grid">
-      @for (area of clubAreas; track area.title) {
-        <article class="area-card">
-          <mat-icon aria-hidden="true">{{ area.icon }}</mat-icon>
-          <div>
-            <h3>{{ area.title }}</h3>
-            <p>{{ area.description }}</p>
-          </div>
-          <span>Próxima fase</span>
-        </article>
-      }
-    </div>
-  </section>
 </article>
