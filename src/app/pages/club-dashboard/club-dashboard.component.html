@@ -274,4 +274,263 @@
       </section>
     </div>
   </div>
+
+  <section
+    class="section-card visit-card"
+    aria-labelledby="visit-title"
+    data-testid="visit-registration"
+  >
+    <div class="section-card__header">
+      <div>
+        <p class="eyebrow">Nueva atención</p>
+        <h2 id="visit-title">Registrar visita</h2>
+      </div>
+      <mat-icon aria-hidden="true">event_available</mat-icon>
+    </div>
+
+    @if (selectedClient(); as client) {
+      <p class="visit-client" data-testid="visit-client-context">
+        La visita se registrará para <strong>{{ client.name }}</strong>
+        <span>{{ client.phone }}</span>
+      </p>
+    } @else {
+      <div class="visit-selection-notice" data-testid="visit-no-client">
+        <mat-icon aria-hidden="true">touch_app</mat-icon>
+        <p>Selecciona una clienta del directorio para registrar su visita.</p>
+      </div>
+    }
+
+    <form
+      [formGroup]="visitForm"
+      (ngSubmit)="registerVisit()"
+      data-testid="visit-form"
+    >
+      <fieldset
+        class="visit-fields"
+        [disabled]="
+          !isConfigured ||
+          !selectedClient() ||
+          visitLoading() ||
+          pendingVisitAttempt() !== null
+        "
+      >
+        <div class="visit-fields__money">
+          <mat-form-field appearance="outline">
+            <mat-label>Fecha y hora de la visita</mat-label>
+            <input
+              matInput
+              type="datetime-local"
+              formControlName="occurredAtLocal"
+              data-testid="visit-date"
+            />
+            @if (visitForm.controls.occurredAtLocal.invalid) {
+              <mat-error>Ingresa una fecha y hora válidas.</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Total pagado (MXN)</mat-label>
+            <input
+              matInput
+              type="number"
+              min="0"
+              step="1"
+              inputmode="numeric"
+              formControlName="amountMXN"
+              data-testid="visit-amount"
+            />
+            @if (visitForm.controls.amountMXN.hasError('required')) {
+              <mat-error>El total pagado es obligatorio.</mat-error>
+            } @else if (visitForm.controls.amountMXN.hasError('min')) {
+              <mat-error>El total no puede ser negativo.</mat-error>
+            } @else if (visitForm.controls.amountMXN.hasError('integer')) {
+              <mat-error>Usa pesos enteros, sin centavos.</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Monto elegible Club (MXN)</mat-label>
+            <input
+              matInput
+              type="number"
+              min="0"
+              step="1"
+              inputmode="numeric"
+              formControlName="eligibleAmountMXN"
+              data-testid="visit-eligible-amount"
+            />
+            @if (visitForm.controls.eligibleAmountMXN.hasError('required')) {
+              <mat-error>El monto elegible es obligatorio.</mat-error>
+            } @else if (visitForm.controls.eligibleAmountMXN.hasError('min')) {
+              <mat-error>El monto elegible no puede ser negativo.</mat-error>
+            } @else if (visitForm.controls.eligibleAmountMXN.hasError('integer')) {
+              <mat-error>Usa pesos enteros, sin centavos.</mat-error>
+            }
+          </mat-form-field>
+        </div>
+
+        @if (
+          visitForm.hasError('eligibleExceedsAmount') &&
+          (visitForm.controls.amountMXN.touched ||
+            visitForm.controls.eligibleAmountMXN.touched)
+        ) {
+          <p class="form-message form-message--error" data-testid="visit-amount-error">
+            El monto elegible no puede superar el total pagado.
+          </p>
+        }
+
+        <div class="service-selector" aria-labelledby="visit-services-title">
+          <div class="service-selector__header">
+            <div>
+              <h3 id="visit-services-title">Servicios asociados</h3>
+              <p>Referencia informativa; no modifica los montos capturados.</p>
+            </div>
+            <span>{{ visitForm.controls.serviceIds.value.length }}/50</span>
+          </div>
+
+          @if (serviceCatalogLoading()) {
+            <div class="inline-state inline-state--compact" data-testid="services-loading">
+              <mat-spinner diameter="22" />
+              <span>Cargando servicios…</span>
+            </div>
+          } @else if (serviceCatalogError(); as error) {
+            <p class="form-message form-message--error" data-testid="services-error" role="alert">
+              {{ error }} Puedes registrar la visita sin asociar servicios.
+            </p>
+          } @else if (activeServices().length === 0) {
+            <p class="service-selector__empty">No hay servicios activos para seleccionar.</p>
+          } @else {
+            <div class="service-options" data-testid="active-service-options">
+              @for (service of activeServices(); track service.id) {
+                <mat-checkbox
+                  [checked]="isServiceSelected(service.id)"
+                  [disabled]="
+                    !isConfigured ||
+                    !selectedClient() ||
+                    serviceSelectionDisabled(service.id)
+                  "
+                  (change)="toggleService(service.id, $event.checked)"
+                  [attr.data-service-id]="service.id"
+                >
+                  {{ service.nombre }}
+                </mat-checkbox>
+              }
+            </div>
+          }
+          <p class="service-selector__hint">La selección es opcional.</p>
+        </div>
+      </fieldset>
+
+      @if (visitError(); as error) {
+        <div class="visit-attempt" data-testid="visit-error" role="alert">
+          <mat-icon aria-hidden="true">error_outline</mat-icon>
+          <div>
+            <strong>No se pudo confirmar la visita</strong>
+            <p>{{ error }}</p>
+            @if (pendingVisitAttempt(); as attempt) {
+              <p>
+                El intento permanece guardado para {{ attempt.clientName }}. Reintentar enviará
+                exactamente los mismos datos.
+              </p>
+            }
+          </div>
+        </div>
+      }
+
+      @if (pendingVisitAttempt(); as attempt) {
+        @if (!visitLoading()) {
+          <div class="visit-attempt__actions" data-testid="visit-retry-actions">
+            <button mat-flat-button type="button" (click)="retryVisit()" data-testid="visit-retry">
+              <mat-icon aria-hidden="true">refresh</mat-icon>
+              Reintentar la misma visita
+            </button>
+            <button
+              mat-stroked-button
+              type="button"
+              (click)="editVisitAttempt()"
+              data-testid="visit-edit"
+            >
+              Editar y crear un nuevo intento
+            </button>
+          </div>
+        }
+      }
+
+      <button
+        mat-flat-button
+        type="submit"
+        [disabled]="
+          !isConfigured ||
+          !selectedClient() ||
+          visitForm.invalid ||
+          visitLoading() ||
+          pendingVisitAttempt() !== null
+        "
+        data-testid="visit-submit"
+      >
+        @if (visitLoading()) {
+          <mat-spinner diameter="18" />
+        } @else {
+          <mat-icon aria-hidden="true">add_task</mat-icon>
+        }
+        {{ visitLoading() ? 'Procesando visita…' : 'Registrar visita' }}
+      </button>
+    </form>
+
+    @if (visitOutcome(); as outcome) {
+      <div
+        class="visit-outcome"
+        [class.visit-outcome--replayed]="outcome.response.replayed"
+        data-testid="visit-outcome"
+        role="status"
+      >
+        <div class="visit-outcome__title">
+          <mat-icon aria-hidden="true">{{
+            outcome.response.replayed ? 'verified' : 'check_circle'
+          }}</mat-icon>
+          <div>
+            <h3>
+              {{
+                outcome.response.replayed
+                  ? 'La visita ya estaba registrada'
+                  : 'Visita registrada correctamente'
+              }}
+            </h3>
+            @if (outcome.response.replayed) {
+              <p>Se recuperó el resultado sin duplicar sellos.</p>
+            }
+          </div>
+        </div>
+        <p>
+          <strong>{{ outcome.clientName }}</strong> ·
+          {{ formatVisitDate(outcome.response.visit.occurredAtISO) }}
+        </p>
+        <div class="visit-outcome__grid">
+          <div>
+            <span>Resultado de sello</span>
+            <strong data-testid="visit-stamp-award">{{ stampAwardLabel(outcome) }}</strong>
+          </div>
+          <div>
+            <span>Saldo resultante</span>
+            <strong data-testid="visit-result-stamps">{{
+              stampLabel(outcome.response.balance.stampCount)
+            }}</strong>
+          </div>
+          <div>
+            <span>Saldo elegible resultante</span>
+            <strong data-testid="visit-result-carry">{{
+              formatMXN(outcome.response.balance.eligibleSpendCarryMXN)
+            }}</strong>
+          </div>
+          <div>
+            <span>Importes de la visita</span>
+            <strong data-testid="visit-result-amounts">
+              {{ formatMXN(outcome.response.visit.amountMXN) }} total ·
+              {{ formatMXN(outcome.response.visit.eligibleAmountMXN) }} elegible
+            </strong>
+          </div>
+        </div>
+      </div>
+    }
+  </section>
 </article>
