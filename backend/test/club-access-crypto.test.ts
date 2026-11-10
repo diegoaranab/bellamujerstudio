@@ -68,8 +68,9 @@ describe('Club access PIN policy', () => {
 
 describe('Club access PIN verifier', () => {
   it('locks production parameters to the selected architecture', () => {
-    expect(PRODUCTION_SCRYPT_PARAMETERS).toMatchObject({ N: 32768, r: 8, p: 3 });
-    expect(PRODUCTION_SCRYPT_PARAMETERS.maxmem).toBe(64 * 1024 * 1024);
+    expect(PRODUCTION_SCRYPT_PARAMETERS).toEqual({
+      N: 32768, r: 8, p: 3, maxmem: 64 * 1024 * 1024, keyLength: 32
+    });
   });
 
   it('derives and verifies with explicit test-only parameters', async () => {
@@ -113,6 +114,21 @@ describe('Club access PIN verifier', () => {
     await expect(verifyPin('907352', 'synthetic-test-pepper', {
       ...metadata,
       maxmem: 1
+    }, { pepperVersion: 'test-v1' })).resolves.toBe(false);
+  });
+
+  it.each([
+    ['N', 32769],
+    ['r', 9],
+    ['p', 4],
+    ['maxmem', 64 * 1024 * 1024 + 1],
+    ['keyLength', 31]
+  ] as const)('fails closed for oversized persisted %s without deriving', async (field, value) => {
+    const metadata = await derivePinVerifier('907352', 'synthetic-test-pepper', {
+      pepperVersion: 'test-v1', parameters: TEST_SCRYPT_PARAMETERS
+    });
+    await expect(verifyPin('907352', 'synthetic-test-pepper', {
+      ...metadata, [field]: value
     }, { pepperVersion: 'test-v1' })).resolves.toBe(false);
   });
 });

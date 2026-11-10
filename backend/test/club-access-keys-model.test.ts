@@ -206,6 +206,11 @@ describe('Club access domain validation', () => {
     expect(() => validatePinVerifierMetadata({ ...verifier(), saltBase64Url: 'not+base64' })).toThrow();
     expect(() => validatePinVerifierMetadata({ ...verifier(), verifierBase64Url: 'AQ' })).toThrow();
     expect(() => validatePinVerifierMetadata({ ...verifier(), maxmem: 1024 })).toThrow();
+    expect(() => validatePinVerifierMetadata({ ...verifier(), N: 65536 })).toThrow();
+    expect(() => validatePinVerifierMetadata({ ...verifier(), r: 9 })).toThrow();
+    expect(() => validatePinVerifierMetadata({ ...verifier(), p: 4 })).toThrow();
+    expect(() => validatePinVerifierMetadata({ ...verifier(), maxmem: 64 * 1024 * 1024 + 1 })).toThrow();
+    expect(() => validatePinVerifierMetadata({ ...verifier(), keyLength: 31 })).toThrow();
     expect(() => validatePinVerifierMetadata({
       ...verifier(),
       algorithm: 'SCRYPT'

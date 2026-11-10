@@ -5,6 +5,13 @@ export type MemberAccessStatus = typeof MEMBER_ACCESS_STATUSES[number];
 
 export const PIN_VERIFIER_ALGORITHM = 'HMAC-SHA256+SCRYPT' as const;
 export const PIN_KDF_VERSION = 1 as const;
+export const KDF_V1_SUPPORTED_MAXIMUMS: Readonly<Pick<ScryptParameters, 'N' | 'r' | 'p' | 'maxmem' | 'keyLength'>> = Object.freeze({
+  N: 32768,
+  r: 8,
+  p: 3,
+  maxmem: 64 * 1024 * 1024,
+  keyLength: 32
+});
 
 export interface ScryptParameters {
   N: number;
@@ -173,13 +180,28 @@ export const validatePinVerifierMetadata = (
 
 export const validateScryptParameters = <T extends ScryptParameters>(parameters: T): T => {
   requirePositiveSafeInteger('N', parameters.N);
+  if (parameters.N > KDF_V1_SUPPORTED_MAXIMUMS.N) {
+    throw new Error('Invalid Club access field: N');
+  }
   if (!Number.isInteger(Math.log2(parameters.N))) {
     throw new Error('Invalid Club access field: N');
   }
   requirePositiveSafeInteger('r', parameters.r);
+  if (parameters.r > KDF_V1_SUPPORTED_MAXIMUMS.r) {
+    throw new Error('Invalid Club access field: r');
+  }
   requirePositiveSafeInteger('p', parameters.p);
+  if (parameters.p > KDF_V1_SUPPORTED_MAXIMUMS.p) {
+    throw new Error('Invalid Club access field: p');
+  }
   requirePositiveSafeInteger('maxmem', parameters.maxmem);
+  if (parameters.maxmem > KDF_V1_SUPPORTED_MAXIMUMS.maxmem) {
+    throw new Error('Invalid Club access field: maxmem');
+  }
   requirePositiveSafeInteger('keyLength', parameters.keyLength);
+  if (parameters.keyLength !== KDF_V1_SUPPORTED_MAXIMUMS.keyLength) {
+    throw new Error('Invalid Club access field: keyLength');
+  }
   const requiredMemory = 128 * parameters.N * parameters.r;
   if (!Number.isSafeInteger(requiredMemory) || parameters.maxmem <= requiredMemory) {
     throw new Error('Invalid Club access field: maxmem');

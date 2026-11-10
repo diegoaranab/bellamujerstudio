@@ -2,6 +2,7 @@ import { createHash, createHmac, randomBytes, scrypt, timingSafeEqual } from 'no
 import {
   PIN_KDF_VERSION,
   PIN_VERIFIER_ALGORITHM,
+  KDF_V1_SUPPORTED_MAXIMUMS,
   PinVerifierMetadata,
   ScryptParameters,
   validatePinVerifierMetadata,
@@ -12,12 +13,12 @@ export const OPAQUE_TOKEN_BYTES = 32;
 export const PIN_SALT_BYTES = 32;
 
 export const PRODUCTION_SCRYPT_PARAMETERS: Readonly<ScryptParameters> = Object.freeze({
-  N: 32768,
-  r: 8,
-  p: 3,
+  N: KDF_V1_SUPPORTED_MAXIMUMS.N,
+  r: KDF_V1_SUPPORTED_MAXIMUMS.r,
+  p: KDF_V1_SUPPORTED_MAXIMUMS.p,
   // The selected N/r working set is about 32 MiB; this explicit ceiling leaves safe headroom.
-  maxmem: 64 * 1024 * 1024,
-  keyLength: 32
+  maxmem: KDF_V1_SUPPORTED_MAXIMUMS.maxmem,
+  keyLength: KDF_V1_SUPPORTED_MAXIMUMS.keyLength
 });
 
 export const generateOpaqueToken = (): string => randomBytes(OPAQUE_TOKEN_BYTES).toString('base64url');
