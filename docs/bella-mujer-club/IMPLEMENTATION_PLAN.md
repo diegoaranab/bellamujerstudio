@@ -81,31 +81,94 @@ Production validation covered authenticated visit registration, the accumulated-
 
 ## Phase 4 — Connect Club admin UI
 
-**Next active phase.**
+**Completed.**
 
-Replace the shell's mocks with protected APIs. Administrators should be able to:
+The operational administrator UI now uses the protected production APIs. It provides:
 
-- create or find a client;
-- register a visit;
-- see the resulting stamp and eligible-spend carry;
-- inspect transparent loyalty history; and
-- understand the reason for every adjustment.
+- client management;
+- current Balance presentation;
+- visit registration;
+- server-authoritative loyalty outcomes; and
+- auditable, paginated ledger/history.
 
-This is the first operational Club milestone.
+This completed the first operational Club milestone.
 
-## Phase 5 — Client access
+## Phase 5 — Member access
 
-Implement the confirmed member access experience:
+Member access is deliberately split into independently reviewed slices; it must not be implemented in one PR.
+
+### Phase 5A — Member-access security architecture
+
+**Selected in this documentation/security-design phase.**
+
+[MEMBER_ACCESS_SECURITY.md](./MEMBER_ACCESS_SECURITY.md) defines:
+
+- dedicated access persistence and bounded primary-key patterns;
+- opaque access handles and one-time invitations;
+- 6-digit PIN policy, salted/peppered scrypt verification, and throttling;
+- opaque in-memory bearer sessions for the current hosting topology;
+- member authorization, IAM boundaries, reset, and revocation; and
+- security threats, mitigations, and implementation sequencing.
+
+This phase makes no code, infrastructure, or deployment changes.
+
+### Phase 5B — Member-access persistence and backend auth foundation
+
+Future implementation:
+
+- create `ClubAccessTable` without speculative indexes;
+- implement the PIN KDF and Secrets Manager pepper boundary;
+- implement invitations, sessions, credential versioning, and throttling;
+- add the separate member Lambda authorizer; and
+- add admin-protected invitation/reset APIs.
+
+No member UI is included. Production/security validation follows this slice before UI work.
+
+### Phase 5C — Administrator access-management UI
+
+Future implementation:
+
+- generate or regenerate access;
+- copy/share the private WhatsApp URL;
+- perform full access reset; and
+- present access state safely without redisplaying raw invitation secrets.
+
+### Phase 5D — Member enrollment/login UI
+
+Future implementation:
+
+- create the `/club` member route;
+- capture and scrub the invitation token;
+- enroll and confirm a 6-digit PIN;
+- perform later PIN login;
+- keep the opaque session in memory only; and
+- log out and revoke the session.
+
+The confirmed experience across these slices remains:
 
 - private invitation/access generation;
-- WhatsApp delivery workflow;
+- manual WhatsApp delivery;
 - 6-digit PIN enrollment;
 - secure login and session handling; and
 - studio-controlled reset/regeneration.
 
-The exact authentication, invitation, credential, and session architecture is an **OPEN TECHNICAL DECISION** and must receive a dedicated security review before implementation. It must remain separate from administrative Cognito identity.
+The selected architecture remains separate from administrative Cognito identity. SMS/Twilio verification is **DISCARDED** and must not be migrated. WhatsApp is transport only, and QR remains separate from login.
 
-SMS/Twilio verification is **DISCARDED** and must not be migrated.
+```text
+5A architecture/security decision
+        ↓
+5B backend persistence/auth foundation
+        ↓
+production/security validation
+        ↓
+5C admin invitation/reset UI
+        ↓
+5D member enrollment/login UI
+        ↓
+Phase 6 member Club experience
+```
+
+Each implementation slice receives its own model/reasoning recommendation, review, and validation.
 
 ## Phase 6 — Client Club experience
 
@@ -151,8 +214,8 @@ The profitability reference is an average evaluation target, not a guaranteed pe
 | Promotions draft | Rebuild later as configurable `Promotion` data. |
 | Reward configuration | Rebuild as `RewardDefinition` only after economic approval. |
 | Profitability panel | Treat as later analytics, not initial core scope. |
-| Client access link | Implement a secure invitation/access flow after security review. |
-| 6-digit PIN | Use a secure hashed/derived credential mechanism; exact architecture is TBD. |
+| Client access link | Implement the Phase 5A one-time digest-stored invitation and opaque access-handle design in Phase 5B–5D. |
+| 6-digit PIN | Implement the selected salted, peppered scrypt verifier with authoritative throttling; never store plaintext. |
 | Twilio verification | Do not migrate; **DISCARDED**. |
 | Visual design | Preserve its spirit and rebuild through the Angular/Bella Mujer design system. |
 | Prototype service copy | Reference the canonical Bella Mujer service catalog; do not duplicate/import it. |
@@ -172,4 +235,4 @@ Every implementation phase should preserve these confirmed properties:
 - access secrets and PINs are handled securely; and
 - AWS permissions follow least privilege.
 
-Decisions classified **OPEN TECHNICAL DECISION** become confirmed architecture only through the relevant implementation/security review. Configurable business values must remain data/configuration rather than hidden constants.
+Decisions still classified **OPEN TECHNICAL DECISION** become confirmed architecture only through the relevant implementation/security review. The member-access security architecture is already selected in Phase 5A. Configurable business values must remain data/configuration rather than hidden constants.

@@ -123,7 +123,7 @@ The historical examples below were explored during profitability analysis and ar
 
 **CONFIRMED** — A Club member does not share the existing administrative Cognito identity/account. Cognito remains the administrative authentication boundary.
 
-**OPEN TECHNICAL DECISION** — Invitation tokens, PIN credential derivation, session management, expiration, recovery, and the secure backend design require a dedicated security decision. Product documentation does not select or invent that architecture.
+**SELECTED IN PHASE 5A** — Invitation tokens, opaque member identity, PIN derivation and throttling, sessions, expiration/revocation, recovery, authorization, secure persistence, and frontend token handling follow [MEMBER_ACCESS_SECURITY.md](./MEMBER_ACCESS_SECURITY.md). The architecture remains separate from administrative Cognito and is implemented incrementally in Phase 5B–5D.
 
 **DISCARDED** — SMS/Twilio verification will not be migrated.
 
@@ -167,7 +167,7 @@ Alisados/progressive-straightening services were intentionally treated as inacti
 | Admin-managed client registration | **CONFIRMED** |
 | Private access link sent through WhatsApp | **CONFIRMED** |
 | 6-digit client PIN experience | **CONFIRMED** |
-| Secure token/session/PIN backend design | **OPEN TECHNICAL DECISION** |
+| Secure token/session/PIN backend design | **SELECTED IN PHASE 5A** — see [MEMBER_ACCESS_SECURITY.md](./MEMBER_ACCESS_SECURITY.md) |
 | QR separate from login | **CONFIRMED** |
 | Monthly promotions | **CONFIRMED capability**; contents **CONFIGURABLE** |
 | Balanced reward model | **CONFIRMED direction** |
