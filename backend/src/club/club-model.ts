@@ -127,7 +127,13 @@ export const validateClubVisit = (visit: ClubVisit): ClubVisit => {
   if (!Array.isArray(visit.serviceIds) || visit.serviceIds.length > 50) {
     throw new Error('Invalid Club field: serviceIds');
   }
-  visit.serviceIds.forEach((serviceId) => requireBoundedString('serviceIds', serviceId, 128));
+  const serviceIds = new Set<string>();
+  visit.serviceIds.forEach((serviceId) => {
+    requireBoundedString('serviceIds', serviceId, 128);
+    validateKeySegment('serviceIds', serviceId);
+    if (serviceIds.has(serviceId)) throw new Error('Invalid Club field: serviceIds');
+    serviceIds.add(serviceId);
+  });
   if (visit.source !== 'admin') throw new Error('Invalid Club field: source');
   requireBoundedString('createdByAdminSub', visit.createdByAdminSub, 256);
   if (!/^[a-f0-9]{64}$/.test(visit.requestFingerprint)) {

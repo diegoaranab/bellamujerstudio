@@ -39,10 +39,12 @@ describe('Club infrastructure', () => {
     const functions = Object.values(template.findResources('AWS::Lambda::Function'));
     const clubFunctions = functions.filter((resource) => [
       'Creates Club clients for authenticated administrators',
-      'Reads Club clients for authenticated administrators'
+      'Reads Club clients for authenticated administrators',
+      'Registers Club visits and loyalty for authenticated administrators',
+      'Reads Club loyalty ledger for authenticated administrators'
     ].includes(resource.Properties.Description));
 
-    expect(clubFunctions).toHaveLength(2);
+    expect(clubFunctions).toHaveLength(4);
     for (const lambdaFunction of clubFunctions) {
       expect(lambdaFunction.Properties.Environment.Variables).toMatchObject({
         CLUB_TABLE_NAME: { Ref: clubTableLogicalId },

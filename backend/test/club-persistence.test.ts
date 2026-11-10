@@ -10,7 +10,8 @@ import {
   DynamoClubPersistence,
   MAX_LEDGER_ENTRIES_PER_VISIT,
   clubClientToDynamoItem,
-  loyaltyBalanceToDynamoItem
+  loyaltyBalanceToDynamoItem,
+  loyaltyLedgerEntryToDynamoItem
 } from '../src/club/club-persistence';
 
 const now = '2026-11-09T13:00:00.000Z';
@@ -78,6 +79,7 @@ describe('DynamoClubPersistence', () => {
     expect(await persistence.getClient('studio-a', 'client-id')).toBeUndefined();
     expect(await persistence.getBalance('studio-a', 'client-id')).toBeUndefined();
     expect(await persistence.getVisit('studio-a', 'client-id', 'visit-id')).toBeUndefined();
+    expect(await persistence.getLedgerEntry('studio-a', 'client-id', now, 'entry-id')).toBeUndefined();
     const commands = send.mock.calls.map((call) => call[0]);
     commands.forEach((command) => {
       expect(command).toBeInstanceOf(GetItemCommand);
@@ -86,8 +88,62 @@ describe('DynamoClubPersistence', () => {
     expect(commands.map((command) => command.input.Key)).toEqual([
       { pk: { S: 'STUDIO#studio-a' }, sk: { S: 'CLIENT#client-id' } },
       { pk: { S: 'STUDIO#studio-a#CLIENT#client-id' }, sk: { S: 'BALANCE' } },
-      { pk: { S: 'STUDIO#studio-a#CLIENT#client-id' }, sk: { S: 'VISIT#visit-id' } }
+      { pk: { S: 'STUDIO#studio-a#CLIENT#client-id' }, sk: { S: 'VISIT#visit-id' } },
+      { pk: { S: 'STUDIO#studio-a#CLIENT#client-id' }, sk: { S: `LEDGER#${now}#entry-id` } }
     ]);
+  });
+
+  it('lists ledger entries newest-first with a bounded Query on the exact aggregate', async () => {
+    const continuationKey = {
+      pk: { S: 'STUDIO#studio-a#CLIENT#client-id' },
+      sk: { S: `LEDGER#${now}#entry-id` }
+    };
+    send.mockResolvedValue({
+      Items: [loyaltyLedgerEntryToDynamoItem(entry())],
+      LastEvaluatedKey: continuationKey
+    });
+    const page = await persistence.listLedgerEntries('studio-a', 'client-id', 25, continuationKey);
+    const command = send.mock.calls[0][0];
+    expect(command).toBeInstanceOf(QueryCommand);
+    expect(command.input).toEqual({
+      TableName: 'club-table',
+      KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :ledgerPrefix)',
+      ExpressionAttributeNames: { '#pk': 'pk', '#sk': 'sk' },
+      ExpressionAttributeValues: {
+        ':pk': { S: 'STUDIO#studio-a#CLIENT#client-id' },
+        ':ledgerPrefix': { S: 'LEDGER#' }
+      },
+      Limit: 25,
+      ScanIndexForward: false,
+      ExclusiveStartKey: continuationKey
+    });
+    expect(page).toEqual({ items: [entry()], lastEvaluatedKey: continuationKey });
+    expect(command.constructor.name).not.toBe('ScanCommand');
+  });
+
+  it.each([0, 101, -1, 1.5])('rejects an unsafe ledger Query limit %s', async (limit) => {
+    await expect(persistence.listLedgerEntries('studio-a', 'client-id', limit)).rejects.toThrow();
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it('rejects cross-client and malformed returned ledger continuation keys', async () => {
+    await expect(persistence.listLedgerEntries('studio-a', 'client-id', 10, {
+      pk: { S: 'STUDIO#studio-a#CLIENT#other' }, sk: { S: `LEDGER#${now}#entry-id` }
+    })).rejects.toThrow();
+    expect(send).not.toHaveBeenCalled();
+    send.mockResolvedValue({ LastEvaluatedKey: {
+      pk: { S: 'STUDIO#studio-a#CLIENT#client-id' }, sk: { S: 'VISIT#bad' }
+    }});
+    await expect(persistence.listLedgerEntries('studio-a', 'client-id', 10)).rejects.toThrow();
+  });
+
+  it('fails safely for a malformed persisted ledger entry', async () => {
+    send.mockResolvedValue({ Items: [{
+      ...loyaltyLedgerEntryToDynamoItem(entry()), stampDelta: { N: '1.5' }
+    }] });
+    await expect(persistence.listLedgerEntries('studio-a', 'client-id', 10)).rejects.toThrow(
+      'Invalid Club persisted field: stampDelta'
+    );
   });
 
   it('lists clients with one bounded Query on the exact studio directory partition', async () => {

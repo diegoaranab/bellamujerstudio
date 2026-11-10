@@ -247,6 +247,53 @@ export class BellaMujerApiStack extends cdk.Stack {
 
     clubTable.grant(adminClubClientsFunction, 'dynamodb:GetItem', 'dynamodb:Query');
 
+    const adminClubVisitCreateFunction = new nodejs.NodejsFunction(
+      this,
+      'AdminClubVisitCreateFunction',
+      {
+        ...sharedLambdaProps,
+        entry: 'src/handlers/admin-club-visit-create.ts',
+        handler: 'handler',
+        description: 'Registers Club visits and loyalty for authenticated administrators',
+        logGroup: new logs.LogGroup(this, 'AdminClubVisitCreateFunctionLogGroup', {
+          logGroupName: `/aws/lambda/${cdk.Stack.of(this).stackName}-admin-club-visit-create`,
+          retention: logs.RetentionDays.TWO_WEEKS,
+          removalPolicy: cdk.RemovalPolicy.DESTROY
+        }),
+        environment: clubLambdaEnvironment
+      }
+    );
+
+    clubTable.grant(adminClubVisitCreateFunction, 'dynamodb:GetItem');
+    adminClubVisitCreateFunction.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['dynamodb:PutItem', 'dynamodb:UpdateItem'],
+      resources: [clubTable.tableArn],
+      conditions: {
+        'ForAnyValue:StringEquals': {
+          'dynamodb:EnclosingOperation': ['TransactWriteItems']
+        }
+      }
+    }));
+
+    const adminClubLedgerFunction = new nodejs.NodejsFunction(
+      this,
+      'AdminClubLedgerFunction',
+      {
+        ...sharedLambdaProps,
+        entry: 'src/handlers/admin-club-ledger.ts',
+        handler: 'handler',
+        description: 'Reads Club loyalty ledger for authenticated administrators',
+        logGroup: new logs.LogGroup(this, 'AdminClubLedgerFunctionLogGroup', {
+          logGroupName: `/aws/lambda/${cdk.Stack.of(this).stackName}-admin-club-ledger`,
+          retention: logs.RetentionDays.TWO_WEEKS,
+          removalPolicy: cdk.RemovalPolicy.DESTROY
+        }),
+        environment: clubLambdaEnvironment
+      }
+    );
+
+    clubTable.grant(adminClubLedgerFunction, 'dynamodb:GetItem', 'dynamodb:Query');
+
     const api = new apigwv2.HttpApi(this, 'BellaMujerHttpApi', {
       apiName: 'bella-mujer-api',
       corsPreflight: {
@@ -345,6 +392,28 @@ export class BellaMujerApiStack extends cdk.Stack {
       integration: new integrations.HttpLambdaIntegration(
         'AdminClubClientDetailIntegration',
         adminClubClientsFunction
+      ),
+      authorizer: adminAuthorizer,
+      authorizationScopes: ['openid']
+    });
+
+    api.addRoutes({
+      path: '/admin/club/clients/{id}/visits',
+      methods: [apigwv2.HttpMethod.POST],
+      integration: new integrations.HttpLambdaIntegration(
+        'AdminClubVisitCreateIntegration',
+        adminClubVisitCreateFunction
+      ),
+      authorizer: adminAuthorizer,
+      authorizationScopes: ['openid']
+    });
+
+    api.addRoutes({
+      path: '/admin/club/clients/{id}/ledger',
+      methods: [apigwv2.HttpMethod.GET],
+      integration: new integrations.HttpLambdaIntegration(
+        'AdminClubLedgerIntegration',
+        adminClubLedgerFunction
       ),
       authorizer: adminAuthorizer,
       authorizationScopes: ['openid']

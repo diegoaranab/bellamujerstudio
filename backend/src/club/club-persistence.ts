@@ -7,6 +7,7 @@ import {
 } from '@aws-sdk/client-dynamodb';
 import {
   balanceKey,
+  clientAggregatePartitionKey,
   clientProfileKey,
   ledgerKey,
   visitKey
@@ -35,6 +36,13 @@ export type ClubClientContinuationKey = {
 export interface ClubClientListPage {
   items: ClubClient[];
   lastEvaluatedKey?: ClubClientContinuationKey;
+}
+
+export type ClubLedgerContinuationKey = ClubClientContinuationKey;
+
+export interface ClubLedgerListPage {
+  items: LoyaltyLedgerEntry[];
+  lastEvaluatedKey?: ClubLedgerContinuationKey;
 }
 
 export const MAX_LEDGER_ENTRIES_PER_VISIT = 8;
@@ -297,6 +305,63 @@ export class DynamoClubPersistence {
 
   async getVisit(studioId: string, clientId: string, visitId: string): Promise<ClubVisit | undefined> {
     return this.get(visitKey(studioId, clientId, visitId), clubVisitFromDynamoItem);
+  }
+
+  async getLedgerEntry(
+    studioId: string,
+    clientId: string,
+    occurredAtISO: string,
+    entryId: string
+  ): Promise<LoyaltyLedgerEntry | undefined> {
+    return this.get(
+      ledgerKey(studioId, clientId, occurredAtISO, entryId),
+      loyaltyLedgerEntryFromDynamoItem
+    );
+  }
+
+  async listLedgerEntries(
+    studioId: string,
+    clientId: string,
+    limit: number,
+    exclusiveStartKey?: ClubLedgerContinuationKey
+  ): Promise<ClubLedgerListPage> {
+    const partitionKey = clientAggregatePartitionKey(studioId, clientId);
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) {
+      throw new Error('Invalid Club ledger list limit');
+    }
+    if (exclusiveStartKey) {
+      const pk = exclusiveStartKey.pk?.S;
+      const sk = exclusiveStartKey.sk?.S;
+      if (
+        Object.keys(exclusiveStartKey).length !== 2 ||
+        !exclusiveStartKey.pk || Object.keys(exclusiveStartKey.pk).length !== 1 ||
+        !exclusiveStartKey.sk || Object.keys(exclusiveStartKey.sk).length !== 1 ||
+        pk !== partitionKey || typeof sk !== 'string' ||
+        !sk.startsWith('LEDGER#') || sk.length === 'LEDGER#'.length ||
+        Buffer.byteLength(sk, 'utf8') > 1024
+      ) throw new Error('Invalid Club ledger continuation key');
+    }
+
+    const result = await this.client.send(new QueryCommand({
+      TableName: this.tableName,
+      KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :ledgerPrefix)',
+      ExpressionAttributeNames: { '#pk': 'pk', '#sk': 'sk' },
+      ExpressionAttributeValues: { ':pk': s(partitionKey), ':ledgerPrefix': s('LEDGER#') },
+      Limit: limit,
+      ScanIndexForward: false,
+      ...(exclusiveStartKey ? { ExclusiveStartKey: exclusiveStartKey } : {})
+    }));
+    const items = (result.Items ?? []).map(loyaltyLedgerEntryFromDynamoItem);
+    const lastEvaluatedKey = result.LastEvaluatedKey;
+    if (!lastEvaluatedKey) return { items };
+    const pk = lastEvaluatedKey.pk?.S;
+    const sk = lastEvaluatedKey.sk?.S;
+    if (
+      Object.keys(lastEvaluatedKey).length !== 2 || pk !== partitionKey ||
+      typeof sk !== 'string' || !sk.startsWith('LEDGER#') || sk.length === 'LEDGER#'.length ||
+      Buffer.byteLength(sk, 'utf8') > 1024
+    ) throw new Error('DynamoDB returned an invalid Club ledger continuation key');
+    return { items, lastEvaluatedKey: { pk: { S: partitionKey }, sk: { S: sk } } };
   }
 
   private async get<T>(

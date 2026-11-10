@@ -87,6 +87,8 @@ describe('Club domain validation and Dynamo mapping', () => {
 
   it('accepts canonical non-UUID service IDs and rejects fractional money', () => {
     expect(validateClubVisit(visit)).toBe(visit);
+    expect(validateClubVisit({ ...visit, serviceIds: ['💅'.repeat(128)] })).toBeDefined();
+    expect(() => validateClubVisit({ ...visit, serviceIds: ['💅'.repeat(129)] })).toThrow();
     expect(() => validateClubVisit({ ...visit, amountMXN: 800.5 })).toThrow();
     expect(() => validateClubVisit({ ...visit, eligibleAmountMXN: 800.5 })).toThrow();
   });

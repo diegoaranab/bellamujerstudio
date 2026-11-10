@@ -6,7 +6,7 @@ export const validateKeySegment = (name: string, value: string): string => {
   if (
     typeof value !== 'string' ||
     value.length === 0 ||
-    value.length > MAX_KEY_SEGMENT_LENGTH ||
+    Array.from(value).length > MAX_KEY_SEGMENT_LENGTH ||
     value.trim() !== value ||
     value.includes('#') ||
     CONTROL_CHARACTER.test(value)
