@@ -1,4 +1,8 @@
-import { DynamoDBClient, GetItemCommand } from '@aws-sdk/client-dynamodb';
+import {
+  DynamoDBClient,
+  GetItemCommand,
+  TransactWriteItemsCommand
+} from '@aws-sdk/client-dynamodb';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemberAccessState, PinVerifierMetadata } from '../src/club-access/club-access-model';
 import {
@@ -16,6 +20,8 @@ import {
 
 const DIGEST_A = 'a'.repeat(64);
 const DIGEST_B = 'b'.repeat(64);
+const DIGEST_C = 'c'.repeat(64);
+const DIGEST_D = 'd'.repeat(64);
 const CREATED_AT = '2026-11-10T12:00:00.000Z';
 const UPDATED_AT = '2026-11-10T12:05:00.000Z';
 
@@ -232,10 +238,161 @@ describe('DynamoClubAccessPersistence', () => {
     const prototypeMethods = Object.getOwnPropertyNames(DynamoClubAccessPersistence.prototype);
     expect(prototypeMethods.sort()).toEqual([
       'constructor',
+      'createInitialInvitation',
+      'fullResetAccess',
       'getHandleLookup',
       'getInvitation',
       'getMemberAccess',
-      'getSession'
+      'getSession',
+      'rotatePreEnrollmentInvitation'
     ].sort());
+  });
+
+  it('creates initial access, handle, and invitation with three conditional atomic puts', async () => {
+    send.mockResolvedValueOnce({});
+    const initialState: MemberAccessState = {
+      studioId: 'bella-mujer', clientId: 'client-01', handleDigest: DIGEST_C,
+      accessStatus: 'invited', credentialVersion: 0, invitationGeneration: 1,
+      failedPinAttempts: 0, createdAtISO: CREATED_AT, updatedAtISO: CREATED_AT
+    };
+    const initialLookup = {
+      handleDigest: DIGEST_C, studioId: 'bella-mujer', clientId: 'client-01',
+      accessStatus: 'invited' as const, credentialVersion: 0,
+      createdAtISO: CREATED_AT, updatedAtISO: CREATED_AT
+    };
+    const initialInvitation = {
+      invitationDigest: DIGEST_D, studioId: 'bella-mujer', clientId: 'client-01',
+      handleDigest: DIGEST_C, generation: 1, createdAtISO: CREATED_AT,
+      expiresAtISO: '2026-11-17T12:00:00.000Z', expiresAtEpoch: 1794916800,
+      consumed: false
+    };
+
+    await persistence.createInitialInvitation(initialState, initialLookup, initialInvitation);
+
+    const command = send.mock.calls[0][0];
+    expect(command).toBeInstanceOf(TransactWriteItemsCommand);
+    expect(command.input.TransactItems).toHaveLength(3);
+    for (const item of command.input.TransactItems ?? []) {
+      expect(item.Put?.ConditionExpression).toBe(
+        'attribute_not_exists(#pk) AND attribute_not_exists(#sk)'
+      );
+    }
+    const serialized = JSON.stringify(command.input);
+    expect(serialized).not.toMatch(/accessHandle|invitationToken|rawSecret|rawToken/);
+  });
+
+  it('rotates pre-enrollment access with exact-state protection and atomic handle invalidation', async () => {
+    send.mockResolvedValueOnce({});
+    const expected: MemberAccessState = {
+      studioId: 'bella-mujer', clientId: 'client-01', handleDigest: DIGEST_A,
+      accessStatus: 'invited', credentialVersion: 4, invitationGeneration: 8,
+      failedPinAttempts: 0, createdAtISO: CREATED_AT, updatedAtISO: UPDATED_AT
+    };
+    const next: MemberAccessState = {
+      ...expected, handleDigest: DIGEST_C, invitationGeneration: 9, updatedAtISO: CREATED_AT
+    };
+    const nextLookup = {
+      handleDigest: DIGEST_C, studioId: 'bella-mujer', clientId: 'client-01',
+      accessStatus: 'invited' as const, credentialVersion: 4,
+      createdAtISO: CREATED_AT, updatedAtISO: CREATED_AT
+    };
+    const nextInvitation = {
+      invitationDigest: DIGEST_D, studioId: 'bella-mujer', clientId: 'client-01',
+      handleDigest: DIGEST_C, generation: 9, createdAtISO: CREATED_AT,
+      expiresAtISO: '2026-11-17T12:00:00.000Z', expiresAtEpoch: 1794916800,
+      consumed: false
+    };
+
+    await persistence.rotatePreEnrollmentInvitation(
+      expected, next, nextLookup, nextInvitation
+    );
+
+    const items = send.mock.calls[0][0].input.TransactItems ?? [];
+    expect(items).toHaveLength(4);
+    expect(items[0].Put?.ConditionExpression).toContain('#accessStatus = :accessStatus');
+    expect(items[0].Put?.ConditionExpression).toContain('#handleDigest = :handleDigest');
+    expect(items[0].Put?.ConditionExpression).toContain('#credentialVersion = :credentialVersion');
+    expect(items[0].Put?.ConditionExpression).toContain(
+      '#invitationGeneration = :invitationGeneration'
+    );
+    expect(items[0].Put?.ConditionExpression).toContain('attribute_not_exists(#pinAlgorithm)');
+    expect(items[0].Put?.ExpressionAttributeValues).toMatchObject({
+      ':accessStatus': { S: 'invited' }, ':handleDigest': { S: DIGEST_A },
+      ':credentialVersion': { N: '4' }, ':invitationGeneration': { N: '8' }
+    });
+    expect(items[1].Delete?.Key).toEqual({
+      pk: { S: `HANDLE#${DIGEST_A}` }, sk: { S: 'HANDLE' }
+    });
+    expect(items[1].Delete?.ConditionExpression).toContain('#clientId = :clientId');
+    expect(items[1].Delete?.ConditionExpression).toContain('#handleDigest = :handleDigest');
+    expect(items[1].Delete?.ConditionExpression).toContain('#credentialVersion = :credentialVersion');
+    expect(items[2].Put?.ConditionExpression).toContain('attribute_not_exists');
+    expect(items[3].Put?.ConditionExpression).toContain('attribute_not_exists');
+    expect(JSON.stringify(items)).not.toMatch(/Scan|Query/);
+  });
+
+  it('fully resets established access with incremented versions and no stale PIN fields', async () => {
+    send.mockResolvedValueOnce({});
+    const next: MemberAccessState = {
+      studioId: state.studioId, clientId: state.clientId, handleDigest: DIGEST_C,
+      accessStatus: 'invited', credentialVersion: 3, invitationGeneration: 4,
+      failedPinAttempts: 0, createdAtISO: state.createdAtISO, updatedAtISO: CREATED_AT
+    };
+    const nextLookup = {
+      handleDigest: DIGEST_C, studioId: state.studioId, clientId: state.clientId,
+      accessStatus: 'invited' as const, credentialVersion: 3,
+      createdAtISO: CREATED_AT, updatedAtISO: CREATED_AT
+    };
+    const nextInvitation = {
+      invitationDigest: DIGEST_D, studioId: state.studioId, clientId: state.clientId,
+      handleDigest: DIGEST_C, generation: 4, createdAtISO: CREATED_AT,
+      expiresAtISO: '2026-11-17T12:00:00.000Z', expiresAtEpoch: 1794916800,
+      consumed: false
+    };
+
+    await persistence.fullResetAccess(state, next, nextLookup, nextInvitation);
+
+    const items = send.mock.calls[0][0].input.TransactItems ?? [];
+    expect(items).toHaveLength(4);
+    expect(items[0].Put?.ExpressionAttributeValues).toMatchObject({
+      ':accessStatus': { S: 'active' }, ':handleDigest': { S: DIGEST_A },
+      ':credentialVersion': { N: '2' }, ':invitationGeneration': { N: '3' }
+    });
+    expect(items[0].Put?.Item).toMatchObject({
+      credentialVersion: { N: '3' }, invitationGeneration: { N: '4' },
+      failedPinAttempts: { N: '0' }, handleDigest: { S: DIGEST_C }
+    });
+    expect(items[0].Put?.Item?.pinVerifierBase64Url).toBeUndefined();
+    expect(items[0].Put?.Item?.pinSaltBase64Url).toBeUndefined();
+    expect(items[0].Put?.Item?.nextAllowedAtISO).toBeUndefined();
+    expect(items[1].Delete?.Key).toEqual({
+      pk: { S: `HANDLE#${DIGEST_A}` }, sk: { S: 'HANDLE' }
+    });
+    expect(items[2].Put?.ConditionExpression).toContain('attribute_not_exists');
+    expect(items[3].Put?.ConditionExpression).toContain('attribute_not_exists');
+  });
+
+  it('rejects malformed lifecycle transitions before sending a transaction', async () => {
+    const invited: MemberAccessState = {
+      studioId: 'bella-mujer', clientId: 'client-01', handleDigest: DIGEST_A,
+      accessStatus: 'invited', credentialVersion: 0, invitationGeneration: 1,
+      failedPinAttempts: 0, createdAtISO: CREATED_AT, updatedAtISO: CREATED_AT
+    };
+    await expect(persistence.fullResetAccess(
+      invited,
+      { ...invited, handleDigest: DIGEST_C, invitationGeneration: 2 },
+      {
+        handleDigest: DIGEST_C, studioId: invited.studioId, clientId: invited.clientId,
+        accessStatus: 'invited', credentialVersion: 0,
+        createdAtISO: CREATED_AT, updatedAtISO: CREATED_AT
+      },
+      {
+        invitationDigest: DIGEST_D, studioId: invited.studioId, clientId: invited.clientId,
+        handleDigest: DIGEST_C, generation: 2, createdAtISO: CREATED_AT,
+        expiresAtISO: '2026-11-17T12:00:00.000Z', expiresAtEpoch: 1794916800,
+        consumed: false
+      }
+    )).rejects.toThrow(/reset transition/);
+    expect(send).not.toHaveBeenCalled();
   });
 });

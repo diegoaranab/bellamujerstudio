@@ -1,4 +1,9 @@
-import { AttributeValue, DynamoDBClient, GetItemCommand } from '@aws-sdk/client-dynamodb';
+import {
+  AttributeValue,
+  DynamoDBClient,
+  GetItemCommand,
+  TransactWriteItemsCommand
+} from '@aws-sdk/client-dynamodb';
 import {
   handleLookupKey,
   invitationKey,
@@ -24,6 +29,10 @@ import {
 
 export type ClubAccessDynamoItem = Record<string, AttributeValue>;
 type AccessEntityType = 'MEMBER_ACCESS' | 'HANDLE' | 'INVITE' | 'SESSION';
+
+const CREATE_CONDITION = 'attribute_not_exists(#pk) AND attribute_not_exists(#sk)';
+const CREATE_NAMES = { '#pk': 'pk', '#sk': 'sk' };
+const INVITATION_VALIDITY_MS = 7 * 24 * 60 * 60 * 1000;
 
 const s = (value: string): AttributeValue => ({ S: value });
 const n = (value: number): AttributeValue => ({ N: String(value) });
@@ -303,6 +312,136 @@ export const accessSessionFromDynamoItem = (item: ClubAccessDynamoItem): AccessS
   return session;
 };
 
+const validateInvitationAggregate = (
+  state: MemberAccessState,
+  lookup: HandleLookup,
+  invitation: AccessInvitation
+): void => {
+  validateMemberAccessState(state);
+  validateHandleLookup(lookup);
+  validateAccessInvitation(invitation);
+  const invitationCreatedAt = new Date(invitation.createdAtISO).getTime();
+  const invitationExpiresAt = new Date(invitation.expiresAtISO).getTime();
+  if (
+    state.studioId !== lookup.studioId || state.studioId !== invitation.studioId ||
+    state.clientId !== lookup.clientId || state.clientId !== invitation.clientId ||
+    state.handleDigest !== lookup.handleDigest || state.handleDigest !== invitation.handleDigest ||
+    state.accessStatus !== lookup.accessStatus ||
+    state.credentialVersion !== lookup.credentialVersion ||
+    state.invitationGeneration !== invitation.generation ||
+    state.accessStatus !== 'invited' || state.pinVerifier !== undefined ||
+    state.nextAllowedAtISO !== undefined || state.failedPinAttempts !== 0 ||
+    invitation.consumed || invitation.consumedAtISO !== undefined ||
+    state.updatedAtISO !== invitation.createdAtISO ||
+    lookup.createdAtISO !== invitation.createdAtISO ||
+    lookup.updatedAtISO !== invitation.createdAtISO ||
+    invitationExpiresAt - invitationCreatedAt !== INVITATION_VALIDITY_MS ||
+    Math.floor(invitationExpiresAt / 1000) !== invitation.expiresAtEpoch
+  ) {
+    throw new Error('Invalid Club access invitation aggregate');
+  }
+};
+
+const validateExpectedTransition = (
+  expected: MemberAccessState,
+  next: MemberAccessState,
+  lookup: HandleLookup,
+  invitation: AccessInvitation,
+  transition: 'regeneration' | 'reset'
+): void => {
+  validateMemberAccessState(expected);
+  validateInvitationAggregate(next, lookup, invitation);
+  const expectedGeneration = expected.invitationGeneration + 1;
+  const expectedCredentialVersion = transition === 'reset'
+    ? expected.credentialVersion + 1
+    : expected.credentialVersion;
+  if (
+    !Number.isSafeInteger(expectedGeneration) ||
+    !Number.isSafeInteger(expectedCredentialVersion) ||
+    expected.studioId !== next.studioId || expected.clientId !== next.clientId ||
+    expected.handleDigest === next.handleDigest ||
+    next.createdAtISO !== expected.createdAtISO ||
+    next.invitationGeneration !== expectedGeneration ||
+    next.credentialVersion !== expectedCredentialVersion ||
+    (transition === 'regeneration' &&
+      (expected.accessStatus !== 'invited' || expected.pinVerifier !== undefined ||
+        expected.failedPinAttempts !== 0 || expected.nextAllowedAtISO !== undefined)) ||
+    (transition === 'reset' &&
+      expected.accessStatus !== 'active' && expected.accessStatus !== 'disabled')
+  ) {
+    throw new Error(`Invalid Club access ${transition} transition`);
+  }
+};
+
+const expectedStateCondition = (expected: MemberAccessState, requireNoPin: boolean) => ({
+  ConditionExpression: [
+    '#entityType = :memberType',
+    '#studioId = :studioId',
+    '#clientId = :clientId',
+    '#accessStatus = :accessStatus',
+    '#handleDigest = :handleDigest',
+    '#credentialVersion = :credentialVersion',
+    '#invitationGeneration = :invitationGeneration',
+    '#failedPinAttempts = :failedPinAttempts',
+    '#createdAtISO = :createdAtISO',
+    '#updatedAtISO = :updatedAtISO',
+    ...(expected.nextAllowedAtISO === undefined
+      ? ['attribute_not_exists(#nextAllowedAtISO)']
+      : ['#nextAllowedAtISO = :nextAllowedAtISO']),
+    ...(requireNoPin || expected.pinVerifier === undefined
+      ? ['attribute_not_exists(#pinAlgorithm)']
+      : ['#pinVerifierBase64Url = :pinVerifierBase64Url'])
+  ].join(' AND '),
+  ExpressionAttributeNames: {
+    '#entityType': 'entityType', '#studioId': 'studioId', '#clientId': 'clientId',
+    '#accessStatus': 'accessStatus', '#handleDigest': 'handleDigest',
+    '#credentialVersion': 'credentialVersion', '#invitationGeneration': 'invitationGeneration',
+    '#failedPinAttempts': 'failedPinAttempts', '#createdAtISO': 'createdAtISO',
+    '#updatedAtISO': 'updatedAtISO',
+    '#nextAllowedAtISO': 'nextAllowedAtISO',
+    ...(requireNoPin || expected.pinVerifier === undefined
+      ? { '#pinAlgorithm': 'pinAlgorithm' }
+      : { '#pinVerifierBase64Url': 'pinVerifierBase64Url' })
+  },
+  ExpressionAttributeValues: {
+    ':memberType': s('MEMBER_ACCESS'), ':studioId': s(expected.studioId),
+    ':clientId': s(expected.clientId), ':accessStatus': s(expected.accessStatus),
+    ':handleDigest': s(expected.handleDigest),
+    ':credentialVersion': n(expected.credentialVersion),
+    ':invitationGeneration': n(expected.invitationGeneration),
+    ':failedPinAttempts': n(expected.failedPinAttempts),
+    ':createdAtISO': s(expected.createdAtISO), ':updatedAtISO': s(expected.updatedAtISO),
+    ...(expected.nextAllowedAtISO === undefined
+      ? {}
+      : { ':nextAllowedAtISO': s(expected.nextAllowedAtISO) }),
+    ...(requireNoPin || expected.pinVerifier === undefined
+      ? {}
+      : { ':pinVerifierBase64Url': s(expected.pinVerifier.verifierBase64Url) })
+  }
+});
+
+const expectedHandleCondition = (expected: MemberAccessState) => ({
+  ConditionExpression: [
+    '#entityType = :handleType',
+    '#studioId = :studioId',
+    '#clientId = :clientId',
+    '#accessStatus = :accessStatus',
+    '#handleDigest = :handleDigest',
+    '#credentialVersion = :credentialVersion'
+  ].join(' AND '),
+  ExpressionAttributeNames: {
+    '#entityType': 'entityType', '#studioId': 'studioId', '#clientId': 'clientId',
+    '#accessStatus': 'accessStatus', '#handleDigest': 'handleDigest',
+    '#credentialVersion': 'credentialVersion'
+  },
+  ExpressionAttributeValues: {
+    ':handleType': s('HANDLE'), ':studioId': s(expected.studioId),
+    ':clientId': s(expected.clientId), ':accessStatus': s(expected.accessStatus),
+    ':handleDigest': s(expected.handleDigest),
+    ':credentialVersion': n(expected.credentialVersion)
+  }
+});
+
 export class DynamoClubAccessPersistence {
   constructor(
     private readonly client: DynamoDBClient,
@@ -333,6 +472,91 @@ export class DynamoClubAccessPersistence {
       sessionKey(validateSecretDigest('sessionDigest', sessionDigest)),
       accessSessionFromDynamoItem
     );
+  }
+
+  async createInitialInvitation(
+    state: MemberAccessState,
+    lookup: HandleLookup,
+    invitation: AccessInvitation
+  ): Promise<void> {
+    validateInvitationAggregate(state, lookup, invitation);
+    if (state.credentialVersion !== 0 || state.invitationGeneration !== 1) {
+      throw new Error('Invalid initial Club access invitation');
+    }
+    await this.client.send(new TransactWriteItemsCommand({ TransactItems: [
+      { Put: {
+        TableName: this.tableName, Item: memberAccessStateToDynamoItem(state),
+        ConditionExpression: CREATE_CONDITION, ExpressionAttributeNames: CREATE_NAMES
+      } },
+      { Put: {
+        TableName: this.tableName, Item: handleLookupToDynamoItem(lookup),
+        ConditionExpression: CREATE_CONDITION, ExpressionAttributeNames: CREATE_NAMES
+      } },
+      { Put: {
+        TableName: this.tableName, Item: accessInvitationToDynamoItem(invitation),
+        ConditionExpression: CREATE_CONDITION, ExpressionAttributeNames: CREATE_NAMES
+      } }
+    ] }));
+  }
+
+  async rotatePreEnrollmentInvitation(
+    expected: MemberAccessState,
+    next: MemberAccessState,
+    lookup: HandleLookup,
+    invitation: AccessInvitation
+  ): Promise<void> {
+    validateExpectedTransition(expected, next, lookup, invitation, 'regeneration');
+    const stateCondition = expectedStateCondition(expected, true);
+    const oldHandleKey = handleLookupKey(expected.handleDigest);
+    await this.client.send(new TransactWriteItemsCommand({ TransactItems: [
+      { Put: {
+        TableName: this.tableName, Item: memberAccessStateToDynamoItem(next),
+        ...stateCondition
+      } },
+      { Delete: {
+        TableName: this.tableName,
+        Key: { pk: s(oldHandleKey.pk), sk: s(oldHandleKey.sk) },
+        ...expectedHandleCondition(expected)
+      } },
+      { Put: {
+        TableName: this.tableName, Item: handleLookupToDynamoItem(lookup),
+        ConditionExpression: CREATE_CONDITION, ExpressionAttributeNames: CREATE_NAMES
+      } },
+      { Put: {
+        TableName: this.tableName, Item: accessInvitationToDynamoItem(invitation),
+        ConditionExpression: CREATE_CONDITION, ExpressionAttributeNames: CREATE_NAMES
+      } }
+    ] }));
+  }
+
+  async fullResetAccess(
+    expected: MemberAccessState,
+    next: MemberAccessState,
+    lookup: HandleLookup,
+    invitation: AccessInvitation
+  ): Promise<void> {
+    validateExpectedTransition(expected, next, lookup, invitation, 'reset');
+    const stateCondition = expectedStateCondition(expected, false);
+    const oldHandleKey = handleLookupKey(expected.handleDigest);
+    await this.client.send(new TransactWriteItemsCommand({ TransactItems: [
+      { Put: {
+        TableName: this.tableName, Item: memberAccessStateToDynamoItem(next),
+        ...stateCondition
+      } },
+      { Delete: {
+        TableName: this.tableName,
+        Key: { pk: s(oldHandleKey.pk), sk: s(oldHandleKey.sk) },
+        ...expectedHandleCondition(expected)
+      } },
+      { Put: {
+        TableName: this.tableName, Item: handleLookupToDynamoItem(lookup),
+        ConditionExpression: CREATE_CONDITION, ExpressionAttributeNames: CREATE_NAMES
+      } },
+      { Put: {
+        TableName: this.tableName, Item: accessInvitationToDynamoItem(invitation),
+        ConditionExpression: CREATE_CONDITION, ExpressionAttributeNames: CREATE_NAMES
+      } }
+    ] }));
   }
 
   async #get<T>(

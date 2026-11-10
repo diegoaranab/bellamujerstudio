@@ -72,22 +72,93 @@ describe('Club infrastructure', () => {
     expect(tables[giftCardsLogicalId].Properties.TimeToLiveSpecification).toBeUndefined();
   });
 
-  it('leaves routes, Lambdas, IAM, and Secrets Manager outside this slice', () => {
+  it('adds one isolated administrator access Lambda and three Cognito-protected routes', () => {
     const accessLogicalId = template.findOutputs('ClubAccessTableName')
       .ClubAccessTableName.Value.Ref as string;
+    const clubLogicalId = template.findOutputs('ClubTableName')
+      .ClubTableName.Value.Ref as string;
     const functions = Object.values(template.findResources('AWS::Lambda::Function'));
     const policies = Object.values(template.findResources('AWS::IAM::Policy'));
     const routes = Object.values(template.findResources('AWS::ApiGatewayV2::Route'));
+    const [[authorizerLogicalId]] = Object.entries(
+      template.findResources('AWS::ApiGatewayV2::Authorizer')
+    );
 
-    expect(functions).toHaveLength(8);
-    expect(routes).toHaveLength(10);
+    expect(functions).toHaveLength(9);
+    expect(routes).toHaveLength(13);
     expect(template.findResources('AWS::SecretsManager::Secret')).toEqual({});
-    for (const lambdaFunction of functions) {
+    const accessFunctions = functions.filter((lambdaFunction) =>
+      lambdaFunction.Properties.Description ===
+        'Manages Club member access for authenticated administrators'
+    );
+    expect(accessFunctions).toHaveLength(1);
+    expect(accessFunctions[0].Properties.Environment.Variables).toMatchObject({
+      CLUB_ACCESS_TABLE_NAME: { Ref: accessLogicalId },
+      CLUB_TABLE_NAME: { Ref: clubLogicalId },
+      CLUB_STUDIO_ID: 'bella-mujer'
+    });
+    for (const lambdaFunction of functions.filter((value) => !accessFunctions.includes(value))) {
       expect(lambdaFunction.Properties.Environment.Variables.CLUB_ACCESS_TABLE_NAME).toBeUndefined();
-      expect(lambdaFunction.Properties.Description.toLowerCase()).not.toContain('member');
     }
-    expect(JSON.stringify(policies)).not.toContain(accessLogicalId);
-    expect(routes.some((route) => route.Properties.RouteKey.includes('/club/access'))).toBe(false);
+
+    const routesByKey = Object.fromEntries(
+      routes.map((route) => [route.Properties.RouteKey, route.Properties])
+    );
+    for (const routeKey of [
+      'GET /admin/club/clients/{id}/access',
+      'POST /admin/club/clients/{id}/access/invitation',
+      'POST /admin/club/clients/{id}/access/reset'
+    ]) {
+      expect(routesByKey[routeKey]).toMatchObject({
+        AuthorizationType: 'JWT',
+        AuthorizerId: { Ref: authorizerLogicalId },
+        AuthorizationScopes: ['openid']
+      });
+    }
+    expect(routes.some((route) => /^\w+ \/club\/access/.test(route.Properties.RouteKey))).toBe(false);
+    expect(template.findResources('AWS::Lambda::Permission')).toBeDefined();
+    expect(template.findResources('AWS::ApiGatewayV2::Authorizer')).toHaveProperty(
+      authorizerLogicalId
+    );
+
+    const accessRole = accessFunctions[0].Properties.Role['Fn::GetAtt'][0];
+    const accessStatements = policies.flatMap((policy) =>
+      policy.Properties.Roles.some((role: { Ref?: string }) => role.Ref === accessRole)
+        ? policy.Properties.PolicyDocument.Statement
+        : []
+    ).filter((statement: { Action?: string | string[] }) => {
+      const actions = typeof statement.Action === 'string' ? [statement.Action] : statement.Action ?? [];
+      return actions.some((action) => action.startsWith('dynamodb:'));
+    });
+    expect(accessStatements).toEqual(expect.arrayContaining([
+      {
+        Action: 'dynamodb:GetItem', Effect: 'Allow',
+        Resource: [{ 'Fn::GetAtt': [clubLogicalId, 'Arn'] }]
+      },
+      {
+        Action: 'dynamodb:GetItem', Effect: 'Allow',
+        Resource: [{ 'Fn::GetAtt': [accessLogicalId, 'Arn'] }]
+      },
+      {
+        Action: ['dynamodb:PutItem', 'dynamodb:DeleteItem'],
+        Condition: {
+          'ForAnyValue:StringEquals': {
+            'dynamodb:EnclosingOperation': ['TransactWriteItems']
+          }
+        },
+        Effect: 'Allow', Resource: { 'Fn::GetAtt': [accessLogicalId, 'Arn'] }
+      }
+    ]));
+    const serializedStatements = JSON.stringify(accessStatements);
+    for (const forbidden of [
+      'dynamodb:Scan', 'dynamodb:Query', 'dynamodb:UpdateItem',
+      'dynamodb:BatchWriteItem', 'secretsmanager:'
+    ]) expect(serializedStatements).not.toContain(forbidden);
+    const clubWriteStatement = accessStatements.find((statement) =>
+      JSON.stringify(statement.Resource).includes(clubLogicalId) &&
+      JSON.stringify(statement.Action).includes('PutItem')
+    );
+    expect(clubWriteStatement).toBeUndefined();
   });
 
   it('injects the Club table and server-controlled studio only into Club Lambdas', () => {
@@ -97,10 +168,11 @@ describe('Club infrastructure', () => {
       'Creates Club clients for authenticated administrators',
       'Reads Club clients for authenticated administrators',
       'Registers Club visits and loyalty for authenticated administrators',
-      'Reads Club loyalty ledger for authenticated administrators'
+      'Reads Club loyalty ledger for authenticated administrators',
+      'Manages Club member access for authenticated administrators'
     ].includes(resource.Properties.Description));
 
-    expect(clubFunctions).toHaveLength(4);
+    expect(clubFunctions).toHaveLength(5);
     for (const lambdaFunction of clubFunctions) {
       expect(lambdaFunction.Properties.Environment.Variables).toMatchObject({
         CLUB_TABLE_NAME: { Ref: clubTableLogicalId },
