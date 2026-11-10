@@ -46,5 +46,7 @@ Existing administrative Cognito authentication remains the administrative bounda
 ## Current implementation status
 
 - **Phase 0 — completed.** The product blueprint records the confirmed rules and boundaries.
-- **Phase 1 — preview shell implemented.** `/admin/club` provides a clearly labeled, demonstration-only administrator preview and a small Bella Mujer visual foundation. It does not persist or modify Club data.
-- **Next: Phase 2 — Club persistence/domain infrastructure.** Dedicated DynamoDB persistence, an auditable ledger, and the physical domain design remain the next implementation step.
+- **Phase 1 — preview shell implemented.** `/admin/club` provides the administrator visual foundation that will now be connected to production data.
+- **Phase 2 — completed, deployed, and production-smoke-tested.** Dedicated Club DynamoDB persistence, aggregate keys, materialized Balance, immutable Visit records, and append-style Ledger storage are live.
+- **Phase 3 — completed, deployed, and production-validated.** Protected administrator APIs now support client creation/list/detail, visit registration, server-authoritative loyalty calculation, idempotent replay, and newest-first ledger reads.
+- **Next: Phase 4 — connect the Club admin UI.** Replace demonstration-only state with the protected production APIs so administrators can operate the core Club workflow end to end.
