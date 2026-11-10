@@ -85,16 +85,20 @@ const fingerprint = (studioId: string, clientId: string, request: VisitRequest):
     serviceIds: [...request.serviceIds].sort()
   })).digest('hex');
 
-const transactionCanceled = (error: unknown): boolean =>
+interface TransactionCanceledErrorLike {
+  readonly name: 'TransactionCanceledException';
+  readonly CancellationReasons?: unknown;
+}
+
+const transactionCanceled = (error: unknown): error is TransactionCanceledErrorLike =>
   !!error && typeof error === 'object' &&
-  ('name' in error && error.name === 'TransactionCanceledException');
+  'name' in error && error.name === 'TransactionCanceledException';
 
 const retryableVisitTransactionCancellation = (
   error: unknown,
   expectedTransactionItemCount: number
 ): boolean => {
-  if (!transactionCanceled(error) || !('CancellationReasons' in error) ||
-    !Array.isArray(error.CancellationReasons) ||
+  if (!transactionCanceled(error) || !Array.isArray(error.CancellationReasons) ||
     error.CancellationReasons.length !== expectedTransactionItemCount) return false;
   const codes = error.CancellationReasons.map((reason) =>
     reason && typeof reason === 'object' && 'Code' in reason && typeof reason.Code === 'string'
