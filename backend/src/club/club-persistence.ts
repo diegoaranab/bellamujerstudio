@@ -2,6 +2,7 @@ import {
   AttributeValue,
   DynamoDBClient,
   GetItemCommand,
+  QueryCommand,
   TransactWriteItemsCommand
 } from '@aws-sdk/client-dynamodb';
 import {
@@ -26,6 +27,16 @@ import {
 type DynamoItem = Record<string, AttributeValue>;
 type EntityType = 'CLIENT' | 'BALANCE' | 'VISIT' | 'LEDGER';
 
+export type ClubClientContinuationKey = {
+  pk: { S: string };
+  sk: { S: string };
+};
+
+export interface ClubClientListPage {
+  items: ClubClient[];
+  lastEvaluatedKey?: ClubClientContinuationKey;
+}
+
 export const MAX_LEDGER_ENTRIES_PER_VISIT = 8;
 const CREATE_CONDITION = 'attribute_not_exists(pk) AND attribute_not_exists(sk)';
 
@@ -34,7 +45,7 @@ const n = (value: number): AttributeValue => ({ N: String(value) });
 
 const requiredString = (item: DynamoItem, field: string, maxLength = 1000): string => {
   const value = item[field]?.S;
-  if (typeof value !== 'string' || value.length === 0 || value.length > maxLength) {
+  if (typeof value !== 'string' || value.length === 0 || Array.from(value).length > maxLength) {
     throw new Error(`Invalid Club persisted field: ${field}`);
   }
   return value;
@@ -234,6 +245,50 @@ export class DynamoClubPersistence {
 
   async getClient(studioId: string, clientId: string): Promise<ClubClient | undefined> {
     return this.get(clientProfileKey(studioId, clientId), clubClientFromDynamoItem);
+  }
+
+  async listClients(
+    studioId: string,
+    limit: number,
+    exclusiveStartKey?: ClubClientContinuationKey
+  ): Promise<ClubClientListPage> {
+    const partitionKey = clientProfileKey(studioId, 'placeholder').pk;
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) {
+      throw new Error('Invalid Club client list limit');
+    }
+    if (exclusiveStartKey && (
+      exclusiveStartKey.pk.S !== partitionKey ||
+      !exclusiveStartKey.sk.S.startsWith('CLIENT#') ||
+      exclusiveStartKey.sk.S.length === 'CLIENT#'.length
+    )) {
+      throw new Error('Invalid Club client continuation key');
+    }
+
+    const result = await this.client.send(new QueryCommand({
+      TableName: this.tableName,
+      KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :clientPrefix)',
+      ExpressionAttributeNames: { '#pk': 'pk', '#sk': 'sk' },
+      ExpressionAttributeValues: {
+        ':pk': s(partitionKey),
+        ':clientPrefix': s('CLIENT#')
+      },
+      Limit: limit,
+      ...(exclusiveStartKey ? { ExclusiveStartKey: exclusiveStartKey } : {})
+    }));
+
+    const items = (result.Items ?? []).map(clubClientFromDynamoItem);
+    const lastEvaluatedKey = result.LastEvaluatedKey;
+    if (!lastEvaluatedKey) return { items };
+    const pk = lastEvaluatedKey.pk?.S;
+    const sk = lastEvaluatedKey.sk?.S;
+    if (
+      Object.keys(lastEvaluatedKey).length !== 2 ||
+      typeof pk !== 'string' || pk !== partitionKey ||
+      typeof sk !== 'string' || !sk.startsWith('CLIENT#') || sk.length === 'CLIENT#'.length
+    ) {
+      throw new Error('DynamoDB returned an invalid Club client continuation key');
+    }
+    return { items, lastEvaluatedKey: { pk: { S: pk }, sk: { S: sk } } };
   }
 
   async getBalance(studioId: string, clientId: string): Promise<LoyaltyBalance | undefined> {

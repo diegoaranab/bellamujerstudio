@@ -1,6 +1,6 @@
 # Bella Mujer Club conceptual domain
 
-This document defines product concepts and invariants and records the physical persistence architecture selected in Phase 2. It does not define Phase 3 API contracts.
+This document defines product concepts and invariants and records the physical persistence architecture selected in Phase 2. Phase 2 is deployed successfully in production. The first incremental Phase 3 slice adds protected administrator client creation and reads; visits, loyalty computation, and ledger/history APIs remain a later slice.
 
 ## Domain boundaries
 
@@ -218,6 +218,10 @@ sk = CLIENT#<clientId>
 
 Phase 3 can list a studio's clients with a bounded Query on that partition and `begins_with(sk, 'CLIENT#')`; it must not use Scan. Name and phone lookup remain future access-pattern decisions and do not justify a speculative index.
 
+The initial client-management API uses the server-controlled `CLUB_STUDIO_ID=bella-mujer` configuration for this partition. HTTP clients cannot submit, select, or override `studioId`. This preserves tenant-aware records without introducing multi-tenant authorization or SaaS tenant selection. Client creation atomically writes the profile and an initial zero Balance; list reads return profiles only, while detail reads return both the profile and its existing Balance.
+
+Phone uniqueness and canonical phone search are intentionally not implemented in this slice. The current table has no reviewed phone access pattern or index, and client listing must not Scan for duplicates.
+
 Each client aggregate uses:
 
 ```text
@@ -233,4 +237,4 @@ The timestamp-first ledger key supports deterministic chronological lexical quer
 
 No GSI or LSI is included initially because all confirmed Phase 2 access patterns are supported by the base keys. An index may be introduced later only for a reviewed Phase 3 query pattern.
 
-Phase 2 persistence architecture is implemented in code; production deployment follows the post-merge CDK gate.
+Phase 2 persistence architecture is deployed successfully in production. The protected Phase 3 client APIs are not considered production-deployed until their own post-merge AWS deployment gate succeeds.

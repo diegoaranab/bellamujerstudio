@@ -4,6 +4,7 @@ import { HttpUserPoolAuthorizer } from 'aws-cdk-lib/aws-apigatewayv2-authorizers
 import * as integrations from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as nodejs from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as logs from 'aws-cdk-lib/aws-logs';
@@ -194,6 +195,58 @@ export class BellaMujerApiStack extends cdk.Stack {
 
     giftCardsTable.grant(adminGiftCardUpdateFunction, 'dynamodb:UpdateItem');
 
+    const clubLambdaEnvironment = {
+      ...sharedLambdaProps.environment,
+      CLUB_TABLE_NAME: clubTable.tableName,
+      CLUB_STUDIO_ID: 'bella-mujer'
+    };
+
+    const adminClubClientCreateFunction = new nodejs.NodejsFunction(
+      this,
+      'AdminClubClientCreateFunction',
+      {
+        ...sharedLambdaProps,
+        entry: 'src/handlers/admin-club-client-create.ts',
+        handler: 'handler',
+        description: 'Creates Club clients for authenticated administrators',
+        logGroup: new logs.LogGroup(this, 'AdminClubClientCreateFunctionLogGroup', {
+          logGroupName: `/aws/lambda/${cdk.Stack.of(this).stackName}-admin-club-client-create`,
+          retention: logs.RetentionDays.TWO_WEEKS,
+          removalPolicy: cdk.RemovalPolicy.DESTROY
+        }),
+        environment: clubLambdaEnvironment
+      }
+    );
+
+    adminClubClientCreateFunction.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['dynamodb:PutItem'],
+      resources: [clubTable.tableArn],
+      conditions: {
+        'ForAnyValue:StringEquals': {
+          'dynamodb:EnclosingOperation': ['TransactWriteItems']
+        }
+      }
+    }));
+
+    const adminClubClientsFunction = new nodejs.NodejsFunction(
+      this,
+      'AdminClubClientsFunction',
+      {
+        ...sharedLambdaProps,
+        entry: 'src/handlers/admin-club-clients.ts',
+        handler: 'handler',
+        description: 'Reads Club clients for authenticated administrators',
+        logGroup: new logs.LogGroup(this, 'AdminClubClientsFunctionLogGroup', {
+          logGroupName: `/aws/lambda/${cdk.Stack.of(this).stackName}-admin-club-clients`,
+          retention: logs.RetentionDays.TWO_WEEKS,
+          removalPolicy: cdk.RemovalPolicy.DESTROY
+        }),
+        environment: clubLambdaEnvironment
+      }
+    );
+
+    clubTable.grant(adminClubClientsFunction, 'dynamodb:GetItem', 'dynamodb:Query');
+
     const api = new apigwv2.HttpApi(this, 'BellaMujerHttpApi', {
       apiName: 'bella-mujer-api',
       corsPreflight: {
@@ -259,6 +312,39 @@ export class BellaMujerApiStack extends cdk.Stack {
       integration: new integrations.HttpLambdaIntegration(
         'AdminGiftCardUpdateIntegration',
         adminGiftCardUpdateFunction
+      ),
+      authorizer: adminAuthorizer,
+      authorizationScopes: ['openid']
+    });
+
+    api.addRoutes({
+      path: '/admin/club/clients',
+      methods: [apigwv2.HttpMethod.POST],
+      integration: new integrations.HttpLambdaIntegration(
+        'AdminClubClientCreateIntegration',
+        adminClubClientCreateFunction
+      ),
+      authorizer: adminAuthorizer,
+      authorizationScopes: ['openid']
+    });
+
+    api.addRoutes({
+      path: '/admin/club/clients',
+      methods: [apigwv2.HttpMethod.GET],
+      integration: new integrations.HttpLambdaIntegration(
+        'AdminClubClientsIntegration',
+        adminClubClientsFunction
+      ),
+      authorizer: adminAuthorizer,
+      authorizationScopes: ['openid']
+    });
+
+    api.addRoutes({
+      path: '/admin/club/clients/{id}',
+      methods: [apigwv2.HttpMethod.GET],
+      integration: new integrations.HttpLambdaIntegration(
+        'AdminClubClientDetailIntegration',
+        adminClubClientsFunction
       ),
       authorizer: adminAuthorizer,
       authorizationScopes: ['openid']

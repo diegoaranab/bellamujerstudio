@@ -24,11 +24,11 @@ Goals:
 
 Boundaries: no DynamoDB Club persistence and no production mock JSON added as a substitute for a backend.
 
-**Phase 2 is implemented in code and awaits the post-merge production deployment gate.**
+**Phase 2 is deployed successfully in production.**
 
 ## Phase 2 — Club persistence/domain infrastructure
 
-**Persistence architecture implemented in code; production deployment follows the post-merge CDK gate.**
+**Completed and deployed successfully in production.**
 
 Implemented architecture:
 
@@ -47,15 +47,29 @@ Tenant awareness is preparation in the data shape, not a SaaS implementation.
 
 ## Phase 3 — Protected Club admin APIs
 
-Start with small, independently testable capabilities:
+Build Phase 3 as small, independently testable slices.
 
-- create/manage clients;
-- client lookup, including opaque QR identification;
+### Client-management foundation
+
+The first slice adds protected administrator APIs to:
+
+- create a client with an atomic zero-balance aggregate;
+- list client profiles through a bounded DynamoDB Query; and
+- read one client profile with its Balance.
+
+All client records are scoped by the server-controlled `CLUB_STUDIO_ID=bella-mujer` configuration. HTTP clients do not submit or select tenant identity. This is tenant-aware data scoping for the current single studio, not multi-tenant authorization. Phone uniqueness, phone/name search, QR, invitations, PINs, and member access are outside this slice.
+
+This client API slice is not considered production-deployed until its post-merge AWS deployment gate succeeds.
+
+### Next Phase 3 slice
+
+The next slice will add:
+
 - visit registration;
 - server-authoritative loyalty computation; and
 - ledger/history reads.
 
-Duplicate visit processing must not duplicate loyalty. QR lookup alone must not create visits or ledger movements.
+That transaction boundary must preserve duplicate-visit protection, auditable ledger movements, and optimistic Balance updates. QR identification remains a separate later capability; QR lookup alone must not create visits or ledger movements.
 
 ## Phase 4 — Connect Club admin UI
 

@@ -105,6 +105,24 @@ describe('Club domain validation and Dynamo mapping', () => {
     }
   });
 
+  it.each([
+    ['astral Unicode', '💅'.repeat(1000)],
+    ['ASCII', 'a'.repeat(1000)]
+  ])('round-trips a reason at the 1000-character boundary using %s', (_label, reason) => {
+    const entry = { ...ledger, reason };
+    expect(validateLoyaltyLedgerEntry(entry)).toBe(entry);
+    expect(loyaltyLedgerEntryFromDynamoItem(loyaltyLedgerEntryToDynamoItem(entry))).toEqual(entry);
+  });
+
+  it.each([
+    ['astral Unicode', '💅'.repeat(1001)],
+    ['ASCII', 'a'.repeat(1001)]
+  ])('rejects a reason beyond the 1000-character boundary using %s', (_label, reason) => {
+    expect(() => loyaltyLedgerEntryToDynamoItem({ ...ledger, reason })).toThrow(
+      'Invalid Club field: reason'
+    );
+  });
+
   it('rejects malformed entity types, numbers, and physical keys', () => {
     const item = loyaltyBalanceToDynamoItem(balance);
     expect(() => loyaltyBalanceFromDynamoItem({ ...item, entityType: { S: 'VISIT' } })).toThrow();
