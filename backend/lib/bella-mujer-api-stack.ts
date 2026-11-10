@@ -308,6 +308,38 @@ export class BellaMujerApiStack extends cdk.Stack {
 
     clubTable.grant(adminClubLedgerFunction, 'dynamodb:GetItem', 'dynamodb:Query');
 
+    const adminClubAccessFunction = new nodejs.NodejsFunction(
+      this,
+      'AdminClubAccessFunction',
+      {
+        ...sharedLambdaProps,
+        entry: 'src/handlers/admin-club-access.ts',
+        handler: 'handler',
+        description: 'Manages Club member access for authenticated administrators',
+        logGroup: new logs.LogGroup(this, 'AdminClubAccessFunctionLogGroup', {
+          logGroupName: `/aws/lambda/${cdk.Stack.of(this).stackName}-admin-club-access`,
+          retention: logs.RetentionDays.TWO_WEEKS,
+          removalPolicy: cdk.RemovalPolicy.DESTROY
+        }),
+        environment: {
+          ...clubLambdaEnvironment,
+          CLUB_ACCESS_TABLE_NAME: clubAccessTable.tableName
+        }
+      }
+    );
+
+    clubTable.grant(adminClubAccessFunction, 'dynamodb:GetItem');
+    clubAccessTable.grant(adminClubAccessFunction, 'dynamodb:GetItem');
+    adminClubAccessFunction.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['dynamodb:PutItem', 'dynamodb:DeleteItem'],
+      resources: [clubAccessTable.tableArn],
+      conditions: {
+        'ForAnyValue:StringEquals': {
+          'dynamodb:EnclosingOperation': ['TransactWriteItems']
+        }
+      }
+    }));
+
     const api = new apigwv2.HttpApi(this, 'BellaMujerHttpApi', {
       apiName: 'bella-mujer-api',
       corsPreflight: {
@@ -428,6 +460,39 @@ export class BellaMujerApiStack extends cdk.Stack {
       integration: new integrations.HttpLambdaIntegration(
         'AdminClubLedgerIntegration',
         adminClubLedgerFunction
+      ),
+      authorizer: adminAuthorizer,
+      authorizationScopes: ['openid']
+    });
+
+    api.addRoutes({
+      path: '/admin/club/clients/{id}/access',
+      methods: [apigwv2.HttpMethod.GET],
+      integration: new integrations.HttpLambdaIntegration(
+        'AdminClubAccessStatusIntegration',
+        adminClubAccessFunction
+      ),
+      authorizer: adminAuthorizer,
+      authorizationScopes: ['openid']
+    });
+
+    api.addRoutes({
+      path: '/admin/club/clients/{id}/access/invitation',
+      methods: [apigwv2.HttpMethod.POST],
+      integration: new integrations.HttpLambdaIntegration(
+        'AdminClubAccessInvitationIntegration',
+        adminClubAccessFunction
+      ),
+      authorizer: adminAuthorizer,
+      authorizationScopes: ['openid']
+    });
+
+    api.addRoutes({
+      path: '/admin/club/clients/{id}/access/reset',
+      methods: [apigwv2.HttpMethod.POST],
+      integration: new integrations.HttpLambdaIntegration(
+        'AdminClubAccessResetIntegration',
+        adminClubAccessFunction
       ),
       authorizer: adminAuthorizer,
       authorizationScopes: ['openid']
