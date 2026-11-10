@@ -39,7 +39,7 @@ Implemented architecture:
 - update Balance with optimistic versioning in the same transaction as Visit and Ledger writes; and
 - use immutable visit identity plus a request fingerprint as the persistence half of future API idempotency.
 
-The base-table layout supports bounded client-directory and chronological ledger Queries. A phone/name lookup index will be considered only when Phase 3 defines that access pattern.
+The base-table layout supports bounded client-directory and chronological ledger Queries. A phone/name lookup index will be considered only for a reviewed future access pattern.
 
 Tenant awareness is preparation in the data shape, not a SaaS implementation.
 
