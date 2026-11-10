@@ -1,0 +1,133 @@
+<main class="member-access-page" data-testid="member-club-access">
+  <mat-card class="member-access-card" appearance="outlined">
+    <div class="brand-mark" aria-hidden="true">BM</div>
+    <mat-card-header>
+      <p class="eyebrow">Programa de fidelidad</p>
+      <h1 mat-card-title>Bella Mujer Club</h1>
+      <mat-card-subtitle>Tu acceso personal al Club</mat-card-subtitle>
+    </mat-card-header>
+
+    <mat-card-content>
+      @if (errorMessage()) {
+        <div class="notice notice--error" role="alert" data-testid="member-access-error">
+          <mat-icon>error</mat-icon>
+          <p>{{ errorMessage() }}</p>
+        </div>
+      }
+
+      @if (!hasUsableLink() || hasInvalidActivation()) {
+        <section class="access-state" data-testid="member-invalid-link">
+          <mat-icon aria-hidden="true">link_off</mat-icon>
+          <h2>Este enlace no es válido</h2>
+          <p>Solicita un nuevo enlace privado en Bella Mujer Studio.</p>
+        </section>
+      } @else if (isCheckingSession()) {
+        <section class="access-state" role="status" data-testid="member-session-checking">
+          <mat-icon class="spin" aria-hidden="true">progress_activity</mat-icon>
+          <h2>Validando tu sesión</h2>
+          <p>Espera un momento.</p>
+        </section>
+      } @else if (session.hasSession()) {
+        <section class="access-state access-state--success" data-testid="member-session-active">
+          <mat-icon aria-hidden="true">verified</mat-icon>
+          <h2>Tu sesión está activa</h2>
+          <p>Ya puedes continuar con tu experiencia Bella Mujer Club.</p>
+          @if (session.expiresAtISO(); as expiresAtISO) {
+            <p class="session-expiry">Válida hasta {{ expiresAtISO | date: 'short' }}.</p>
+          }
+          <button
+            mat-stroked-button
+            type="button"
+            [disabled]="isSubmitting()"
+            (click)="logout()"
+            data-testid="member-logout"
+          >
+            <mat-icon>logout</mat-icon>
+            {{ isSubmitting() ? 'Cerrando sesión…' : 'Cerrar sesión' }}
+          </button>
+        </section>
+      } @else if (isEnrollment()) {
+        <section data-testid="member-enrollment">
+          <div class="intro-copy">
+            <h2>Crea tu NIP</h2>
+            <p>Elige seis dígitos. Evita secuencias y números repetidos.</p>
+          </div>
+          <form [formGroup]="enrollmentForm" (ngSubmit)="enroll()">
+            <mat-form-field appearance="outline">
+              <mat-label>NIP de seis dígitos</mat-label>
+              <input
+                matInput
+                type="password"
+                inputmode="numeric"
+                autocomplete="new-password"
+                maxlength="6"
+                formControlName="pin"
+                data-testid="member-enrollment-pin"
+              />
+              @if (enrollmentForm.controls.pin.touched && enrollmentForm.controls.pin.invalid) {
+                <mat-error>Ingresa exactamente seis dígitos.</mat-error>
+              }
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Confirma tu NIP</mat-label>
+              <input
+                matInput
+                type="password"
+                inputmode="numeric"
+                autocomplete="new-password"
+                maxlength="6"
+                formControlName="confirmation"
+                data-testid="member-enrollment-confirmation"
+              />
+              @if (enrollmentForm.controls.confirmation.hasError('mismatch')) {
+                <mat-error>Los NIP no coinciden.</mat-error>
+              } @else if (
+                enrollmentForm.controls.confirmation.touched &&
+                enrollmentForm.controls.confirmation.invalid
+              ) {
+                <mat-error>Confirma los seis dígitos.</mat-error>
+              }
+            </mat-form-field>
+            <button mat-flat-button type="submit" [disabled]="isSubmitting()">
+              <mat-icon>lock</mat-icon>
+              {{ isSubmitting() ? 'Activando…' : 'Activar mi acceso' }}
+            </button>
+          </form>
+        </section>
+      } @else {
+        <section data-testid="member-login">
+          <div class="intro-copy">
+            <h2>Bienvenida de nuevo</h2>
+            <p>Ingresa el NIP de seis dígitos que elegiste al activar tu cuenta.</p>
+          </div>
+          <form [formGroup]="loginForm" (ngSubmit)="login()">
+            <mat-form-field appearance="outline">
+              <mat-label>Tu NIP</mat-label>
+              <input
+                matInput
+                type="password"
+                inputmode="numeric"
+                autocomplete="current-password"
+                maxlength="6"
+                formControlName="pin"
+                data-testid="member-login-pin"
+              />
+              @if (loginForm.controls.pin.touched && loginForm.controls.pin.invalid) {
+                <mat-error>Ingresa exactamente seis dígitos.</mat-error>
+              }
+            </mat-form-field>
+            <button mat-flat-button type="submit" [disabled]="isSubmitting()">
+              <mat-icon>login</mat-icon>
+              {{ isSubmitting() ? 'Ingresando…' : 'Ingresar al Club' }}
+            </button>
+          </form>
+        </section>
+      }
+    </mat-card-content>
+
+    <footer>
+      <mat-icon aria-hidden="true">shield</mat-icon>
+      <p>Tu sesión se guarda únicamente en la memoria de este dispositivo.</p>
+    </footer>
+  </mat-card>
+</main>

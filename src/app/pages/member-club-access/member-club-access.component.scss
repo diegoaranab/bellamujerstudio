@@ -1,0 +1,191 @@
+:host {
+  display: block;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgb(248 208 215 / 78%), transparent 42%),
+    radial-gradient(circle at bottom right, rgb(192 149 121 / 18%), transparent 38%),
+    var(--bm-brand-blush, #fffafa);
+}
+
+.member-access-page {
+  min-height: 100vh;
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+}
+
+.member-access-card {
+  width: min(100%, 480px);
+  padding: 2rem;
+  border-color: var(--bm-border-soft);
+  border-radius: var(--bm-radius-card);
+  background: rgb(255 255 255 / 96%);
+  box-shadow: var(--bm-shadow-soft);
+}
+
+.brand-mark {
+  width: 54px;
+  height: 54px;
+  margin-bottom: 1.25rem;
+  border-radius: 18px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: var(--bm-brand-wine);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+mat-card-header {
+  display: block;
+  padding: 0;
+}
+
+.eyebrow {
+  margin-bottom: 0.35rem;
+  color: var(--bm-brand-wine);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+[mat-card-title] {
+  font-size: clamp(2rem, 9vw, 2.6rem);
+  line-height: 1.1;
+}
+
+[mat-card-subtitle] {
+  display: block;
+  margin-top: 0.45rem;
+  color: var(--bm-text-muted);
+}
+
+mat-card-content {
+  padding: 1.75rem 0 1.25rem;
+}
+
+.intro-copy {
+  margin-bottom: 1.25rem;
+}
+
+.intro-copy h2,
+.access-state h2 {
+  font-size: 1.45rem;
+}
+
+.intro-copy p,
+.access-state p {
+  margin-top: 0.5rem;
+  color: var(--bm-text-muted);
+  line-height: 1.55;
+}
+
+form {
+  display: grid;
+  gap: 0.25rem;
+}
+
+mat-form-field,
+form button,
+.access-state button {
+  width: 100%;
+}
+
+form button,
+.access-state button {
+  min-height: 48px;
+}
+
+.notice {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  margin-bottom: 1.25rem;
+  border-radius: var(--bm-radius-soft);
+  padding: 1rem;
+  line-height: 1.5;
+}
+
+.notice mat-icon {
+  flex: 0 0 auto;
+}
+
+.notice--error {
+  color: #7b1b2d;
+  background: #fde7eb;
+}
+
+.access-state {
+  text-align: center;
+}
+
+.access-state > mat-icon {
+  width: 48px;
+  height: 48px;
+  margin-bottom: 0.75rem;
+  color: var(--bm-brand-wine);
+  font-size: 48px;
+}
+
+.access-state--success > mat-icon {
+  color: #317044;
+}
+
+.access-state button {
+  margin-top: 1.5rem;
+}
+
+.session-expiry {
+  font-size: 0.85rem;
+}
+
+footer {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  border-top: 1px solid var(--bm-border-soft);
+  padding-top: 1rem;
+  color: var(--bm-text-muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+footer mat-icon {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  font-size: 18px;
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 520px) {
+  .member-access-page {
+    align-items: start;
+    padding: 0;
+  }
+
+  .member-access-card {
+    min-height: 100vh;
+    box-sizing: border-box;
+    border: 0;
+    border-radius: 0;
+    padding: 1.5rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spin {
+    animation: none;
+  }
+}
