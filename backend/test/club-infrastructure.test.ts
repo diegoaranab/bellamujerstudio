@@ -72,7 +72,7 @@ describe('Club infrastructure', () => {
     expect(tables[giftCardsLogicalId].Properties.TimeToLiveSpecification).toBeUndefined();
   });
 
-  it('adds one isolated administrator access Lambda and three Cognito-protected routes', () => {
+  it('keeps administrator access isolated and its three routes Cognito protected', () => {
     const accessLogicalId = template.findOutputs('ClubAccessTableName')
       .ClubAccessTableName.Value.Ref as string;
     const clubLogicalId = template.findOutputs('ClubTableName')
@@ -84,9 +84,8 @@ describe('Club infrastructure', () => {
       template.findResources('AWS::ApiGatewayV2::Authorizer')
     );
 
-    expect(functions).toHaveLength(9);
-    expect(routes).toHaveLength(13);
-    expect(template.findResources('AWS::SecretsManager::Secret')).toEqual({});
+    expect(functions).toHaveLength(11);
+    expect(routes).toHaveLength(16);
     const accessFunctions = functions.filter((lambdaFunction) =>
       lambdaFunction.Properties.Description ===
         'Manages Club member access for authenticated administrators'
@@ -97,7 +96,12 @@ describe('Club infrastructure', () => {
       CLUB_TABLE_NAME: { Ref: clubLogicalId },
       CLUB_STUDIO_ID: 'bella-mujer'
     });
-    for (const lambdaFunction of functions.filter((value) => !accessFunctions.includes(value))) {
+    for (const lambdaFunction of functions.filter((value) =>
+      !accessFunctions.includes(value) && ![
+        'Enrolls and authenticates Bella Mujer Club members',
+        'Revokes Bella Mujer Club member sessions'
+      ].includes(value.Properties.Description)
+    )) {
       expect(lambdaFunction.Properties.Environment.Variables.CLUB_ACCESS_TABLE_NAME).toBeUndefined();
     }
 
@@ -115,7 +119,9 @@ describe('Club infrastructure', () => {
         AuthorizationScopes: ['openid']
       });
     }
-    expect(routes.some((route) => /^\w+ \/club\/access/.test(route.Properties.RouteKey))).toBe(false);
+    for (const routeKey of [
+      'POST /club/access/enroll', 'POST /club/access/login', 'POST /club/access/logout'
+    ]) expect(routesByKey[routeKey]).toMatchObject({ AuthorizationType: 'NONE' });
     expect(template.findResources('AWS::Lambda::Permission')).toBeDefined();
     expect(template.findResources('AWS::ApiGatewayV2::Authorizer')).toHaveProperty(
       authorizerLogicalId
@@ -159,6 +165,81 @@ describe('Club infrastructure', () => {
       JSON.stringify(statement.Action).includes('PutItem')
     );
     expect(clubWriteStatement).toBeUndefined();
+  });
+
+  it('creates a retained generated pepper secret and isolates member-auth IAM', () => {
+    const accessLogicalId = template.findOutputs('ClubAccessTableName')
+      .ClubAccessTableName.Value.Ref as string;
+    const secrets = template.findResources('AWS::SecretsManager::Secret');
+    expect(Object.keys(secrets)).toHaveLength(1);
+    const [[secretLogicalId, secret]] = Object.entries(secrets);
+    expect(secret).toMatchObject({
+      DeletionPolicy: 'Retain', UpdateReplacePolicy: 'Retain',
+      Properties: {
+        Description: 'Bella Mujer Club PIN HMAC pepper',
+        GenerateSecretString: { ExcludePunctuation: true, PasswordLength: 64 }
+      }
+    });
+    expect(JSON.stringify(template.toJSON().Outputs ?? {})).not.toContain(secretLogicalId);
+
+    const functions = Object.values(template.findResources('AWS::Lambda::Function'));
+    const credential = functions.find((value) => value.Properties.Description ===
+      'Enrolls and authenticates Bella Mujer Club members');
+    const logout = functions.find((value) => value.Properties.Description ===
+      'Revokes Bella Mujer Club member sessions');
+    expect(credential).toBeDefined();
+    expect(logout).toBeDefined();
+    expect(credential!.Properties).toMatchObject({ MemorySize: 512, Timeout: 15 });
+    expect(credential!.Properties.Environment.Variables).toMatchObject({
+      CLUB_ACCESS_TABLE_NAME: { Ref: accessLogicalId },
+      CLUB_PIN_PEPPER_SECRET_ARN: { Ref: secretLogicalId },
+      CLUB_PIN_PEPPER_VERSION: 'v1'
+    });
+    expect(logout!.Properties.Environment.Variables).toMatchObject({
+      CLUB_ACCESS_TABLE_NAME: { Ref: accessLogicalId }
+    });
+    expect(logout!.Properties.Environment.Variables.CLUB_PIN_PEPPER_SECRET_ARN).toBeUndefined();
+
+    const policies = Object.values(template.findResources('AWS::IAM::Policy'));
+    const statementsFor = (lambdaFunction: typeof credential) => {
+      const role = lambdaFunction!.Properties.Role['Fn::GetAtt'][0];
+      return policies.flatMap((policy) => policy.Properties.Roles.some(
+        (candidate: { Ref?: string }) => candidate.Ref === role
+      ) ? policy.Properties.PolicyDocument.Statement : []);
+    };
+    const credentialStatements = statementsFor(credential);
+    expect(credentialStatements).toEqual(expect.arrayContaining([
+      {
+        Action: 'dynamodb:GetItem', Effect: 'Allow',
+        Resource: [{ 'Fn::GetAtt': [accessLogicalId, 'Arn'] }]
+      },
+      {
+        Action: 'dynamodb:PutItem',
+        Condition: { 'ForAnyValue:StringEquals': {
+          'dynamodb:EnclosingOperation': ['TransactWriteItems']
+        } },
+        Effect: 'Allow', Resource: { 'Fn::GetAtt': [accessLogicalId, 'Arn'] }
+      },
+      {
+        Action: 'secretsmanager:GetSecretValue', Effect: 'Allow',
+        Resource: { Ref: secretLogicalId }
+      }
+    ]));
+    const logoutStatements = statementsFor(logout);
+    expect(JSON.stringify(logoutStatements)).not.toContain('secretsmanager:');
+    const secretReaders = functions.filter((lambdaFunction) =>
+      JSON.stringify(statementsFor(lambdaFunction)).includes('secretsmanager:GetSecretValue')
+    );
+    expect(secretReaders).toEqual([credential]);
+
+    const stage = Object.values(template.findResources('AWS::ApiGatewayV2::Stage'))[0];
+    expect(stage.Properties.RouteSettings).toEqual({
+      'POST /club/access/enroll': { ThrottlingBurstLimit: 3, ThrottlingRateLimit: 1 },
+      'POST /club/access/login': { ThrottlingBurstLimit: 5, ThrottlingRateLimit: 2 }
+    });
+    expect(template.findResources('AWS::ApiGatewayV2::Authorizer')).toHaveProperty(
+      Object.keys(template.findResources('AWS::ApiGatewayV2::Authorizer'))[0]
+    );
   });
 
   it('injects the Club table and server-controlled studio only into Club Lambdas', () => {

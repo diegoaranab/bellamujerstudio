@@ -8,6 +8,7 @@ import {
   generateInvitationToken,
   generateSessionToken,
   isValidSixDigitPin,
+  validateCanonicalOpaqueToken,
   verifyPin
 } from '../src/club-access/club-access-crypto';
 import { ScryptParameters } from '../src/club-access/club-access-model';
@@ -34,6 +35,15 @@ describe('Club access opaque token primitives', () => {
   it('does not reuse tokens in a small sample', () => {
     const tokens = Array.from({ length: 12 }, generateSessionToken);
     expect(new Set(tokens)).toHaveLength(tokens.length);
+  });
+
+  it('accepts only canonical unpadded base64url representing exactly 32 bytes', () => {
+    const token = generateSessionToken();
+    expect(validateCanonicalOpaqueToken(token)).toBe(token);
+    for (const malformed of [
+      '', ' ', `${token}=`, token.slice(1), `${token}A`, token.replace(/.$/, '+'),
+      Buffer.alloc(31).toString('base64url'), Buffer.alloc(33).toString('base64url')
+    ]) expect(() => validateCanonicalOpaqueToken(malformed)).toThrow(/opaque token/);
   });
 
   it('creates deterministic lowercase 64-character SHA-256 digests', () => {

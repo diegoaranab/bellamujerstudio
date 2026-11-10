@@ -53,7 +53,7 @@ describe('BellaMujerApiStack', () => {
         ]
       }
     });
-    template.resourcePropertiesCountIs('AWS::Lambda::Function', {}, 9);
+    template.resourcePropertiesCountIs('AWS::Lambda::Function', {}, 11);
 
     for (const lambdaFunction of Object.values(template.findResources('AWS::Lambda::Function'))) {
       expect(lambdaFunction.Properties.Environment.Variables).toMatchObject({
@@ -158,19 +158,29 @@ describe('BellaMujerApiStack', () => {
       DefaultRouteSettings: {
         ThrottlingRateLimit: 5,
         ThrottlingBurstLimit: 20
+      },
+      RouteSettings: {
+        'POST /club/access/enroll': {
+          ThrottlingRateLimit: 1,
+          ThrottlingBurstLimit: 3
+        },
+        'POST /club/access/login': {
+          ThrottlingRateLimit: 2,
+          ThrottlingBurstLimit: 5
+        }
       }
     });
   });
 
   it('bounds Lambda log retention to two weeks', () => {
-    template.resourcePropertiesCountIs('AWS::Logs::LogGroup', { RetentionInDays: 14 }, 9);
+    template.resourcePropertiesCountIs('AWS::Logs::LogGroup', { RetentionInDays: 14 }, 11);
   });
 
   it('uses the existing Cognito pool and SPA client for a JWT authorizer', () => {
     template.resourceCountIs('AWS::Cognito::UserPool', 1);
     template.resourceCountIs('AWS::Cognito::UserPoolClient', 1);
     template.resourceCountIs('AWS::ApiGatewayV2::Authorizer', 1);
-    template.resourcePropertiesCountIs('AWS::Lambda::Function', {}, 9);
+    template.resourcePropertiesCountIs('AWS::Lambda::Function', {}, 11);
 
     const [[userPoolLogicalId]] = Object.entries(
       template.findResources('AWS::Cognito::UserPool')
@@ -194,8 +204,8 @@ describe('BellaMujerApiStack', () => {
     );
   });
 
-  it('exposes exactly two public routes and eleven protected admin routes', () => {
-    template.resourceCountIs('AWS::ApiGatewayV2::Route', 13);
+  it('exposes five public routes and eleven protected admin routes', () => {
+    template.resourceCountIs('AWS::ApiGatewayV2::Route', 16);
 
     const routes = Object.values(template.findResources('AWS::ApiGatewayV2::Route'));
     const routesByKey = Object.fromEntries(
@@ -218,6 +228,9 @@ describe('BellaMujerApiStack', () => {
       'POST /admin/club/clients/{id}/access/invitation',
       'POST /admin/club/clients/{id}/access/reset',
       'POST /admin/club/clients/{id}/visits',
+      'POST /club/access/enroll',
+      'POST /club/access/login',
+      'POST /club/access/logout',
       'POST /gift-cards/request'
     ]);
     expect(routesByKey['GET /health']).toMatchObject({ AuthorizationType: 'NONE' });
@@ -226,6 +239,13 @@ describe('BellaMujerApiStack', () => {
       AuthorizationType: 'NONE'
     });
     expect(routesByKey['POST /gift-cards/request'].AuthorizationScopes).toBeUndefined();
+    for (const routeKey of [
+      'POST /club/access/enroll', 'POST /club/access/login', 'POST /club/access/logout'
+    ]) {
+      expect(routesByKey[routeKey]).toMatchObject({ AuthorizationType: 'NONE' });
+      expect(routesByKey[routeKey].AuthorizerId).toBeUndefined();
+      expect(routesByKey[routeKey].AuthorizationScopes).toBeUndefined();
+    }
     expect(routesByKey['GET /admin/health']).toMatchObject({
       AuthorizationType: 'JWT',
       AuthorizerId: { Ref: authorizerLogicalId },
@@ -331,7 +351,7 @@ describe('BellaMujerApiStack', () => {
       'dynamodb:PutItem',
       ['dynamodb:GetItem', 'dynamodb:Query']
     ]));
-    expect(dynamodbActions).toHaveLength(11);
+    expect(dynamodbActions).toHaveLength(15);
 
     const lambdaFunctions = Object.values(template.findResources('AWS::Lambda::Function'));
     const roleForDescription = (description: string): string => {
@@ -377,6 +397,12 @@ describe('BellaMujerApiStack', () => {
     ))).toEqual([
       'dynamodb:DeleteItem', 'dynamodb:GetItem', 'dynamodb:GetItem', 'dynamodb:PutItem'
     ]);
+    expect(actionsForRole(roleForDescription(
+      'Enrolls and authenticates Bella Mujer Club members'
+    ))).toEqual(['dynamodb:GetItem', 'dynamodb:PutItem']);
+    expect(actionsForRole(roleForDescription(
+      'Revokes Bella Mujer Club member sessions'
+    ))).toEqual(['dynamodb:GetItem', 'dynamodb:PutItem']);
 
     const clubTableLogicalId = template.findOutputs('ClubTableName')
       .ClubTableName.Value.Ref as string;
