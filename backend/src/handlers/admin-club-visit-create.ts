@@ -12,6 +12,7 @@ export const MAX_CLUB_VISIT_BODY_BYTES = 32 * 1024;
 export const MAX_VISIT_COMMIT_ATTEMPTS = 3;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const CONTROL_CHARACTER = /[\u0000-\u001f\u007f-\u009f]/;
+const MAX_ADMIN_SUBJECT_LENGTH = 256;
 
 interface VisitRequest {
   occurredAtISO: string;
@@ -43,6 +44,14 @@ const bodySize = (body: string | undefined, base64?: boolean): number =>
 const header = (headers: Record<string, string | undefined>, name: string): string | undefined => {
   const target = name.toLowerCase();
   return Object.entries(headers).find(([key]) => key.toLowerCase() === target)?.[1];
+};
+
+const adminSubject = (value: unknown): string | undefined => {
+  if (typeof value !== 'string' || !value || value.trim() !== value ||
+    Array.from(value).length > MAX_ADMIN_SUBJECT_LENGTH || CONTROL_CHARACTER.test(value)) {
+    return undefined;
+  }
+  return value;
 };
 
 const parseRequest = (body: string | undefined, base64?: boolean): VisitRequest => {
@@ -241,9 +250,9 @@ export const createAdminClubVisitCreateHandler = ({
     const claims = (event.requestContext as unknown as {
       authorizer?: { jwt?: { claims?: Record<string, unknown> } };
     }).authorizer?.jwt?.claims;
-    const rawAdminSub = typeof claims?.sub === 'string' ? claims.sub : undefined;
+    const rawAdminSub = adminSubject(claims?.sub);
     if (!rawClientId || !UUID.test(rawClientId) || !rawVisitId || !UUID.test(rawVisitId) ||
-      !rawAdminSub || !UUID.test(rawAdminSub)) return validationErrorResponse(origin, allowedOrigins);
+      !rawAdminSub) return validationErrorResponse(origin, allowedOrigins);
 
     let request: VisitRequest;
     try {
@@ -260,7 +269,7 @@ export const createAdminClubVisitCreateHandler = ({
       visitId,
       ...request,
       source: 'admin',
-      createdByAdminSub: rawAdminSub.toLowerCase(),
+      createdByAdminSub: rawAdminSub,
       requestFingerprint,
       createdAtISO: currentISO(clock)
     };
