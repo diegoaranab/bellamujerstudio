@@ -75,7 +75,9 @@ These names and paths communicate product structure; exact routing is not implem
 
 **DISCARDED** — SMS/Twilio verification.
 
-**OPEN TECHNICAL DECISION** — Secure invitation, credentials, sessions, and recovery architecture.
+**SELECTED IN PHASE 5A** — The private WhatsApp link opens the Angular hash activation route. The SPA captures its one-time invitation token in memory and immediately scrubs it from the visible URL/history before PIN entry; it never saves the token in browser storage. The member chooses and confirms a 6-digit PIN, and a safe invalid-link state says: `Este enlace ya no es válido. Solicita uno nuevo en Bella Mujer Studio.`
+
+Later visits use the opaque access handle and PIN. Under the current GitHub Pages/API Gateway cross-site topology, the successful member session is an opaque bearer held only in memory. Refreshing, opening a new tab, or restarting the browser therefore requires PIN login again. Logout revokes the server session and clears it from memory. This intentional current-hosting tradeoff and the possible future same-site HttpOnly-cookie migration are defined in [MEMBER_ACCESS_SECURITY.md](./MEMBER_ACCESS_SECURITY.md).
 
 ### Mi Club home
 

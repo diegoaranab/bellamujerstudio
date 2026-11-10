@@ -1,6 +1,6 @@
 # Bella Mujer Club conceptual domain
 
-This document defines product concepts and invariants and records the physical persistence architecture selected in Phase 2. Phases 2 and 3 are deployed successfully in production and have passed production smoke testing. The protected administrator surface now includes client creation/list/detail, visit registration, server-authoritative loyalty computation, safe idempotent replay, and ledger/history reads.
+This document defines product concepts and invariants and records the physical persistence architecture selected in Phase 2. Phases 2 and 3 are deployed successfully in production and have passed production smoke testing. Phase 4 connected the operational administrator UI to client management, Balance, visit registration, server-authoritative loyalty outcomes, and paginated ledger/history APIs.
 
 ## Domain boundaries
 
@@ -38,7 +38,7 @@ createdAt
 updatedAt
 ```
 
-Access credentials, invitation state, and session metadata should be separated from ordinary profile data where appropriate. The exact separation is an **OPEN TECHNICAL DECISION**.
+Access credentials, invitation state, throttle state, and session metadata will be stored in the physically separate member-access table selected in Phase 5A. `ClubClient` remains operational profile data in `ClubTable`.
 
 ### Visit
 
@@ -205,7 +205,7 @@ The following are **CONFIRMED principles** for later implementation:
 - operational logs avoid PII; and
 - IAM follows least privilege, consistent with existing project practice.
 
-Invitation token structure, credential derivation, session handling, expiration, recovery, and storage are **OPEN TECHNICAL DECISIONS**. They require dedicated security review before client access is implemented.
+**SELECTED IN PHASE 5A** — Invitation structure, credential derivation, session handling, expiration/revocation, recovery, and storage follow [MEMBER_ACCESS_SECURITY.md](./MEMBER_ACCESS_SECURITY.md). The design uses a dedicated member-access table, digest-keyed opaque handles/invitations/sessions, a salted and peppered scrypt PIN verifier, per-member backoff, short revocable sessions, and a separate member Lambda authorizer.
 
 ## Physical persistence boundary
 
@@ -240,3 +240,22 @@ The timestamp-first ledger key supports deterministic chronological lexical quer
 No GSI or LSI is included initially because all confirmed access patterns are supported by the base keys. An index may be introduced later only for a reviewed future access pattern.
 
 Phase 2 persistence architecture and all current Phase 3 protected administrator APIs are deployed successfully in production and production-smoke-tested. Production validation confirmed the accumulated-spend threshold, one-stamp-per-visit cap, carry preservation, idempotent replay, ledger ordering/content, and Balance consistency. Rewards, referrals, QR, member access, and administrative-adjustment APIs remain later work.
+
+## Member-access persistence boundary
+
+**SELECTED IN PHASE 5A; NOT YET IMPLEMENTED** — Member authentication uses a dedicated DynamoDB table, conceptually `ClubAccessTable`, physically separate from the operational Club table above. `ClubTable` remains authoritative for `ClubClient`, `Balance`, `Visit`, and `LoyaltyLedger`; access persistence contains only member access mappings, verifier metadata, invitation/session lifecycle, and throttle state. This separation enables narrow member-auth IAM and does not expose credential/session records to existing loyalty Lambdas.
+
+Confirmed access patterns are direct primary-key reads with no initial GSI/LSI:
+
+```text
+pk = CLIENT#<clientId>                         sk = MEMBER_ACCESS
+pk = HANDLE#<sha256(accessHandle)>             sk = HANDLE
+pk = INVITE#<sha256(invitationToken)>          sk = INVITE
+pk = SESSION#<sha256(sessionToken)>            sk = SESSION
+```
+
+Exact attribute names may be finalized during Phase 5B. Ephemeral invitations and sessions carry one expiry epoch for DynamoDB TTL cleanup; permanent access/credential rows omit it. Authorization always applies logical expiry and revocation checks rather than relying on TTL deletion.
+
+Member access has a monotonically increasing credential/access version. Sessions record the version at issue time and are valid only while it equals current access state. A full reset increments the version, invalidates invitations and the old verifier, rotates the opaque access handle, and thereby revokes every old session without enumerating session rows. None of these operations changes or deletes operational loyalty data.
+
+The member Lambda authorizer derives trusted `studioId` and `clientId` from a validated opaque session. Member APIs do not accept an arbitrary account selector and initially authorize read-only access to that member's profile, Balance, and history. All Visit, Balance, and Ledger mutation invariants above remain administrator-only and unchanged.

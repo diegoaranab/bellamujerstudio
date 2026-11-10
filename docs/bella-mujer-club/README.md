@@ -23,6 +23,7 @@ The historical prototype was a product and UX prototype created largely through 
 - [PRODUCT.md](./PRODUCT.md) — product vision, actors, business rules, scope, and capability status
 - [UX.md](./UX.md) — member and administrator experience, information architecture, and visual direction
 - [DOMAIN.md](./DOMAIN.md) — conceptual entities, loyalty calculation, auditability, idempotency, and security principles
+- [MEMBER_ACCESS_SECURITY.md](./MEMBER_ACCESS_SECURITY.md) — selected Phase 5A member identity, invitation, PIN, session, authorization, and reset architecture
 - [IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md) — incremental roadmap and prototype-to-production mapping
 
 ## Platform direction
@@ -41,12 +42,14 @@ Bella Mujer Studio
 
 The paths illustrate the target product structure; this documentation change does not create routes.
 
-Existing administrative Cognito authentication remains the administrative boundary. A Club member will not share an administrative Cognito identity. The member access experience is confirmed, while its secure backend/session/token architecture is an **OPEN TECHNICAL DECISION**.
+Existing administrative Cognito authentication remains the administrative boundary. A Club member will not share an administrative Cognito identity. The member access experience is confirmed, and its separate backend/session/token architecture is **SELECTED IN PHASE 5A** in [MEMBER_ACCESS_SECURITY.md](./MEMBER_ACCESS_SECURITY.md).
 
 ## Current implementation status
 
 - **Phase 0 — completed.** The product blueprint records the confirmed rules and boundaries.
-- **Phase 1 — preview shell implemented.** `/admin/club` provides the administrator visual foundation that will now be connected to production data.
+- **Phase 1 — preview shell completed.** `/admin/club` established the administrator visual foundation later connected to production data in Phase 4.
 - **Phase 2 — completed, deployed, and production-smoke-tested.** Dedicated Club DynamoDB persistence, aggregate keys, materialized Balance, immutable Visit records, and append-style Ledger storage are live.
 - **Phase 3 — completed, deployed, and production-validated.** Protected administrator APIs now support client creation/list/detail, visit registration, server-authoritative loyalty calculation, idempotent replay, and newest-first ledger reads.
-- **Next: Phase 4 — connect the Club admin UI.** Replace demonstration-only state with the protected production APIs so administrators can operate the core Club workflow end to end.
+- **Phase 4 — completed.** The operational administrator UI provides client management, Balance, visit registration, server-authoritative loyalty outcomes, and auditable paginated ledger/history.
+- **Phase 5A — selected architecture (this documentation phase).** Member-access identity, persistence, invitations, PIN verification, throttling, sessions, authorization, reset, and the current hosting tradeoff are defined before implementation.
+- **Next implementation slice: Phase 5B.** Build the member-access persistence and backend authentication foundation without member UI.
