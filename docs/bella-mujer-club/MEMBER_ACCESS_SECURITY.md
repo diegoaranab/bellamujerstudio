@@ -65,7 +65,7 @@ An invitation token is a one-time enrollment secret with these properties:
 
 Only `SHA-256(rawInvitationToken)` is stored. The raw token is returned only when the administrator generates the link, is never persisted in DynamoDB, written to logs, or returned later through a read API, and reaches the member only in the private access URL.
 
-Generating a replacement invitation increments or replaces the current invitation generation/version. Every earlier unused invitation then fails logical validation immediately. Expired, consumed, or superseded rows may remain until TTL removes them, but their presence never makes them valid.
+Generating a replacement invitation increments or replaces the current invitation generation/version. Every earlier unused invitation then fails logical validation immediately. Expired, consumed, or superseded rows may remain until TTL removes them, but their presence never makes them valid. Phase 5B must enforce invitation consumption, regeneration/supersession, and generation/version checks with conditional and/or transactional DynamoDB writes so an old, consumed, expired, or superseded invitation cannot become valid again because of a stale concurrent write. The one-time-token design is unchanged.
 
 ### Private WhatsApp URL and fragment handling
 
@@ -109,7 +109,7 @@ Server atomically creates/replaces the verifier, consumes the invitation,
 establishes the credential version, and creates a short-lived session
 ```
 
-Changes spanning access records must be transactional. Replaying a consumed invitation must not silently create another credential or session; it returns a safe generic invalid/used/expired-link response.
+Changes spanning access records must be transactional. Replaying a consumed invitation must not silently create another credential or session; it returns a safe generic invalid/used/expired-link response. Generation/version checks must be part of the same concurrency-safe state transition as invitation consumption and credential creation.
 
 ## Six-digit PIN credential
 
@@ -165,6 +165,8 @@ failure 6+   -> 1-hour delay
 ```
 
 Successful PIN authentication resets consecutive failures. The system does not automatically create a permanent lock, which would enable denial of service; administrator reset always provides recovery. IP/request throttling may be defense in depth but never replaces account throttling.
+
+Phase 5B MUST implement failed-attempt and backoff transitions with DynamoDB concurrency-safe semantics: atomic `UpdateItem` operations where suitable, conditional expressions/compare-and-swap, or transactional writes when multiple records must change together. It must not use an unguarded read-modify-write sequence. Concurrent authentication attempts cannot lose failure increments, bypass `nextAllowedAt`, move throttle state backwards, or otherwise weaken the configured backoff. The server enforces `nextAllowedAt` authoritatively: a request arriving before the allowed time must not verify the PIN and must not reset or decrease throttle state. A successful PIN verification resets consecutive-failure/backoff state with equally concurrency-safe, conditional/version-aware semantics, so a stale successful authentication cannot erase a newer failure or backoff state; only the state corresponding to the authentication attempt being committed may be reset.
 
 Login responses are generic and do not distinguish an unknown handle, incorrect PIN, or disabled credential. Invitation errors expose only a safe user concept, for example: `Este enlace ya no es válido. Solicita uno nuevo en Bella Mujer Studio.` A throttled request may return HTTP 429 with a safe retry delay. No response exposes DynamoDB, Lambda, KDF, Cognito, Secrets Manager, or other AWS internals.
 
@@ -269,6 +271,8 @@ For compromised access or complete recovery, reset:
 
 It leaves `ClubClient`, `Balance`, `Visit`, and `LoyaltyLedger` untouched. Member-access recovery never deletes loyalty history.
 
+When full reset changes multiple access records, Phase 5B must perform the relevant state transition transactionally and/or with conditional/version-aware writes. Stale concurrent operations must not restore an old access handle, PIN verifier, invitation generation, credential version, or authorization associated with the pre-reset state. The credential/access version remains the authority for invalidating sessions; session enumeration or deletion is not required.
+
 ## Security logging
 
 Logs must never contain a PIN, PIN verifier, raw invitation token, raw session token, phone number, or client name. Security logs may contain an operation name, API request ID, generic outcome/category, and AWS request metadata consistent with repository practice. Stable PII-equivalent identifiers should be omitted from routine logs when unnecessary. Member responses receive no sensitive internal errors.
@@ -294,6 +298,7 @@ This architecture reduces the following risks; it does not claim the system is i
 | Client/account enumeration | Opaque high-entropy handles, no phone lookup/self-service discovery, generic login and invitation errors. |
 | Cross-client authorization | Authorizer derives `studioId`/`clientId` from validated session context; member requests cannot select them. |
 | Compromised member access | Full reset rotates the handle and verifier state and increments credential version, immediately invalidating sessions and invitations without touching loyalty. |
+| Concurrent authentication/state races | Atomic/conditional DynamoDB updates and version/generation checks prevent lost throttle increments, stale successful-authentication resets, and stale access-state resurrection. |
 | Malicious member loyalty mutation | Member IAM and routes are read-only; authoritative Visit, Balance, and Ledger mutation remains behind admin authentication. |
 | Secrets or PII in logs | Explicit prohibited-field policy and generic outcomes/errors; raw secrets are never logged. |
 | Admin/member boundary confusion | Separate Cognito admin and opaque member authorizers, separate persistence/IAM, no Club members in admin Cognito. |
