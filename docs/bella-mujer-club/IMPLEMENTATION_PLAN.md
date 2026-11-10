@@ -24,8 +24,6 @@ Goals:
 
 Boundaries: no DynamoDB Club persistence and no production mock JSON added as a substitute for a backend.
 
-**Phase 2 is deployed successfully in production.**
-
 ## Phase 2 — Club persistence/domain infrastructure
 
 **Completed and deployed successfully in production.**
@@ -47,7 +45,9 @@ Tenant awareness is preparation in the data shape, not a SaaS implementation.
 
 ## Phase 3 — Protected Club admin APIs
 
-Build Phase 3 as small, independently testable slices.
+**Completed, deployed, and production-validated.**
+
+Phase 3 was built as small, independently testable slices.
 
 ### Client-management foundation
 
@@ -63,7 +63,7 @@ All client records are scoped by the server-controlled `CLUB_STUDIO_ID=bella-muj
 
 ### Visit, loyalty, and ledger slice
 
-**Implemented in this PR; not yet production-deployed.**
+**Deployed successfully in production and production-smoke-tested.**
 
 This slice adds protected administrator APIs for:
 
@@ -77,7 +77,11 @@ The server-controlled `CLUB_STUDIO_ID=bella-mujer` scopes every operation. HTTP 
 
 QR identification, rewards, referrals, member access, and an `ADMIN_ADJUSTMENT` mutation API remain separate later capabilities.
 
+Production validation covered authenticated visit registration, the accumulated-spend threshold, the one-stamp-per-visit cap, carry preservation, idempotent replay, ledger/history reads, and final Balance consistency. A production-only Cognito subject-validation defect discovered during smoke testing was corrected and redeployed before Phase 3 was closed.
+
 ## Phase 4 — Connect Club admin UI
+
+**Next active phase.**
 
 Replace the shell's mocks with protected APIs. Administrators should be able to:
 
