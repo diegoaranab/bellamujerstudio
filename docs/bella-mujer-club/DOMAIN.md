@@ -218,7 +218,7 @@ pk = STUDIO#<studioId>
 sk = CLIENT#<clientId>
 ```
 
-Phase 3 can list a studio's clients with a bounded Query on that partition and `begins_with(sk, 'CLIENT#')`; it must not use Scan. Name and phone lookup remain future access-pattern decisions and do not justify a speculative index.
+The protected client API lists a studio's clients with a bounded Query on that partition and `begins_with(sk, 'CLIENT#')`; it does not use Scan. Name and phone lookup remain future access-pattern decisions and do not justify a speculative index.
 
 The initial client-management API uses the server-controlled `CLUB_STUDIO_ID=bella-mujer` configuration for this partition. HTTP clients cannot submit, select, or override `studioId`. This preserves tenant-aware records without introducing multi-tenant authorization or SaaS tenant selection. Client creation atomically writes the profile and an initial zero Balance; list reads return profiles only, while detail reads return both the profile and its existing Balance.
 
@@ -237,6 +237,6 @@ The timestamp-first ledger key supports deterministic chronological lexical quer
 
 `BALANCE` is a materialized current-state view with an optimistic `version`; the append-style `LEDGER` remains the audit source. A visit outcome is one transaction containing an immutable conditional Visit put, immutable conditional Ledger puts, and a Balance update conditioned on its expected version. Direct core aggregate reads are strongly consistent.
 
-No GSI or LSI is included initially because all confirmed Phase 2 access patterns are supported by the base keys. An index may be introduced later only for a reviewed Phase 3 query pattern.
+No GSI or LSI is included initially because all confirmed access patterns are supported by the base keys. An index may be introduced later only for a reviewed future access pattern.
 
 Phase 2 persistence architecture and all current Phase 3 protected administrator APIs are deployed successfully in production and production-smoke-tested. Production validation confirmed the accumulated-spend threshold, one-stamp-per-visit cap, carry preservation, idempotent replay, ledger ordering/content, and Balance consistency. Rewards, referrals, QR, member access, and administrative-adjustment APIs remain later work.
