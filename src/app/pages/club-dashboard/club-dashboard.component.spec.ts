@@ -2,13 +2,19 @@ import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Observable, Subject, of, throwError } from 'rxjs';
 
-import { ClubClient, LoyaltyBalance, Service } from '../../core/models';
+import {
+  ClubClient,
+  LoyaltyBalance,
+  LoyaltyLedgerEntry,
+  Service
+} from '../../core/models';
 import {
   AdminClubApiClient,
   AdminClubApiError,
   AdminClubClientCreateResponse,
   AdminClubClientDetailResponse,
   AdminClubClientListResponse,
+  AdminClubLedgerListResponse,
   AdminClubVisitCreateRequest,
   AdminClubVisitCreateResponse
 } from '../../core/services/admin-club-api.client';
@@ -134,6 +140,35 @@ function visitResponse(options: {
   };
 }
 
+function ledgerEntry(options: {
+  entryId: string;
+  type?: LoyaltyLedgerEntry['type'];
+  occurredAtISO?: string;
+  stampDelta?: number;
+  eligibleSpendDeltaMXN?: number;
+  stampCountAfter?: number;
+  eligibleSpendCarryAfterMXN?: number;
+  clientId?: string;
+  reason?: string;
+  createdByAdminSub?: string;
+}): LoyaltyLedgerEntry {
+  return {
+    studioId: 'studio-1',
+    clientId: options.clientId ?? ana.clientId,
+    entryId: options.entryId,
+    type: options.type ?? 'ELIGIBLE_SPEND_ADDED',
+    occurredAtISO: options.occurredAtISO ?? '2026-11-10T15:30:00.000Z',
+    createdAtISO: '2026-11-10T15:31:00.000Z',
+    stampDelta: options.stampDelta ?? 0,
+    eligibleSpendDeltaMXN: options.eligibleSpendDeltaMXN ?? 250,
+    stampCountAfter: options.stampCountAfter ?? 2,
+    eligibleSpendCarryAfterMXN: options.eligibleSpendCarryAfterMXN ?? 550,
+    createdByAdminSub: options.createdByAdminSub ?? 'cognito-admin-sub-secret',
+    visitId: 'visit-audit-link',
+    ...(options.reason === undefined ? {} : { reason: options.reason })
+  };
+}
+
 describe('ClubDashboardComponent', () => {
   let listClients: ReturnType<
     typeof vi.fn<
@@ -157,7 +192,15 @@ describe('ClubDashboardComponent', () => {
       ) => Observable<AdminClubVisitCreateResponse>
     >
   >;
-  let listLedgerEntries: ReturnType<typeof vi.fn>;
+  let listLedgerEntries: ReturnType<
+    typeof vi.fn<
+      (
+        clientId: string,
+        limit?: number,
+        nextToken?: string
+      ) => Observable<AdminClubLedgerListResponse>
+    >
+  >;
 
   async function configure(options: {
     configured?: boolean;
@@ -169,6 +212,11 @@ describe('ClubDashboardComponent', () => {
       request: AdminClubVisitCreateRequest,
       idempotencyKey: string
     ) => Observable<AdminClubVisitCreateResponse>;
+    ledgerResponse?: (
+      clientId: string,
+      limit?: number,
+      nextToken?: string
+    ) => Observable<AdminClubLedgerListResponse>;
     servicesResponse?: Observable<ServicesDbSeed>;
   } = {}): Promise<void> {
     listClients = vi.fn(
@@ -192,7 +240,10 @@ describe('ClubDashboardComponent', () => {
         options.visitResponse?.(clientId, request, idempotencyKey) ??
         of(visitResponse({ clientId }))
     );
-    listLedgerEntries = vi.fn();
+    listLedgerEntries = vi.fn(
+      (clientId, limit, nextToken) =>
+        options.ledgerResponse?.(clientId, limit, nextToken) ?? of({ items: [] })
+    );
 
     await TestBed.configureTestingModule({
       imports: [ClubDashboardComponent],
@@ -418,6 +469,263 @@ describe('ClubDashboardComponent', () => {
 
     expect(component.selectedClient()).toEqual(beatriz);
     expect(component.selectedBalance()).toEqual(balance(beatriz.clientId, 2, 700));
+  });
+
+  it('loads the selected client ledger in server order and presents safe movement details', async () => {
+    const entries = [
+      ledgerEntry({
+        entryId: 'newest-spend',
+        eligibleSpendDeltaMXN: 250,
+        occurredAtISO: '2026-11-10T18:00:00.000Z'
+      }),
+      ledgerEntry({
+        entryId: 'stamp-earned',
+        type: 'STAMP_EARNED',
+        stampDelta: 1,
+        eligibleSpendDeltaMXN: -300,
+        occurredAtISO: '2026-11-10T17:59:59.000Z'
+      }),
+      ledgerEntry({
+        entryId: 'adjustment-reason',
+        type: 'ADMIN_ADJUSTMENT',
+        stampDelta: -1,
+        eligibleSpendDeltaMXN: 0,
+        reason: 'Corrección autorizada'
+      }),
+      ledgerEntry({
+        entryId: 'adjustment-fallback',
+        type: 'ADMIN_ADJUSTMENT',
+        eligibleSpendDeltaMXN: 0
+      })
+    ];
+    await configure({
+      ledgerResponse: () => of({ items: entries, nextToken: 'opaque-secret-token' })
+    });
+    const fixture = render();
+
+    click(fixture, '[data-client-id="client-ana"]');
+
+    expect(listLedgerEntries).toHaveBeenCalledWith(ana.clientId, 50);
+    expect(
+      [
+        ...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>(
+          '[data-entry-id]'
+        )
+      ].map((element) => element.dataset['entryId'])
+    ).toEqual(entries.map((entry) => entry.entryId));
+    expect(text(fixture)).toContain('Consumo elegible agregado');
+    expect(text(fixture)).toContain('Sello ganado');
+    expect(text(fixture)).toContain('Corrección autorizada');
+    expect(text(fixture).match(/Ajuste administrativo/g)?.length).toBeGreaterThanOrEqual(2);
+    expect(text(fixture)).toContain('+$250');
+    expect(text(fixture)).toContain('-$300');
+    expect(text(fixture)).toContain('+1 sello');
+    expect(text(fixture)).toContain('-1 sello');
+    expect(text(fixture)).not.toContain('cognito-admin-sub-secret');
+    expect(text(fixture)).not.toContain('opaque-secret-token');
+  });
+
+  it('renders an empty ledger as a valid state', async () => {
+    await configure();
+    const fixture = render();
+
+    click(fixture, '[data-client-id="client-ana"]');
+
+    expect(fixture.nativeElement.querySelector('[data-testid="history-empty"]')).toBeTruthy();
+    expect(text(fixture)).toContain(
+      'Esta clienta aún no tiene movimientos de fidelidad.'
+    );
+  });
+
+  it('renders a normalized ledger error and retries the selected client first page', async () => {
+    const normalized = new AdminClubApiError(
+      'network',
+      'No fue posible cargar el historial.'
+    );
+    await configure();
+    listLedgerEntries
+      .mockReturnValueOnce(throwError(() => normalized))
+      .mockReturnValueOnce(of({ items: [] }));
+    const fixture = render();
+
+    click(fixture, '[data-client-id="client-ana"]');
+    expect(text(fixture)).toContain(normalized.message);
+    click(fixture, '[data-testid="history-error"] button');
+
+    expect(listLedgerEntries).toHaveBeenNthCalledWith(1, ana.clientId, 50);
+    expect(listLedgerEntries).toHaveBeenNthCalledWith(2, ana.clientId, 50);
+    expect(fixture.nativeElement.querySelector('[data-testid="history-empty"]')).toBeTruthy();
+  });
+
+  it('never lets a late client A ledger replace client B history', async () => {
+    const anaLedger = new Subject<AdminClubLedgerListResponse>();
+    const beatrizLedger = new Subject<AdminClubLedgerListResponse>();
+    await configure({
+      ledgerResponse: (clientId) =>
+        clientId === ana.clientId ? anaLedger : beatrizLedger
+    });
+    const fixture = render();
+
+    click(fixture, '[data-client-id="client-ana"]');
+    click(fixture, '[data-client-id="client-beatriz"]');
+    beatrizLedger.next({
+      items: [
+        ledgerEntry({
+          entryId: 'beatriz-entry',
+          clientId: beatriz.clientId,
+          type: 'ADMIN_ADJUSTMENT',
+          reason: 'Movimiento de Beatriz'
+        })
+      ]
+    });
+    anaLedger.next({
+      items: [
+        ledgerEntry({
+          entryId: 'ana-late-entry',
+          type: 'ADMIN_ADJUSTMENT',
+          reason: 'Movimiento tardío de Ana'
+        })
+      ]
+    });
+    fixture.detectChanges();
+
+    const ledger = fixture.nativeElement.querySelector('[data-testid="ledger-list"]');
+    expect(ledger.textContent).toContain('Movimiento de Beatriz');
+    expect(ledger.textContent).not.toContain('Movimiento tardío de Ana');
+    expect(text(fixture)).toContain('Movimientos de Beatriz Ramos');
+  });
+
+  it('forwards an opaque ledger token, appends in order, deduplicates, and stops at the end', async () => {
+    const newest = ledgerEntry({ entryId: 'ledger-newest' });
+    const older = ledgerEntry({
+      entryId: 'ledger-older',
+      occurredAtISO: newest.occurredAtISO
+    });
+    await configure();
+    listLedgerEntries
+      .mockReturnValueOnce(
+        of({ items: [newest], nextToken: 'opaque+/= ledger token' })
+      )
+      .mockReturnValueOnce(of({ items: [newest, older] }));
+    const fixture = render();
+
+    click(fixture, '[data-client-id="client-ana"]');
+    click(fixture, '[data-testid="history-load-more"]');
+
+    expect(listLedgerEntries).toHaveBeenLastCalledWith(
+      ana.clientId,
+      50,
+      'opaque+/= ledger token'
+    );
+    expect(
+      [
+        ...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>(
+          '[data-entry-id]'
+        )
+      ].map((element) => element.dataset['entryId'])
+    ).toEqual(['ledger-newest', 'ledger-older']);
+    expect(
+      fixture.nativeElement.querySelector('[data-testid="history-load-more"]')
+    ).toBeNull();
+    expect(text(fixture)).not.toContain('opaque+/= ledger token');
+  });
+
+  it('preserves ledger rows and retries load-more with the same opaque token', async () => {
+    const pageError = new AdminClubApiError(
+      'server',
+      'No fue posible cargar movimientos anteriores.'
+    );
+    await configure();
+    listLedgerEntries
+      .mockReturnValueOnce(
+        of({
+          items: [ledgerEntry({ entryId: 'kept-entry' })],
+          nextToken: 'retry-ledger-token'
+        })
+      )
+      .mockReturnValueOnce(throwError(() => pageError))
+      .mockReturnValueOnce(
+        of({ items: [ledgerEntry({ entryId: 'retried-older-entry' })] })
+      );
+    const fixture = render();
+
+    click(fixture, '[data-client-id="client-ana"]');
+    click(fixture, '[data-testid="history-load-more"]');
+    expect(text(fixture)).toContain(pageError.message);
+    expect(fixture.nativeElement.querySelector('[data-entry-id="kept-entry"]')).toBeTruthy();
+    click(fixture, '[data-testid="history-load-more"]');
+
+    expect(listLedgerEntries).toHaveBeenNthCalledWith(
+      2,
+      ana.clientId,
+      50,
+      'retry-ledger-token'
+    );
+    expect(listLedgerEntries).toHaveBeenNthCalledWith(
+      3,
+      ana.clientId,
+      50,
+      'retry-ledger-token'
+    );
+    expect(
+      fixture.nativeElement.querySelector('[data-entry-id="retried-older-entry"]')
+    ).toBeTruthy();
+  });
+
+  it('renders asynchronous history loading, pagination, refresh, and errors zonelessly', async () => {
+    const firstPage = new Subject<AdminClubLedgerListResponse>();
+    const olderPage = new Subject<AdminClubLedgerListResponse>();
+    const refreshPage = new Subject<AdminClubLedgerListResponse>();
+    let firstPageRequests = 0;
+    await configure({
+      ledgerResponse: (_clientId, _limit, token) => {
+        if (token) {
+          return olderPage;
+        }
+        return firstPageRequests++ === 0 ? firstPage : refreshPage;
+      }
+    });
+    const fixture = render();
+    vi.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue(UUID_ONE);
+
+    click(fixture, '[data-client-id="client-ana"]');
+    expect(fixture.nativeElement.querySelector('[data-testid="history-loading"]')).toBeTruthy();
+
+    firstPage.next({
+      items: [ledgerEntry({ entryId: 'async-first' })],
+      nextToken: 'async-next'
+    });
+    firstPage.complete();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[data-entry-id="async-first"]')).toBeTruthy();
+
+    click(fixture, '[data-testid="history-load-more"]');
+    olderPage.next({ items: [ledgerEntry({ entryId: 'async-older' })] });
+    olderPage.complete();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[data-entry-id="async-older"]')).toBeTruthy();
+
+    setInput(fixture, '[data-testid="visit-date"]', '2026-11-10T09:30');
+    setInput(fixture, '[data-testid="visit-amount"]', '500');
+    setInput(fixture, '[data-testid="visit-eligible-amount"]', '400');
+    visitActions(fixture).registerVisit();
+    fixture.detectChanges();
+    expect(
+      fixture.nativeElement.querySelector('[data-testid="history-refreshing"]')
+    ).toBeTruthy();
+
+    refreshPage.error(
+      new AdminClubApiError('network', 'Error seguro de actualización asíncrona.')
+    );
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(text(fixture)).toContain('Visita registrada correctamente');
+    expect(text(fixture)).toContain('Error seguro de actualización asíncrona.');
+    expect(fixture.nativeElement.querySelector('[data-entry-id="async-first"]')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('[data-entry-id="async-older"]')).toBeTruthy();
   });
 
   it('does not submit an invalid create form', async () => {
@@ -856,7 +1164,141 @@ describe('ClubDashboardComponent', () => {
     expect(text(fixture)).toContain('$975');
     expect(text(fixture)).toContain('$50 total');
     expect(getClient).toHaveBeenCalledTimes(1);
-    expect(listLedgerEntries).not.toHaveBeenCalled();
+    expect(listLedgerEntries).toHaveBeenCalledTimes(2);
+    expect(listLedgerEntries).toHaveBeenLastCalledWith(ana.clientId, 50);
+  });
+
+  it('replaces ledger page and pagination after a successful visit refresh', async () => {
+    const oldEntry = ledgerEntry({ entryId: 'before-visit' });
+    const refreshedEntry = ledgerEntry({ entryId: 'after-visit' });
+    await configure();
+    listLedgerEntries
+      .mockReturnValueOnce(
+        of({ items: [oldEntry], nextToken: 'stale-before-visit-token' })
+      )
+      .mockReturnValueOnce(
+        of({ items: [refreshedEntry], nextToken: 'fresh-after-visit-token' })
+      )
+      .mockReturnValueOnce(of({ items: [] }));
+    const fixture = render();
+    vi.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue(UUID_ONE);
+    prepareVisit(fixture);
+
+    visitActions(fixture).registerVisit();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('[data-entry-id="before-visit"]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-entry-id="after-visit"]')).toBeTruthy();
+    click(fixture, '[data-testid="history-load-more"]');
+    expect(listLedgerEntries).toHaveBeenLastCalledWith(
+      ana.clientId,
+      50,
+      'fresh-after-visit-token'
+    );
+  });
+
+  it('deduplicates the authoritative ledger refresh after a replayed visit', async () => {
+    const committed = ledgerEntry({ entryId: 'replayed-ledger-entry' });
+    let firstPageCount = 0;
+    await configure({
+      visitResponse: () => of(visitResponse({ replayed: true })),
+      ledgerResponse: () =>
+        of({ items: firstPageCount++ === 0 ? [committed] : [committed, committed] })
+    });
+    const fixture = render();
+    vi.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue(UUID_ONE);
+    prepareVisit(fixture);
+
+    visitActions(fixture).registerVisit();
+    fixture.detectChanges();
+
+    expect(text(fixture)).toContain('La visita ya estaba registrada');
+    expect(
+      fixture.nativeElement.querySelectorAll('[data-entry-id="replayed-ledger-entry"]')
+    ).toHaveLength(1);
+    expect(listLedgerEntries).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps visit success and valid rows when the independent ledger refresh fails', async () => {
+    const refreshError = new AdminClubApiError(
+      'network',
+      'La visita se guardó, pero el historial no pudo actualizarse.'
+    );
+    await configure();
+    listLedgerEntries
+      .mockReturnValueOnce(of({ items: [ledgerEntry({ entryId: 'valid-old-row' })] }))
+      .mockReturnValueOnce(throwError(() => refreshError))
+      .mockReturnValueOnce(of({ items: [ledgerEntry({ entryId: 'refreshed-row' })] }));
+    const fixture = render();
+    vi.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue(UUID_ONE);
+    prepareVisit(fixture);
+
+    visitActions(fixture).registerVisit();
+    fixture.detectChanges();
+
+    expect(text(fixture)).toContain('Visita registrada correctamente');
+    expect(text(fixture)).toContain(refreshError.message);
+    expect(fixture.nativeElement.querySelector('[data-entry-id="valid-old-row"]')).toBeTruthy();
+    expect(registerVisit).toHaveBeenCalledTimes(1);
+
+    click(fixture, '[data-testid="history-refresh-error"] button');
+    expect(registerVisit).toHaveBeenCalledTimes(1);
+    expect(fixture.nativeElement.querySelector('[data-entry-id="refreshed-row"]')).toBeTruthy();
+  });
+
+  it('does not refresh client B when a client A visit resolves after selection changed', async () => {
+    const pendingVisit = new Subject<AdminClubVisitCreateResponse>();
+    await configure({ visitResponse: () => pendingVisit });
+    const fixture = render();
+    vi.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue(UUID_ONE);
+    prepareVisit(fixture);
+    visitActions(fixture).registerVisit();
+
+    click(fixture, '[data-client-id="client-beatriz"]');
+    expect(listLedgerEntries).toHaveBeenCalledTimes(2);
+    pendingVisit.next(visitResponse({ clientId: ana.clientId }));
+    pendingVisit.complete();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(listLedgerEntries).toHaveBeenCalledTimes(2);
+    expect(listLedgerEntries).toHaveBeenLastCalledWith(beatriz.clientId, 50);
+    expect(text(fixture)).toContain('Movimientos de Beatriz Ramos');
+  });
+
+  it('ignores an old load-more page after a visit starts a new history generation', async () => {
+    const staleLoadMore = new Subject<AdminClubLedgerListResponse>();
+    const refreshedFirstPage = new Subject<AdminClubLedgerListResponse>();
+    let firstPageCount = 0;
+    await configure({
+      ledgerResponse: (_clientId, _limit, token) => {
+        if (token) {
+          return staleLoadMore;
+        }
+        return firstPageCount++ === 0
+          ? of({
+              items: [ledgerEntry({ entryId: 'initial-row' })],
+              nextToken: 'old-page-token'
+            })
+          : refreshedFirstPage;
+      }
+    });
+    const fixture = render();
+    vi.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue(UUID_ONE);
+    prepareVisit(fixture);
+    click(fixture, '[data-testid="history-load-more"]');
+
+    visitActions(fixture).registerVisit();
+    refreshedFirstPage.next({ items: [ledgerEntry({ entryId: 'refresh-winner' })] });
+    refreshedFirstPage.complete();
+    staleLoadMore.next({ items: [ledgerEntry({ entryId: 'stale-older-row' })] });
+    staleLoadMore.complete();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('[data-entry-id="refresh-winner"]')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('[data-entry-id="initial-row"]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-entry-id="stale-older-row"]')).toBeNull();
   });
 
   it('presents a safe replay as the original visit rather than a second registration', async () => {
@@ -1029,12 +1471,17 @@ describe('ClubDashboardComponent', () => {
     expect(visitActions(fixture).pendingVisitAttempt()).toBeNull();
   });
 
-  it('does not call visit automatically or cross the ledger/history phase boundary', async () => {
+  it('loads history without calling visit or adding adjustment mutations', async () => {
     await configure();
     const fixture = render();
     click(fixture, '[data-client-id="client-ana"]');
 
     expect(registerVisit).not.toHaveBeenCalled();
-    expect(listLedgerEntries).not.toHaveBeenCalled();
+    expect(listLedgerEntries).toHaveBeenCalledWith(ana.clientId, 50);
+    expect(
+      Object.keys(
+        (TestBed.inject(AdminClubApiClient) as unknown as Record<string, unknown>)
+      )
+    ).not.toContain('adjustLedger');
   });
 });

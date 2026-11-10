@@ -276,6 +276,130 @@
   </div>
 
   <section
+    class="section-card history-card"
+    aria-labelledby="history-title"
+    data-testid="loyalty-history"
+  >
+    <div class="section-card__header">
+      <div>
+        <p class="eyebrow">Auditoría de fidelidad</p>
+        <h2 id="history-title">Historial de movimientos</h2>
+      </div>
+      <mat-icon aria-hidden="true">history</mat-icon>
+    </div>
+
+    @if (selectedClient(); as client) {
+      <p class="history-client" data-testid="history-client-context">
+        Movimientos de <strong>{{ client.name }}</strong>
+      </p>
+
+      @if (historyFirstPageLoading() && ledgerEntries().length === 0) {
+        <p class="inline-state" data-testid="history-loading">Cargando historial…</p>
+      } @else if (historyFirstPageError() && ledgerEntries().length === 0) {
+        <div class="error-state" data-testid="history-error" role="alert">
+          <p>{{ historyFirstPageError() }}</p>
+          <button mat-stroked-button type="button" (click)="retryHistoryFirstPage()">
+            Intentar de nuevo
+          </button>
+        </div>
+      } @else if (ledgerEntries().length === 0) {
+        <div class="empty-state" data-testid="history-empty">
+          <h3>Sin movimientos todavía</h3>
+          <p>Esta clienta aún no tiene movimientos de fidelidad.</p>
+        </div>
+      } @else {
+        @if (historyFirstPageLoading()) {
+          <p data-testid="history-refreshing" role="status">Actualizando movimientos…</p>
+        }
+        @if (historyFirstPageError(); as error) {
+          <div
+            class="visit-attempt visit-attempt__actions"
+            data-testid="history-refresh-error"
+            role="alert"
+          >
+            <span>{{ error }}</span>
+            <button mat-stroked-button type="button" (click)="retryHistoryFirstPage()">
+              Reintentar actualización
+            </button>
+          </div>
+        }
+
+        <div class="visit-card" data-testid="ledger-list">
+          @for (entry of ledgerEntries(); track entry.entryId) {
+            <article class="service-selector" [attr.data-entry-id]="entry.entryId">
+              <h3>{{ ledgerTypeLabel(entry) }}</h3>
+              <time [attr.datetime]="entry.occurredAtISO">{{
+                formatVisitDate(entry.occurredAtISO)
+              }}</time>
+
+              @if (ledgerDescription(entry); as description) {
+                <p>{{ description }}</p>
+              }
+
+              @if (entry.stampDelta !== 0 || entry.eligibleSpendDeltaMXN !== 0) {
+                <p class="visit-attempt__actions" aria-label="Cambios del movimiento">
+                  @if (entry.stampDelta !== 0) {
+                    <span
+                      class="status-pill"
+                      [class.form-message--error]="entry.stampDelta < 0"
+                      data-testid="stamp-delta"
+                    >{{ formatStampDelta(entry.stampDelta) }}</span>
+                  }
+                  @if (entry.eligibleSpendDeltaMXN !== 0) {
+                    <span
+                      class="status-pill"
+                      [class.form-message--error]="entry.eligibleSpendDeltaMXN < 0"
+                      data-testid="spend-delta"
+                    >{{ formatSignedMXN(entry.eligibleSpendDeltaMXN) }}</span>
+                  }
+                </p>
+              }
+              <p>
+                Resultado: <strong>{{ stampLabel(entry.stampCountAfter) }}</strong> ·
+                saldo elegible {{ formatMXN(entry.eligibleSpendCarryAfterMXN) }}
+              </p>
+            </article>
+          }
+        </div>
+
+        @if (historyNextToken()) {
+          <div class="pagination history-pagination">
+            @if (historyLoadMoreError(); as error) {
+              <p
+                class="form-message form-message--error"
+                data-testid="history-load-more-error"
+                role="alert"
+              >
+                {{ error }}
+              </p>
+            }
+            <button
+              mat-stroked-button
+              type="button"
+              (click)="loadMoreHistory()"
+              [disabled]="historyLoadMoreLoading() || historyFirstPageLoading()"
+              data-testid="history-load-more"
+            >
+              {{
+                historyLoadMoreLoading()
+                  ? 'Cargando…'
+                  : historyLoadMoreError()
+                    ? 'Reintentar movimientos anteriores'
+                    : 'Cargar movimientos anteriores'
+              }}
+            </button>
+          </div>
+        }
+      }
+    } @else {
+      <div class="empty-state" data-testid="history-no-client">
+        <h3>Selecciona una clienta</h3>
+        <p>Su historial de fidelidad aparecerá aquí.</p>
+      </div>
+    }
+  </section>
+
+  <section
     class="section-card visit-card"
     aria-labelledby="visit-title"
     data-testid="visit-registration"

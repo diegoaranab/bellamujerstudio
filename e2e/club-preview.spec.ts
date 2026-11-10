@@ -25,6 +25,8 @@ test('desktop Club administration renders its safe local configuration state', a
   await expect(page.getByText('Clienta demo A')).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Clientas Club' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Agregar clienta' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Historial de movimientos' })).toBeVisible();
+  await expect(page.getByTestId('history-no-client')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Registrar visita' })).toBeVisible();
   await expect(page.getByTestId('create-client-submit')).toBeDisabled();
   await expect(page.getByTestId('visit-submit')).toBeDisabled();
@@ -39,6 +41,8 @@ test('mobile Club administration remains readable and is discoverable from Inici
   await expect(page.getByTestId('club-not-configured')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Detalle de clienta' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Agregar clienta' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Historial de movimientos' })).toBeVisible();
+  await expect(page.getByTestId('history-no-client')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Registrar visita' })).toBeVisible();
   await expect(page.getByTestId('visit-submit')).toBeDisabled();
   await expectNoHorizontalOverflow(page);
