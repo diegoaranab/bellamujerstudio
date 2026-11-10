@@ -362,6 +362,7 @@ describe('ClubDashboardComponent', () => {
     expect(text(fixture)).toContain('$650');
 
     pendingList.next({ items: [ana, beatriz] });
+    pendingList.complete();
     fixture.detectChanges();
 
     const createdRows = fixture.nativeElement.querySelectorAll(
@@ -399,6 +400,7 @@ describe('ClubDashboardComponent', () => {
     click(fixture, '[data-testid="create-client-submit"]');
 
     retryPage.next({ items: [ana] });
+    retryPage.complete();
     fixture.detectChanges();
 
     expect(
