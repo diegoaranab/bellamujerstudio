@@ -1,5 +1,5 @@
-import { Component, DestroyRef, OnInit, inject } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -45,6 +45,9 @@ export class ClubDashboardComponent implements OnInit {
 
   protected readonly isConfigured = this.clubApi.isConfigured;
   protected readonly filterControl = new FormControl('', { nonNullable: true });
+  private readonly filterQuery = toSignal(this.filterControl.valueChanges, {
+    initialValue: this.filterControl.value
+  });
   protected readonly createForm = new FormGroup({
     name: new FormControl('', {
       nonNullable: true,
@@ -56,22 +59,39 @@ export class ClubDashboardComponent implements OnInit {
     })
   });
 
-  protected clients: ClubClient[] = [];
-  protected initialLoading = false;
-  protected initialError: string | null = null;
-  protected nextToken: string | undefined;
-  protected loadMoreLoading = false;
-  protected loadMoreError: string | null = null;
+  protected readonly clients = signal<ClubClient[]>([]);
+  protected readonly initialLoading = signal(false);
+  protected readonly initialError = signal<string | null>(null);
+  protected readonly nextToken = signal<string | undefined>(undefined);
+  protected readonly loadMoreLoading = signal(false);
+  protected readonly loadMoreError = signal<string | null>(null);
 
-  protected selectedClientId: string | null = null;
-  protected selectedClient: ClubClient | null = null;
-  protected selectedBalance: LoyaltyBalance | null = null;
-  protected detailLoading = false;
-  protected detailError: string | null = null;
+  protected readonly selectedClientId = signal<string | null>(null);
+  protected readonly selectedClient = signal<ClubClient | null>(null);
+  protected readonly selectedBalance = signal<LoyaltyBalance | null>(null);
+  protected readonly detailLoading = signal(false);
+  protected readonly detailError = signal<string | null>(null);
 
-  protected createLoading = false;
-  protected createError: string | null = null;
-  protected createSuccess: string | null = null;
+  protected readonly createLoading = signal(false);
+  protected readonly createError = signal<string | null>(null);
+  protected readonly createSuccess = signal<string | null>(null);
+
+  protected readonly filteredClients = computed(() => {
+    const query = this.filterQuery().trim().toLocaleLowerCase('es-MX');
+    const clients = this.clients();
+    if (!query) {
+      return clients;
+    }
+    return clients.filter((client) =>
+      `${client.name} ${client.phone}`.toLocaleLowerCase('es-MX').includes(query)
+    );
+  });
+
+  protected readonly selectedDetail = computed(() => {
+    const client = this.selectedClient();
+    const balance = this.selectedBalance();
+    return client && balance ? { client, balance } : null;
+  });
 
   ngOnInit(): void {
     this.connectDetailSelection();
@@ -80,70 +100,61 @@ export class ClubDashboardComponent implements OnInit {
     }
   }
 
-  protected get filteredClients(): ClubClient[] {
-    const query = this.filterControl.value.trim().toLocaleLowerCase('es-MX');
-    if (!query) {
-      return this.clients;
-    }
-    return this.clients.filter((client) =>
-      `${client.name} ${client.phone}`.toLocaleLowerCase('es-MX').includes(query)
-    );
-  }
-
   protected loadFirstPage(): void {
-    if (!this.isConfigured || this.initialLoading) {
+    if (!this.isConfigured || this.initialLoading()) {
       return;
     }
-    this.initialLoading = true;
-    this.initialError = null;
-    this.loadMoreError = null;
+    this.initialLoading.set(true);
+    this.initialError.set(null);
+    this.loadMoreError.set(null);
     const requestRevision = this.directoryRevision;
 
     this.clubApi
       .listClients(50)
       .pipe(
-        finalize(() => (this.initialLoading = false)),
+        finalize(() => this.initialLoading.set(false)),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
         next: (response) => {
-          const clientsCreatedAfterRequest = this.clients.filter(
+          const clientsCreatedAfterRequest = this.clients().filter(
             (client) =>
               (this.createdClientRevisions.get(client.clientId) ?? 0) > requestRevision
           );
-          this.clients = this.uniqueClients([
-            ...clientsCreatedAfterRequest,
-            ...response.items
-          ]);
-          this.nextToken = response.nextToken;
+          this.clients.set(
+            this.uniqueClients([...clientsCreatedAfterRequest, ...response.items])
+          );
+          this.nextToken.set(response.nextToken);
         },
         error: (error: unknown) => {
-          this.initialError = this.safeErrorMessage(error);
+          this.initialError.set(this.safeErrorMessage(error));
         }
       });
   }
 
   protected loadMore(): void {
-    const token = this.nextToken;
-    if (!token || this.loadMoreLoading || this.initialLoading) {
+    const token = this.nextToken();
+    if (!token || this.loadMoreLoading() || this.initialLoading()) {
       return;
     }
-    this.loadMoreLoading = true;
-    this.loadMoreError = null;
+    this.loadMoreLoading.set(true);
+    this.loadMoreError.set(null);
 
     this.clubApi
       .listClients(50, token)
       .pipe(
-        finalize(() => (this.loadMoreLoading = false)),
+        finalize(() => this.loadMoreLoading.set(false)),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
         next: (response) => {
-          this.clients = this.uniqueClients([...this.clients, ...response.items]);
-          this.nextToken = response.nextToken;
+          this.clients.set(
+            this.uniqueClients([...this.clients(), ...response.items])
+          );
+          this.nextToken.set(response.nextToken);
         },
         error: (error: unknown) => {
-          this.loadMoreError = this.safeErrorMessage(error);
+          this.loadMoreError.set(this.safeErrorMessage(error));
         }
       });
   }
@@ -153,7 +164,7 @@ export class ClubDashboardComponent implements OnInit {
   }
 
   protected createClient(): void {
-    if (!this.isConfigured || this.createLoading || this.createForm.invalid) {
+    if (!this.isConfigured || this.createLoading() || this.createForm.invalid) {
       this.createForm.markAllAsTouched();
       return;
     }
@@ -171,27 +182,28 @@ export class ClubDashboardComponent implements OnInit {
       this.createForm.markAllAsTouched();
       return;
     }
-    this.createLoading = true;
-    this.createError = null;
-    this.createSuccess = null;
+
+    this.createLoading.set(true);
+    this.createError.set(null);
+    this.createSuccess.set(null);
 
     this.clubApi
       .createClient({ name, phone })
       .pipe(
-        finalize(() => (this.createLoading = false)),
+        finalize(() => this.createLoading.set(false)),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
         next: (detail) => {
           this.directoryRevision += 1;
           this.createdClientRevisions.set(detail.client.clientId, this.directoryRevision);
-          this.clients = this.replaceClient(this.clients, detail.client);
+          this.clients.set(this.replaceClient(this.clients(), detail.client));
           this.detailIntents.next({ kind: 'resolved', detail });
           this.createForm.reset({ name: '', phone: '' });
-          this.createSuccess = 'Clienta creada correctamente.';
+          this.createSuccess.set('Clienta creada correctamente.');
         },
         error: (error: unknown) => {
-          this.createError = this.safeErrorMessage(error);
+          this.createError.set(this.safeErrorMessage(error));
         }
       });
   }
@@ -217,15 +229,15 @@ export class ClubDashboardComponent implements OnInit {
     this.detailIntents
       .pipe(
         switchMap((intent): Observable<DetailResult> => {
-          this.detailError = null;
+          this.detailError.set(null);
           if (intent.kind === 'resolved') {
             return of({ kind: 'success', detail: intent.detail });
           }
 
-          this.selectedClientId = intent.client.clientId;
-          this.selectedClient = intent.client;
-          this.selectedBalance = null;
-          this.detailLoading = true;
+          this.selectedClientId.set(intent.client.clientId);
+          this.selectedClient.set(intent.client);
+          this.selectedBalance.set(null);
+          this.detailLoading.set(true);
           return this.clubApi.getClient(intent.client.clientId).pipe(
             map((detail) => ({ kind: 'success', detail }) as const),
             catchError((error: unknown) =>
@@ -236,15 +248,16 @@ export class ClubDashboardComponent implements OnInit {
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe((result) => {
-        this.detailLoading = false;
+        this.detailLoading.set(false);
         if (result.kind === 'error') {
-          this.detailError = result.message;
+          this.detailError.set(result.message);
           return;
         }
-        this.selectedClientId = result.detail.client.clientId;
-        this.selectedClient = result.detail.client;
-        this.selectedBalance = result.detail.balance;
-        this.clients = this.replaceClient(this.clients, result.detail.client);
+
+        this.selectedClientId.set(result.detail.client.clientId);
+        this.selectedClient.set(result.detail.client);
+        this.selectedBalance.set(result.detail.balance);
+        this.clients.set(this.replaceClient(this.clients(), result.detail.client));
       });
   }
 
