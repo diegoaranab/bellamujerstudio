@@ -56,25 +56,25 @@
           <mat-hint>La búsqueda considera solo los perfiles ya cargados.</mat-hint>
         </mat-form-field>
 
-        @if (initialLoading) {
+        @if (initialLoading()) {
           <div class="inline-state" data-testid="clients-loading">
             <mat-spinner diameter="28" />
             <span>Cargando clientas…</span>
           </div>
-        } @else if (initialError) {
+        } @else if (initialError(); as error) {
           <div class="error-state" data-testid="clients-error" role="alert">
-            <p>{{ initialError }}</p>
+            <p>{{ error }}</p>
             <button mat-stroked-button type="button" (click)="loadFirstPage()">
               Intentar de nuevo
             </button>
           </div>
-        } @else if (clients.length === 0) {
+        } @else if (clients().length === 0) {
           <div class="empty-state" data-testid="clients-empty">
             <mat-icon aria-hidden="true">person_add</mat-icon>
             <h3>Aún no hay clientas en el Club</h3>
             <p>Registra la primera clienta con el formulario.</p>
           </div>
-        } @else if (filteredClients.length === 0) {
+        } @else if (filteredClients().length === 0) {
           <div class="empty-state" data-testid="filter-empty">
             <mat-icon aria-hidden="true">search_off</mat-icon>
             <h3>Sin coincidencias</h3>
@@ -82,11 +82,11 @@
           </div>
         } @else {
           <div class="client-list" data-testid="client-list">
-            @for (client of filteredClients; track client.clientId) {
+            @for (client of filteredClients(); track client.clientId) {
               <button
                 type="button"
                 class="client-row"
-                [class.client-row--selected]="selectedClientId === client.clientId"
+                [class.client-row--selected]="selectedClientId() === client.clientId"
                 (click)="selectClient(client)"
                 [attr.data-client-id]="client.clientId"
               >
@@ -108,30 +108,36 @@
           </div>
         }
 
-        @if (!initialLoading && !initialError && nextToken) {
+        @if (!initialLoading() && !initialError() && nextToken()) {
           <div class="pagination">
-            @if (loadMoreError) {
+            @if (loadMoreError(); as error) {
               <p
                 class="form-message form-message--error"
                 data-testid="load-more-error"
                 role="alert"
               >
-                {{ loadMoreError }}
+                {{ error }}
               </p>
             }
             <button
               mat-stroked-button
               type="button"
               (click)="loadMore()"
-              [disabled]="loadMoreLoading"
+              [disabled]="loadMoreLoading()"
               data-testid="load-more"
             >
-              @if (loadMoreLoading) {
+              @if (loadMoreLoading()) {
                 <mat-spinner diameter="18" />
               } @else {
                 <mat-icon aria-hidden="true">expand_more</mat-icon>
               }
-              {{ loadMoreLoading ? 'Cargando…' : loadMoreError ? 'Reintentar carga' : 'Cargar más' }}
+              {{
+                loadMoreLoading()
+                  ? 'Cargando…'
+                  : loadMoreError()
+                    ? 'Reintentar carga'
+                    : 'Cargar más'
+              }}
             </button>
           </div>
         }
@@ -157,44 +163,47 @@
           </div>
           <mat-icon aria-hidden="true">loyalty</mat-icon>
         </div>
-        @if (detailLoading) {
+
+        @if (detailLoading()) {
           <div class="inline-state" data-testid="detail-loading">
             <mat-spinner diameter="28" />
             <span>Consultando saldo…</span>
           </div>
-        } @else if (detailError) {
+        } @else if (detailError(); as error) {
           <div class="error-state" data-testid="detail-error" role="alert">
-            <p>{{ detailError }}</p>
-            @if (selectedClient) {
-              <button mat-stroked-button type="button" (click)="selectClient(selectedClient)">
+            <p>{{ error }}</p>
+            @if (selectedClient(); as client) {
+              <button mat-stroked-button type="button" (click)="selectClient(client)">
                 Intentar de nuevo
               </button>
             }
           </div>
-        } @else if (selectedClient && selectedBalance) {
+        } @else if (selectedDetail(); as detail) {
           <div class="client-detail__profile">
             <span class="client-detail__avatar" aria-hidden="true">{{
-              selectedClient.name.charAt(0)
+              detail.client.name.charAt(0)
             }}</span>
             <div>
-              <h3>{{ selectedClient.name }}</h3>
-              <p>{{ selectedClient.phone }}</p>
+              <h3>{{ detail.client.name }}</h3>
+              <p>{{ detail.client.phone }}</p>
               <span
                 class="status-pill"
-                [class.status-pill--inactive]="selectedClient.status === 'inactive'"
-                >{{ statusLabel(selectedClient) }}</span
+                [class.status-pill--inactive]="detail.client.status === 'inactive'"
+                >{{ statusLabel(detail.client) }}</span
               >
             </div>
           </div>
           <div class="balance-grid">
             <div>
               <mat-icon aria-hidden="true">spa</mat-icon>
-              <strong data-testid="stamp-count">{{ stampLabel(selectedBalance.stampCount) }}</strong>
+              <strong data-testid="stamp-count">{{
+                stampLabel(detail.balance.stampCount)
+              }}</strong>
             </div>
             <div>
               <span>Saldo elegible acumulado</span>
               <strong data-testid="eligible-balance">{{
-                formatMXN(selectedBalance.eligibleSpendCarryMXN)
+                formatMXN(detail.balance.eligibleSpendCarryMXN)
               }}</strong>
             </div>
           </div>
@@ -234,32 +243,32 @@
               <mat-error>El teléfono es obligatorio.</mat-error>
             }
           </mat-form-field>
-          @if (createError) {
+          @if (createError(); as error) {
             <p class="form-message form-message--error" data-testid="create-error" role="alert">
-              {{ createError }}
+              {{ error }}
             </p>
           }
-          @if (createSuccess) {
+          @if (createSuccess(); as success) {
             <p
               class="form-message form-message--success"
               data-testid="create-success"
               role="status"
             >
-              {{ createSuccess }}
+              {{ success }}
             </p>
           }
           <button
             mat-flat-button
             type="submit"
-            [disabled]="!isConfigured || createLoading"
+            [disabled]="!isConfigured || createLoading()"
             data-testid="create-client-submit"
           >
-            @if (createLoading) {
+            @if (createLoading()) {
               <mat-spinner diameter="18" />
             } @else {
               <mat-icon aria-hidden="true">add</mat-icon>
             }
-            {{ createLoading ? 'Guardando…' : 'Crear clienta' }}
+            {{ createLoading() ? 'Guardando…' : 'Crear clienta' }}
           </button>
         </form>
       </section>
