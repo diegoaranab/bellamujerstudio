@@ -54,6 +54,28 @@ export interface AdminClubLedgerListResponse {
   nextToken?: string;
 }
 
+export interface AdminClubAccessSummary {
+  status: 'invited' | 'active' | 'disabled';
+  credentialVersion: number;
+  invitationGeneration: number;
+  hasPin: boolean;
+  updatedAtISO: string;
+}
+
+export interface AdminClubAccessReadResponse {
+  access: AdminClubAccessSummary | null;
+}
+
+export interface AdminClubAccessInvitation {
+  activationFragment: string;
+  expiresAtISO: string;
+}
+
+export interface AdminClubAccessMutationResponse {
+  access: AdminClubAccessSummary;
+  invitation: AdminClubAccessInvitation;
+}
+
 export type AdminClubApiErrorKind =
   | 'configuration'
   | 'authentication'
@@ -149,6 +171,37 @@ export class AdminClubApiClient {
       this.http.get<AdminClubLedgerListResponse>(
         `${this.baseUrl}/admin/club/clients/${encodeURIComponent(clientId)}/ledger`,
         { headers, params: this.paginationParams(limit, nextToken) }
+      )
+    );
+  }
+
+  getClientAccess(clientId: string): Observable<AdminClubAccessReadResponse> {
+    return this.withAccessToken((headers) =>
+      this.http.get<AdminClubAccessReadResponse>(
+        `${this.baseUrl}/admin/club/clients/${encodeURIComponent(clientId)}/access`,
+        { headers }
+      )
+    );
+  }
+
+  generateClientAccessInvitation(
+    clientId: string
+  ): Observable<AdminClubAccessMutationResponse> {
+    return this.withAccessToken((headers) =>
+      this.http.request<AdminClubAccessMutationResponse>(
+        'POST',
+        `${this.baseUrl}/admin/club/clients/${encodeURIComponent(clientId)}/access/invitation`,
+        { headers }
+      )
+    );
+  }
+
+  resetClientAccess(clientId: string): Observable<AdminClubAccessMutationResponse> {
+    return this.withAccessToken((headers) =>
+      this.http.request<AdminClubAccessMutationResponse>(
+        'POST',
+        `${this.baseUrl}/admin/club/clients/${encodeURIComponent(clientId)}/access/reset`,
+        { headers }
       )
     );
   }

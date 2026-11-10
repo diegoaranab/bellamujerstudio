@@ -1,3 +1,4 @@
+import { DOCUMENT } from '@angular/common';
 import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import {
@@ -33,6 +34,8 @@ import {
   Service
 } from '../../core/models';
 import {
+  AdminClubAccessMutationResponse,
+  AdminClubAccessSummary,
   AdminClubApiClient,
   AdminClubApiError,
   AdminClubClientDetailResponse,
@@ -76,6 +79,13 @@ interface VisitOutcome {
   response: AdminClubVisitCreateResponse;
 }
 
+interface OneTimeAccessInvitation {
+  activationUrl: string;
+  expiresAtISO: string;
+}
+
+type AccessMutationKind = 'invitation' | 'reset';
+
 type ServiceCatalogState =
   | { kind: 'loading' }
   | { kind: 'ready'; services: Service[] }
@@ -84,6 +94,20 @@ type ServiceCatalogState =
 const MAX_VISIT_SERVICES = 50;
 const STRICT_UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export function buildClubActivationUrl(
+  activationFragment: string,
+  baseUri: string
+): string | null {
+  if (!activationFragment.startsWith('#/club/activar?')) {
+    return null;
+  }
+  try {
+    return new URL(activationFragment, baseUri).toString();
+  } catch {
+    return null;
+  }
+}
 
 const safeIntegerValidator: ValidatorFn = (
   control: AbstractControl
@@ -130,6 +154,7 @@ export class ClubDashboardComponent implements OnInit {
   private readonly clubApi = inject(AdminClubApiClient);
   private readonly dbFacade = inject(DbFacadeService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly document = inject(DOCUMENT);
   private readonly detailIntents = new Subject<DetailIntent>();
   private readonly historyFirstPageIntents = new Subject<HistoryFirstPageIntent>();
   private directoryRevision = 0;
@@ -202,6 +227,19 @@ export class ClubDashboardComponent implements OnInit {
   protected readonly selectedBalance = signal<LoyaltyBalance | null>(null);
   protected readonly detailLoading = signal(false);
   protected readonly detailError = signal<string | null>(null);
+
+  protected readonly selectedAccess = signal<AdminClubAccessSummary | null>(null);
+  protected readonly accessLoading = signal(false);
+  protected readonly accessReadError = signal<string | null>(null);
+  protected readonly accessMutationLoading = signal(false);
+  protected readonly accessMutationError = signal<string | null>(null);
+  protected readonly resetConfirmationOpen = signal(false);
+  protected readonly oneTimeInvitation = signal<OneTimeAccessInvitation | null>(null);
+  protected readonly copyFeedback = signal<string | null>(null);
+  protected readonly shareFeedback = signal<string | null>(null);
+  protected readonly accessReadRevision = signal(0);
+  protected readonly nativeShareAvailable =
+    typeof this.document.defaultView?.navigator.share === 'function';
 
   protected readonly historyClientId = signal<string | null>(null);
   protected readonly ledgerEntries = signal<LoyaltyLedgerEntry[]>([]);
@@ -317,12 +355,22 @@ export class ClubDashboardComponent implements OnInit {
   }
 
   protected selectClient(client: ClubClient): void {
+    if (this.accessMutationLoading()) {
+      return;
+    }
+    this.prepareAccessSelection(client.clientId);
     this.detailIntents.next({ kind: 'load', client });
     this.loadHistoryFirstPage(client.clientId, false);
+    this.loadClientAccess(client.clientId, false);
   }
 
   protected createClient(): void {
-    if (!this.isConfigured || this.createLoading() || this.createForm.invalid) {
+    if (
+      !this.isConfigured ||
+      this.createLoading() ||
+      this.accessMutationLoading() ||
+      this.createForm.invalid
+    ) {
       this.createForm.markAllAsTouched();
       return;
     }
@@ -356,8 +404,12 @@ export class ClubDashboardComponent implements OnInit {
           this.directoryRevision += 1;
           this.createdClientRevisions.set(detail.client.clientId, this.directoryRevision);
           this.clients.set(this.replaceClient(this.clients(), detail.client));
-          this.detailIntents.next({ kind: 'resolved', detail });
-          this.loadHistoryFirstPage(detail.client.clientId, false);
+          if (!this.accessMutationLoading()) {
+            this.prepareAccessSelection(detail.client.clientId);
+            this.detailIntents.next({ kind: 'resolved', detail });
+            this.loadHistoryFirstPage(detail.client.clientId, false);
+            this.loadClientAccess(detail.client.clientId, false);
+          }
           this.createForm.reset({ name: '', phone: '' });
           this.createSuccess.set('Clienta creada correctamente.');
         },
@@ -501,6 +553,119 @@ export class ClubDashboardComponent implements OnInit {
     }).format(new Date(occurredAtISO));
   }
 
+  protected formatAccessDate(updatedAtISO: string): string {
+    return new Intl.DateTimeFormat('es-MX', {
+      dateStyle: 'medium',
+      timeStyle: 'short'
+    }).format(new Date(updatedAtISO));
+  }
+
+  protected refreshClientAccess(): void {
+    const clientId = this.selectedClientId();
+    if (!clientId || this.accessMutationLoading()) {
+      return;
+    }
+    this.loadClientAccess(clientId, true);
+  }
+
+  protected generateAccessInvitation(): void {
+    const clientId = this.selectedClientId();
+    const access = this.selectedAccess();
+    if (
+      !clientId ||
+      this.accessMutationLoading() ||
+      this.accessMutationError() !== null ||
+      (access !== null && access.status !== 'invited')
+    ) {
+      return;
+    }
+    this.runAccessMutation(clientId, 'invitation');
+  }
+
+  protected requestAccessReset(): void {
+    const status = this.selectedAccess()?.status;
+    if (
+      this.accessMutationLoading() ||
+      this.accessMutationError() !== null ||
+      (status !== 'active' && status !== 'disabled')
+    ) {
+      return;
+    }
+    this.resetConfirmationOpen.set(true);
+    this.accessMutationError.set(null);
+  }
+
+  protected cancelAccessReset(): void {
+    if (!this.accessMutationLoading()) {
+      this.resetConfirmationOpen.set(false);
+    }
+  }
+
+  protected confirmAccessReset(): void {
+    const clientId = this.selectedClientId();
+    const status = this.selectedAccess()?.status;
+    if (
+      !clientId ||
+      this.accessMutationLoading() ||
+      (status !== 'active' && status !== 'disabled')
+    ) {
+      return;
+    }
+    this.runAccessMutation(clientId, 'reset');
+  }
+
+  protected discardOneTimeInvitation(): void {
+    this.oneTimeInvitation.set(null);
+    this.copyFeedback.set(null);
+    this.shareFeedback.set(null);
+  }
+
+  protected async copyAccessInvitation(): Promise<void> {
+    const invitation = this.oneTimeInvitation();
+    const clipboard = this.document.defaultView?.navigator.clipboard;
+    if (!invitation || !clipboard?.writeText) {
+      this.copyFeedback.set('No pudimos copiar el enlace automáticamente.');
+      return;
+    }
+
+    try {
+      await clipboard.writeText(invitation.activationUrl);
+      if (this.oneTimeInvitation()?.activationUrl === invitation.activationUrl) {
+        this.copyFeedback.set('Enlace copiado.');
+      }
+    } catch {
+      if (this.oneTimeInvitation()?.activationUrl === invitation.activationUrl) {
+        this.copyFeedback.set('No pudimos copiar el enlace automáticamente.');
+      }
+    }
+  }
+
+  protected async shareAccessInvitation(): Promise<void> {
+    const invitation = this.oneTimeInvitation();
+    const share = this.document.defaultView?.navigator.share;
+    if (!invitation || typeof share !== 'function') {
+      return;
+    }
+
+    try {
+      await share.call(this.document.defaultView?.navigator, {
+        title: 'Acceso a Bella Mujer Club',
+        text: 'Configura tu acceso privado a Bella Mujer Club.',
+        url: invitation.activationUrl
+      });
+      if (this.oneTimeInvitation()?.activationUrl === invitation.activationUrl) {
+        this.shareFeedback.set('Enlace compartido.');
+      }
+    } catch (error: unknown) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        return;
+      }
+      if (this.oneTimeInvitation()?.activationUrl === invitation.activationUrl) {
+        this.shareFeedback.set('No pudimos compartir el enlace automáticamente.');
+      }
+    }
+  }
+
   protected ledgerTypeLabel(entry: LoyaltyLedgerEntry): string {
     switch (entry.type) {
       case 'ELIGIBLE_SPEND_ADDED':
@@ -625,6 +790,116 @@ export class ClubDashboardComponent implements OnInit {
           this.visitError.set(this.safeErrorMessage(error));
         }
       });
+  }
+
+  private prepareAccessSelection(clientId: string): void {
+    if (this.selectedClientId() !== clientId) {
+      this.accessReadRevision.update((revision) => revision + 1);
+      this.selectedAccess.set(null);
+      this.accessLoading.set(false);
+      this.accessReadError.set(null);
+      this.accessMutationError.set(null);
+      this.resetConfirmationOpen.set(false);
+      this.discardOneTimeInvitation();
+    }
+  }
+
+  private loadClientAccess(clientId: string, preserveAccess: boolean): void {
+    const revision = this.accessReadRevision() + 1;
+    this.accessReadRevision.set(revision);
+    this.accessLoading.set(true);
+    this.accessReadError.set(null);
+    if (!preserveAccess) {
+      this.selectedAccess.set(null);
+    }
+
+    this.clubApi
+      .getClientAccess(clientId)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (response) => {
+          if (!this.isCurrentAccessRead(clientId, revision)) {
+            return;
+          }
+          this.selectedAccess.set(response.access);
+          this.accessLoading.set(false);
+          this.accessReadError.set(null);
+          this.accessMutationError.set(null);
+        },
+        error: (error: unknown) => {
+          if (!this.isCurrentAccessRead(clientId, revision)) {
+            return;
+          }
+          this.accessLoading.set(false);
+          this.accessReadError.set(this.safeErrorMessage(error));
+        }
+      });
+  }
+
+  private isCurrentAccessRead(clientId: string, revision: number): boolean {
+    return (
+      revision === this.accessReadRevision() &&
+      clientId === this.selectedClientId()
+    );
+  }
+
+  private runAccessMutation(clientId: string, kind: AccessMutationKind): void {
+    this.accessMutationLoading.set(true);
+    this.accessMutationError.set(null);
+    this.oneTimeInvitation.set(null);
+    this.copyFeedback.set(null);
+    this.shareFeedback.set(null);
+
+    const request =
+      kind === 'reset'
+        ? this.clubApi.resetClientAccess(clientId)
+        : this.clubApi.generateClientAccessInvitation(clientId);
+
+    request
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (response) => {
+          if (this.selectedClientId() !== clientId) {
+            this.accessMutationLoading.set(false);
+            return;
+          }
+          this.applyAccessMutationResponse(response);
+          this.accessMutationLoading.set(false);
+        },
+        error: (error: unknown) => {
+          if (this.selectedClientId() === clientId) {
+            this.accessMutationError.set(this.safeErrorMessage(error));
+            this.resetConfirmationOpen.set(false);
+          }
+          this.accessMutationLoading.set(false);
+        }
+      });
+  }
+
+  private applyAccessMutationResponse(response: AdminClubAccessMutationResponse): void {
+    this.accessReadRevision.update((revision) => revision + 1);
+    this.accessLoading.set(false);
+    this.selectedAccess.set(response.access);
+    this.accessReadError.set(null);
+    this.resetConfirmationOpen.set(false);
+
+    const activationUrl = buildClubActivationUrl(
+      response.invitation.activationFragment,
+      this.document.baseURI
+    );
+    if (!activationUrl) {
+      this.oneTimeInvitation.set(null);
+      this.accessMutationError.set(
+        'El acceso se actualizó, pero no fue posible preparar el enlace privado. Actualiza el estado antes de decidir el siguiente paso.'
+      );
+      return;
+    }
+
+    this.oneTimeInvitation.set({
+      activationUrl,
+      expiresAtISO: response.invitation.expiresAtISO
+    });
+    this.accessMutationError.set(null);
   }
 
   private createIdempotencyKey(): string | null {

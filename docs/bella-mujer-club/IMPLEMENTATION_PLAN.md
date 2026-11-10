@@ -126,16 +126,19 @@ No member UI is included. Production/security validation follows this slice befo
 
 ### Phase 5C — Administrator access-management UI
 
-Future implementation:
+**Implemented by this PR:**
 
 - generate or regenerate access;
-- copy/share the private WhatsApp URL;
+- copy or use the native share sheet for the one-time private activation link;
 - perform full access reset; and
 - present access state safely without redisplaying raw invitation secrets.
 
+One-time activation links remain in component memory only, and lifecycle mutations are never
+retried automatically. Phase 5 remains in progress until the separate Phase 5D member UI lands.
+
 ### Phase 5D — Member enrollment/login UI
 
-Future implementation:
+**Future implementation remains:**
 
 - create the `/club` member route;
 - capture and scrub the invitation token;
