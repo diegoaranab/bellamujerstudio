@@ -87,6 +87,12 @@ form {
   gap: 0.25rem;
 }
 
+.form-error {
+  margin: -0.25rem 1rem 0.75rem;
+  color: var(--mat-form-field-error-text-color, #b3261e);
+  font-size: 0.75rem;
+}
+
 mat-form-field,
 form button,
 .access-state button {

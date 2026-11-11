@@ -3,6 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable, catchError, map, throwError } from 'rxjs';
 
 import { CLUB_API_CONFIG } from './club-api-config';
+import { isCanonicalMemberClubCredential } from './member-club-credential';
 
 export interface MemberClubSession {
   token: string;
@@ -111,7 +112,7 @@ export class MemberClubApiClient {
     request: (headers: HttpHeaders) => Observable<T>
   ): Observable<T> {
     if (!this.isConfigured) return throwError(() => this.configurationError());
-    if (!sessionToken.trim()) {
+    if (!isCanonicalMemberClubCredential(sessionToken)) {
       return throwError(
         () => new MemberClubApiError('authentication', 'Tu sesión del Club ya no está activa.')
       );
@@ -128,7 +129,10 @@ export class MemberClubApiClient {
     invitationToken?: string
   ): MemberClubApiError | null {
     if (!this.isConfigured) return this.configurationError();
-    if (!accessHandle.trim() || (invitationToken !== undefined && !invitationToken.trim())) {
+    if (
+      !isCanonicalMemberClubCredential(accessHandle) ||
+      (invitationToken !== undefined && !isCanonicalMemberClubCredential(invitationToken))
+    ) {
       return new MemberClubApiError(
         invitationToken === undefined ? 'authentication' : 'invitation',
         invitationToken === undefined
@@ -208,16 +212,22 @@ export class MemberClubApiClient {
   private isSessionResponse(value: unknown): value is MemberClubSessionResponse {
     if (!value || typeof value !== 'object' || !('session' in value)) return false;
     const session = value.session;
-    return (
+    if (
       !!session &&
       typeof session === 'object' &&
       'token' in session &&
-      typeof session.token === 'string' &&
-      session.token.length > 0 &&
+      isCanonicalMemberClubCredential(session.token) &&
       'expiresAtISO' in session &&
-      typeof session.expiresAtISO === 'string' &&
-      Number.isFinite(Date.parse(session.expiresAtISO))
-    );
+      typeof session.expiresAtISO === 'string'
+    ) {
+      const expiresAt = Date.parse(session.expiresAtISO);
+      return (
+        Number.isFinite(expiresAt) &&
+        new Date(expiresAt).toISOString() === session.expiresAtISO &&
+        expiresAt > Date.now()
+      );
+    }
+    return false;
   }
 
   private isAuthenticatedProbe(value: unknown): value is MemberClubSessionProbeResponse {

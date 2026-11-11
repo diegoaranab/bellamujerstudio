@@ -21,29 +21,28 @@
           <h2>Este enlace no es válido</h2>
           <p>Solicita un nuevo enlace privado en Bella Mujer Studio.</p>
         </section>
+      } @else if (needsPrivateLink()) {
+        <section class="access-state" data-testid="member-reopen-private-link">
+          <mat-icon aria-hidden="true">mark_email_unread</mat-icon>
+          <h2>Abre nuevamente tu enlace privado</h2>
+          <p>
+            Vuelve a abrir el enlace privado que recibiste de Bella Mujer Studio para continuar.
+          </p>
+        </section>
       } @else if (isCheckingSession()) {
         <section class="access-state" role="status" data-testid="member-session-checking">
           <mat-icon class="spin" aria-hidden="true">progress_activity</mat-icon>
           <h2>Validando tu sesión</h2>
           <p>Espera un momento.</p>
         </section>
-      } @else if (session.hasSession()) {
-        <section class="access-state access-state--success" data-testid="member-session-active">
-          <mat-icon aria-hidden="true">verified</mat-icon>
-          <h2>Tu sesión está activa</h2>
-          <p>Ya puedes continuar con tu experiencia Bella Mujer Club.</p>
-          @if (session.expiresAtISO(); as expiresAtISO) {
-            <p class="session-expiry">Válida hasta {{ expiresAtISO | date: 'short' }}.</p>
-          }
-          <button
-            mat-stroked-button
-            type="button"
-            [disabled]="isSubmitting()"
-            (click)="logout()"
-            data-testid="member-logout"
-          >
-            <mat-icon>logout</mat-icon>
-            {{ isSubmitting() ? 'Cerrando sesión…' : 'Cerrar sesión' }}
+      } @else if (hasSessionVerificationError() && session.hasSession()) {
+        <section class="access-state" data-testid="member-session-verification-error">
+          <mat-icon aria-hidden="true">sync_problem</mat-icon>
+          <h2>No pudimos verificar tu sesión</h2>
+          <p>Tu sesión permanece en este dispositivo mientras vuelves a intentarlo.</p>
+          <button mat-stroked-button type="button" (click)="retrySessionProbe()">
+            <mat-icon>refresh</mat-icon>
+            Intentar de nuevo
           </button>
         </section>
       } @else if (isEnrollment()) {
@@ -79,20 +78,43 @@
                 formControlName="confirmation"
                 data-testid="member-enrollment-confirmation"
               />
-              @if (enrollmentForm.controls.confirmation.hasError('mismatch')) {
-                <mat-error>Los NIP no coinciden.</mat-error>
-              } @else if (
+              @if (
                 enrollmentForm.controls.confirmation.touched &&
                 enrollmentForm.controls.confirmation.invalid
               ) {
                 <mat-error>Confirma los seis dígitos.</mat-error>
               }
             </mat-form-field>
+            @if (
+              enrollmentForm.hasError('mismatch') &&
+              enrollmentForm.controls.confirmation.touched
+            ) {
+              <p class="form-error" role="alert">Los NIP no coinciden.</p>
+            }
             <button mat-flat-button type="submit" [disabled]="isSubmitting()">
               <mat-icon>lock</mat-icon>
               {{ isSubmitting() ? 'Activando…' : 'Activar mi acceso' }}
             </button>
           </form>
+        </section>
+      } @else if (session.hasSession()) {
+        <section class="access-state access-state--success" data-testid="member-session-active">
+          <mat-icon aria-hidden="true">verified</mat-icon>
+          <h2>Tu sesión está activa</h2>
+          <p>Ya puedes continuar con tu experiencia Bella Mujer Club.</p>
+          @if (session.expiresAtISO(); as expiresAtISO) {
+            <p class="session-expiry">Válida hasta {{ expiresAtISO | date: 'short' }}.</p>
+          }
+          <button
+            mat-stroked-button
+            type="button"
+            [disabled]="isSubmitting()"
+            (click)="logout()"
+            data-testid="member-logout"
+          >
+            <mat-icon>logout</mat-icon>
+            {{ isSubmitting() ? 'Cerrando sesión…' : 'Cerrar sesión' }}
+          </button>
         </section>
       } @else {
         <section data-testid="member-login">
@@ -100,6 +122,14 @@
             <h2>Bienvenida de nuevo</h2>
             <p>Ingresa el NIP de seis dígitos que elegiste al activar tu cuenta.</p>
           </div>
+          @if (loginRetryAfterSeconds() > 0) {
+            <div class="notice notice--error" role="status" data-testid="member-login-throttle">
+              <mat-icon>schedule</mat-icon>
+              <p>
+                Espera {{ loginRetryAfterSeconds() }} segundos antes de intentar nuevamente.
+              </p>
+            </div>
+          }
           <form [formGroup]="loginForm" (ngSubmit)="login()">
             <mat-form-field appearance="outline">
               <mat-label>Tu NIP</mat-label>
@@ -116,7 +146,12 @@
                 <mat-error>Ingresa exactamente seis dígitos.</mat-error>
               }
             </mat-form-field>
-            <button mat-flat-button type="submit" [disabled]="isSubmitting()">
+            <button
+              mat-flat-button
+              type="submit"
+              [disabled]="isSubmitting() || loginRetryAfterSeconds() > 0"
+              data-testid="member-login-submit"
+            >
               <mat-icon>login</mat-icon>
               {{ isSubmitting() ? 'Ingresando…' : 'Ingresar al Club' }}
             </button>

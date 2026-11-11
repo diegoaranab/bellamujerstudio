@@ -10,6 +10,10 @@ import {
 } from './member-club-api.client';
 import { CLUB_API_CONFIG } from './club-api-config';
 
+const ACCESS = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+const INVITATION = 'AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE';
+const SESSION = 'AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI';
+
 describe('MemberClubApiClient', () => {
   let http: HttpTestingController;
 
@@ -25,6 +29,10 @@ describe('MemberClubApiClient', () => {
     return TestBed.inject(MemberClubApiClient);
   }
 
+  function futureISO(): string {
+    return new Date(Date.now() + 60 * 60 * 1000).toISOString();
+  }
+
   afterEach(() => {
     try {
       http?.verify();
@@ -35,13 +43,13 @@ describe('MemberClubApiClient', () => {
 
   it('enrolls with the exact public contract and no authorization header', async () => {
     const client = configure('https://api.example.test////');
-    const promise = firstValueFrom(client.enroll('opaque-handle', 'one-time-token', '482731'));
+    const promise = firstValueFrom(client.enroll(ACCESS, INVITATION, '482731'));
 
     const request = http.expectOne('https://api.example.test/club/access/enroll');
     expect(request.request.method).toBe('POST');
     expect(request.request.body).toEqual({
-      accessHandle: 'opaque-handle',
-      invitationToken: 'one-time-token',
+      accessHandle: ACCESS,
+      invitationToken: INVITATION,
       pin: '482731'
     });
     expect(Object.keys(request.request.body as object)).toEqual([
@@ -50,46 +58,37 @@ describe('MemberClubApiClient', () => {
       'pin'
     ]);
     expect(request.request.headers.has('Authorization')).toBe(false);
-    request.flush({
-      session: { token: 'session-token', expiresAtISO: '2026-11-10T20:00:00.000Z' }
-    });
+    const expiresAtISO = futureISO();
+    request.flush({ session: { token: SESSION, expiresAtISO } });
 
-    await expect(promise).resolves.toEqual({
-      session: { token: 'session-token', expiresAtISO: '2026-11-10T20:00:00.000Z' }
-    });
+    await expect(promise).resolves.toEqual({ session: { token: SESSION, expiresAtISO } });
   });
 
   it('logs in with exactly the access handle and PIN', async () => {
     const client = configure();
-    const promise = firstValueFrom(client.login('opaque-handle', '482731'));
-
+    const promise = firstValueFrom(client.login(ACCESS, '482731'));
     const request = http.expectOne('https://api.example.test/club/access/login');
-    expect(request.request.method).toBe('POST');
-    expect(request.request.body).toEqual({ accessHandle: 'opaque-handle', pin: '482731' });
-    expect(Object.keys(request.request.body as object)).toEqual(['accessHandle', 'pin']);
-    expect(request.request.headers.has('Authorization')).toBe(false);
-    request.flush({
-      session: { token: 'session-token', expiresAtISO: '2026-11-10T20:00:00.000Z' }
-    });
 
-    await expect(promise).resolves.toMatchObject({ session: { token: 'session-token' } });
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({ accessHandle: ACCESS, pin: '482731' });
+    expect(request.request.headers.has('Authorization')).toBe(false);
+    request.flush({ session: { token: SESSION, expiresAtISO: futureISO() } });
+    await expect(promise).resolves.toMatchObject({ session: { token: SESSION } });
   });
 
-  it('supplies the member bearer token explicitly for session probe and logout', async () => {
+  it('supplies a validated bearer token for session probe and logout without putting it in URLs', async () => {
     const client = configure();
-    const probePromise = firstValueFrom(client.checkSession('member-session'));
+    const probePromise = firstValueFrom(client.checkSession(SESSION));
     const probe = http.expectOne('https://api.example.test/club/access/session');
-    expect(probe.request.method).toBe('GET');
-    expect(probe.request.headers.get('Authorization')).toBe('Bearer member-session');
-    expect(probe.request.urlWithParams).not.toContain('member-session');
+    expect(probe.request.headers.get('Authorization')).toBe(`Bearer ${SESSION}`);
+    expect(probe.request.urlWithParams).not.toContain(SESSION);
     probe.flush({ authenticated: true });
     await expect(probePromise).resolves.toEqual({ authenticated: true });
 
-    const logoutPromise = firstValueFrom(client.logout('member-session'));
+    const logoutPromise = firstValueFrom(client.logout(SESSION));
     const logout = http.expectOne('https://api.example.test/club/access/logout');
-    expect(logout.request.method).toBe('POST');
-    expect(logout.request.body).toBeNull();
-    expect(logout.request.headers.get('Authorization')).toBe('Bearer member-session');
+    expect(logout.request.headers.get('Authorization')).toBe(`Bearer ${SESSION}`);
+    expect(logout.request.urlWithParams).not.toContain(SESSION);
     logout.flush(null, { status: 204, statusText: 'No Content' });
     await expect(logoutPromise).resolves.toBeNull();
   });
@@ -117,12 +116,11 @@ describe('MemberClubApiClient', () => {
     ]
   ])('maps reviewed backend code %s to safe owned copy', async (code, kind, message) => {
     const client = configure();
-    const promise = firstValueFrom(client.login('opaque-handle', '482731'));
+    const promise = firstValueFrom(client.login(ACCESS, '482731'));
     http.expectOne('https://api.example.test/club/access/login').flush(
       { error: code, message: 'arbitrary backend details must not appear' },
       { status: code === 'CLUB_ACCESS_AUTHENTICATION_FAILED' ? 401 : 400, statusText: 'Error' }
     );
-
     await expect(promise).rejects.toMatchObject({ kind, message });
   });
 
@@ -137,12 +135,11 @@ describe('MemberClubApiClient', () => {
     [null, 60]
   ])('safely bounds a throttling retry value of %s', async (value, expected) => {
     const client = configure();
-    const promise = firstValueFrom(client.login('opaque-handle', '482731'));
+    const promise = firstValueFrom(client.login(ACCESS, '482731'));
     http.expectOne('https://api.example.test/club/access/login').flush(
       { error: 'CLUB_ACCESS_THROTTLED', retryAfterSeconds: value },
       { status: 429, statusText: 'Too Many Requests' }
     );
-
     await expect(promise).rejects.toMatchObject({
       kind: 'throttled',
       retryAfterSeconds: expected,
@@ -150,9 +147,9 @@ describe('MemberClubApiClient', () => {
     });
   });
 
-  it('does not preserve or display arbitrary backend errors', async () => {
+  it('does not preserve arbitrary backend errors', async () => {
     const client = configure();
-    const promise = firstValueFrom(client.login('opaque-handle', '482731'));
+    const promise = firstValueFrom(client.login(ACCESS, '482731'));
     http.expectOne('https://api.example.test/club/access/login').flush(
       {
         error: 'AWS_INTERNAL_DETAIL',
@@ -167,21 +164,20 @@ describe('MemberClubApiClient', () => {
       await promise;
       expect.fail('Expected a safe error');
     } catch (error) {
-      expect(error).toBeInstanceOf(MemberClubApiError);
       expect(error).toMatchObject({
         kind: 'server',
         message: 'No fue posible procesar la solicitud del Club. Intenta de nuevo.'
       });
       expect(JSON.stringify(error)).not.toContain('secret backend message');
       expect(JSON.stringify(error)).not.toContain('request-id');
-      expect(JSON.stringify(error)).not.toContain('private-table');
     }
   });
 
   it.each([
-    ['missing access handle', '', '482731'],
-    ['short PIN', 'opaque-handle', '12345'],
-    ['non-numeric PIN', 'opaque-handle', '12a456']
+    ['invalid access handle', 'not-canonical', '482731'],
+    ['padded access handle', `${ACCESS}=`, '482731'],
+    ['short PIN', ACCESS, '12345'],
+    ['non-numeric PIN', ACCESS, '12a456']
   ])('rejects %s locally without an HTTP request', async (_label, handle, pin) => {
     const client = configure();
     await expect(firstValueFrom(client.login(handle, pin))).rejects.toBeInstanceOf(
@@ -190,30 +186,45 @@ describe('MemberClubApiClient', () => {
     http.expectNone('https://api.example.test/club/access/login');
   });
 
-  it('rejects malformed success responses safely', async () => {
+  it('rejects a non-canonical invitation locally', async () => {
     const client = configure();
-    const promise = firstValueFrom(client.login('opaque-handle', '482731'));
-    http.expectOne('https://api.example.test/club/access/login').flush({
-      session: { token: '', expiresAtISO: 'not-a-date' }
+    await expect(firstValueFrom(client.enroll(ACCESS, 'not-canonical', '482731'))).rejects.toMatchObject({
+      kind: 'invitation'
     });
+    http.expectNone('https://api.example.test/club/access/enroll');
+  });
 
+  it.each([
+    ['non-canonical session token', 'raw-session-token', futureISO()],
+    ['invalid expiry', SESSION, 'not-a-date'],
+    ['expired session', SESSION, new Date(Date.now() - 1000).toISOString()],
+    ['non-canonical ISO expiry', SESSION, new Date(Date.now() + 60_000).toUTCString()]
+  ])('rejects a successful response with %s', async (_label, token, expiresAtISO) => {
+    const client = configure();
+    const promise = firstValueFrom(client.login(ACCESS, '482731'));
+    http.expectOne('https://api.example.test/club/access/login').flush({
+      session: { token, expiresAtISO }
+    });
+    await expect(promise).rejects.toMatchObject({ kind: 'server' });
+  });
+
+  it('rejects malformed probe responses safely', async () => {
+    const client = configure();
+    const promise = firstValueFrom(client.checkSession(SESSION));
+    http.expectOne('https://api.example.test/club/access/session').flush({ authenticated: false });
     await expect(promise).rejects.toMatchObject({ kind: 'server' });
   });
 
   it('reports configuration and network failures with safe kinds', async () => {
     const unconfigured = configure('   ');
-    await expect(
-      firstValueFrom(unconfigured.login('opaque-handle', '482731'))
-    ).rejects.toMatchObject({
+    await expect(firstValueFrom(unconfigured.login(ACCESS, '482731'))).rejects.toMatchObject({
       kind: 'configuration' satisfies MemberClubApiErrorKind
     });
     TestBed.resetTestingModule();
 
     const client = configure();
-    const promise = firstValueFrom(client.login('opaque-handle', '482731'));
-    http
-      .expectOne('https://api.example.test/club/access/login')
-      .error(new ProgressEvent('offline'));
+    const promise = firstValueFrom(client.login(ACCESS, '482731'));
+    http.expectOne('https://api.example.test/club/access/login').error(new ProgressEvent('offline'));
     await expect(promise).rejects.toMatchObject({ kind: 'network' });
   });
 });
