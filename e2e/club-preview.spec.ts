@@ -1,5 +1,8 @@
 import { expect, test, type Page } from '@playwright/test';
 
+const MEMBER_ACCESS = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+const MEMBER_INVITATION = 'AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE';
+
 async function expectNoHorizontalOverflow(page: Page): Promise<void> {
   const widths = await page.evaluate(() => ({
     body: document.body.scrollWidth,
@@ -59,4 +62,38 @@ test('mobile Club administration remains readable and is discoverable from Inici
   await clubEntry.getByRole('link', { name: /Explorar Club/ }).click();
   await expect(page).toHaveURL(/#\/admin\/club$/);
   await expect(page.getByRole('heading', { level: 1, name: 'Bella Mujer Club' })).toBeVisible();
+});
+
+test('member Club route renders its access surface', async ({ page }) => {
+  await page.goto('/#/club');
+
+  await expect(page.getByTestId('member-club-access')).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Bella Mujer Club' })).toBeVisible();
+});
+
+test('activation scrubs the invitation again when the same link is reopened', async ({ page }) => {
+  const originalUrl = `/#/club/activar?access=${MEMBER_ACCESS}&invite=${MEMBER_INVITATION}`;
+  const scrubbedUrl = new RegExp(`#\/club\/activar\\?access=${MEMBER_ACCESS}$`);
+  await page.goto(originalUrl);
+
+  await expect(page.getByTestId('member-enrollment')).toBeVisible();
+  await expect(page).toHaveURL(scrubbedUrl);
+  expect(page.url()).not.toContain('invite=');
+  expect(page.url()).toContain(`access=${MEMBER_ACCESS}`);
+
+  await page.evaluate((url) => {
+    window.location.href = url;
+  }, originalUrl);
+
+  await expect(page).toHaveURL(scrubbedUrl);
+  await expect(page.getByTestId('member-enrollment')).toBeVisible();
+  expect(page.url()).not.toContain('invite=');
+});
+
+test('mobile member access has no horizontal overflow', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`/#/club?access=${MEMBER_ACCESS}`);
+
+  await expect(page.getByTestId('member-login')).toBeVisible();
+  await expectNoHorizontalOverflow(page);
 });

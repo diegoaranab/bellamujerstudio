@@ -119,14 +119,14 @@ Implementation status:
 - **5B1 complete:** `ClubAccessTable`, persistence, crypto, and pepper foundations;
 - **5B2 complete:** administrator invitation and full-reset lifecycle;
 - **5B3 complete:** member enrollment, login, logout, and sessions; and
-- **5B4 implemented by this PR:** the separate zero-cache member session Lambda authorizer
+- **5B4 complete:** the separate zero-cache member session Lambda authorizer
   and its minimal authenticated session probe.
 
-No member UI is included. Production/security validation follows this slice before UI work.
+**5B1–5B4 are implemented.** Production/security validation remains required.
 
 ### Phase 5C — Administrator access-management UI
 
-**Implemented by this PR:**
+**Implemented:**
 
 - generate or regenerate access;
 - copy or use the native share sheet for the one-time private activation link;
@@ -134,11 +134,11 @@ No member UI is included. Production/security validation follows this slice befo
 - present access state safely without redisplaying raw invitation secrets.
 
 One-time activation links remain in component memory only, and lifecycle mutations are never
-retried automatically. Phase 5 remains in progress until the separate Phase 5D member UI lands.
+retried automatically. **Phase 5C is implemented.**
 
 ### Phase 5D — Member enrollment/login UI
 
-**Future implementation remains:**
+**Implemented:**
 
 - create the `/club` member route;
 - capture and scrub the invitation token;
@@ -146,6 +146,11 @@ retried automatically. Phase 5 remains in progress until the separate Phase 5D m
 - perform later PIN login;
 - keep the opaque session in memory only; and
 - log out and revoke the session.
+
+**Phase 5D is implemented.** Phase 5 implementation is functionally complete in code.
+
+Production deployment, real Lambda scrypt benchmarking, end-to-end security smoke validation,
+and documentation closure remain before Phase 5 is declared production-complete.
 
 The confirmed experience across these slices remains:
 
@@ -162,11 +167,11 @@ The selected architecture remains separate from administrative Cognito identity.
         ↓
 5B backend persistence/auth foundation
         ↓
-production/security validation
-        ↓
 5C admin invitation/reset UI
         ↓
 5D member enrollment/login UI
+        ↓
+production deployment/security validation/documentation closure
         ↓
 Phase 6 member Club experience
 ```

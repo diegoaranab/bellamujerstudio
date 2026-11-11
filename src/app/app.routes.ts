@@ -26,6 +26,20 @@ import {
 
 export const routes: Routes = [
   {
+    path: 'club/activar',
+    loadComponent: () =>
+      import('./pages/member-club-access/member-club-access.component').then(
+        ({ MemberClubAccessComponent }) => MemberClubAccessComponent
+      )
+  },
+  {
+    path: 'club',
+    loadComponent: () =>
+      import('./pages/member-club-access/member-club-access.component').then(
+        ({ MemberClubAccessComponent }) => MemberClubAccessComponent
+      )
+  },
+  {
     path: 'admin/login',
     component: AdminLoginComponent
   },
