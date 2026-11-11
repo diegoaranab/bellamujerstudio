@@ -71,15 +71,23 @@ test('member Club route renders its access surface', async ({ page }) => {
   await expect(page.getByRole('heading', { level: 1, name: 'Bella Mujer Club' })).toBeVisible();
 });
 
-test('activation captures the invitation and immediately scrubs it from the visible URL', async ({
-  page
-}) => {
-  await page.goto(`/#/club/activar?access=${MEMBER_ACCESS}&invite=${MEMBER_INVITATION}`);
+test('activation scrubs the invitation again when the same link is reopened', async ({ page }) => {
+  const originalUrl = `/#/club/activar?access=${MEMBER_ACCESS}&invite=${MEMBER_INVITATION}`;
+  const scrubbedUrl = new RegExp(`#\/club\/activar\\?access=${MEMBER_ACCESS}$`);
+  await page.goto(originalUrl);
 
   await expect(page.getByTestId('member-enrollment')).toBeVisible();
-  await expect(page).toHaveURL(new RegExp(`#\/club\/activar\\?access=${MEMBER_ACCESS}$`));
+  await expect(page).toHaveURL(scrubbedUrl);
   expect(page.url()).not.toContain('invite=');
   expect(page.url()).toContain(`access=${MEMBER_ACCESS}`);
+
+  await page.evaluate((url) => {
+    window.location.href = url;
+  }, originalUrl);
+
+  await expect(page).toHaveURL(scrubbedUrl);
+  await expect(page.getByTestId('member-enrollment')).toBeVisible();
+  expect(page.url()).not.toContain('invite=');
 });
 
 test('mobile member access has no horizontal overflow', async ({ page }) => {

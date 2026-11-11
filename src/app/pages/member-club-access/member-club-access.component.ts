@@ -1,4 +1,4 @@
-import { DatePipe, Location } from '@angular/common';
+import { DatePipe } from '@angular/common';
 import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
@@ -51,13 +51,13 @@ const matchingPinsValidator: ValidatorFn = (
 export class MemberClubAccessComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
-  private readonly location = inject(Location);
   private readonly api = inject(MemberClubApiClient);
   private readonly destroyRef = inject(DestroyRef);
   protected readonly session = inject(MemberClubSessionService);
 
   private readonly activationRoute = this.route.snapshot.routeConfig?.path === 'club/activar';
   private invitationToken: string | null = null;
+  private pendingActivationScrubAccess: string | null | undefined;
   private activeRequest: Subscription | null = null;
   private throttleTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -167,6 +167,19 @@ export class MemberClubAccessComponent implements OnInit {
   }
 
   private applyRouteParameters(params: ParamMap): void {
+    const access = params.get('access') ?? '';
+    const hasValidAccess = isCanonicalMemberClubCredential(access);
+    if (
+      this.activationRoute &&
+      !params.has('invite') &&
+      this.pendingActivationScrubAccess !== undefined &&
+      this.pendingActivationScrubAccess === (hasValidAccess ? access : null)
+    ) {
+      this.pendingActivationScrubAccess = undefined;
+      return;
+    }
+
+    this.pendingActivationScrubAccess = undefined;
     this.activeRequest?.unsubscribe();
     this.activeRequest = null;
     this.resetLoginThrottle();
@@ -181,20 +194,19 @@ export class MemberClubAccessComponent implements OnInit {
     this.enrollmentForm.reset();
     this.loginForm.reset();
 
-    const access = params.get('access') ?? '';
-    const hasValidAccess = isCanonicalMemberClubCredential(access);
     this.accessHandle.set(hasValidAccess ? access : '');
 
     if (this.activationRoute) {
       if (params.has('invite')) {
         const invitation = params.get('invite') ?? '';
-        this.scrubInvitation('/club/activar', hasValidAccess ? access : null);
         if (hasValidAccess && isCanonicalMemberClubCredential(invitation)) {
           this.invitationToken = invitation;
           this.isEnrollment.set(true);
+          this.scrubActivationInvitation(access);
           return;
         }
         this.hasInvalidActivation.set(true);
+        this.scrubActivationInvitation(hasValidAccess ? access : null);
         return;
       }
 
@@ -214,8 +226,21 @@ export class MemberClubAccessComponent implements OnInit {
     this.probeSession();
   }
 
-  private scrubInvitation(path: '/club' | '/club/activar', access: string | null): void {
-    this.location.replaceState(path, access ? `access=${encodeURIComponent(access)}` : '');
+  private scrubActivationInvitation(access: string | null): void {
+    this.pendingActivationScrubAccess = access;
+    const clearPendingScrub = () => {
+      if (this.pendingActivationScrubAccess === access) {
+        this.pendingActivationScrubAccess = undefined;
+      }
+    };
+    void this.scrubInvitation('/club/activar', access).then(clearPendingScrub, clearPendingScrub);
+  }
+
+  private scrubInvitation(path: '/club' | '/club/activar', access: string | null): Promise<boolean> {
+    return this.router.navigate([path], {
+      queryParams: access ? { access } : undefined,
+      replaceUrl: true
+    });
   }
 
   private probeSession(): void {
@@ -287,6 +312,7 @@ export class MemberClubAccessComponent implements OnInit {
     if (error instanceof MemberClubApiError) {
       this.errorMessage.set(error.message);
       if (context === 'enrollment' && error.kind === 'invitation') {
+        this.pendingActivationScrubAccess = undefined;
         this.invitationToken = null;
         this.isEnrollment.set(false);
         this.hasInvalidActivation.set(true);

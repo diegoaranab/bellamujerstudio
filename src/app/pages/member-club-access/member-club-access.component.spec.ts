@@ -1,7 +1,8 @@
-import { Location } from '@angular/common';
+import { ApplicationRef } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
-import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
+import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
+import { RouterTestingHarness } from '@angular/router/testing';
 import { BehaviorSubject, of, throwError } from 'rxjs';
 
 import { routes } from '../../app.routes';
@@ -30,7 +31,6 @@ describe('MemberClubAccessComponent', () => {
     logout: ReturnType<typeof vi.fn>;
     checkSession: ReturnType<typeof vi.fn>;
   };
-  let replaceState: ReturnType<typeof vi.fn>;
   let navigate: ReturnType<typeof vi.fn>;
   let queryParams: BehaviorSubject<ReturnType<typeof convertToParamMap>>;
 
@@ -41,7 +41,6 @@ describe('MemberClubAccessComponent', () => {
       logout: vi.fn(),
       checkSession: vi.fn()
     };
-    replaceState = vi.fn();
     navigate = vi.fn().mockResolvedValue(true);
     queryParams = new BehaviorSubject(convertToParamMap(query));
     await TestBed.configureTestingModule({
@@ -49,7 +48,6 @@ describe('MemberClubAccessComponent', () => {
       providers: [
         provideNoopAnimations(),
         { provide: MemberClubApiClient, useValue: api },
-        { provide: Location, useValue: { replaceState } },
         { provide: Router, useValue: { navigate } },
         {
           provide: ActivatedRoute,
@@ -90,11 +88,62 @@ describe('MemberClubAccessComponent', () => {
     const fixture = TestBed.createComponent(MemberClubAccessComponent);
     fixture.detectChanges();
 
-    expect(replaceState).toHaveBeenCalledWith('/club/activar', `access=${ACCESS_A}`);
+    expect(navigate).toHaveBeenCalledWith(['/club/activar'], {
+      queryParams: { access: ACCESS_A },
+      replaceUrl: true
+    });
     expect(fixture.nativeElement.querySelector('[data-testid="member-enrollment"]')).toBeTruthy();
     expect(fixture.nativeElement.textContent).not.toContain(INVITE_A);
     expect(localStorage.length).toBe(0);
     expect(sessionStorage.length).toBe(0);
+  });
+
+  it('synchronizes the Router so the same original activation link is processed and scrubbed again', async () => {
+    api = {
+      enroll: vi.fn().mockReturnValue(of(sessionResponse())),
+      login: vi.fn(),
+      logout: vi.fn(),
+      checkSession: vi.fn()
+    };
+    await TestBed.configureTestingModule({
+      imports: [MemberClubAccessComponent],
+      providers: [
+        provideNoopAnimations(),
+        { provide: MemberClubApiClient, useValue: api },
+        provideRouter([{ path: 'club/activar', component: MemberClubAccessComponent }])
+      ]
+    }).compileComponents();
+    const harness = await RouterTestingHarness.create();
+    const router = TestBed.inject(Router);
+    const applicationRef = TestBed.inject(ApplicationRef);
+    const originalUrl = `/club/activar?access=${ACCESS_A}&invite=${INVITE_A}`;
+    const scrubbedUrl = `/club/activar?access=${ACCESS_A}`;
+
+    await harness.navigateByUrl(originalUrl, MemberClubAccessComponent);
+    await applicationRef.whenStable();
+
+    expect(router.url).toBe(scrubbedUrl);
+    expect(
+      harness.routeNativeElement?.querySelector('[data-testid="member-enrollment"]')
+    ).toBeTruthy();
+
+    const scrubNavigate = vi.spyOn(router, 'navigate');
+    await router.navigateByUrl(originalUrl);
+    await applicationRef.whenStable();
+
+    expect(scrubNavigate).toHaveBeenCalledWith(['/club/activar'], {
+      queryParams: { access: ACCESS_A },
+      replaceUrl: true
+    });
+    expect(router.url).toBe(scrubbedUrl);
+    const element = harness.routeNativeElement as HTMLElement;
+    expect(element.querySelector('[data-testid="member-enrollment"]')).toBeTruthy();
+    setInput(element.querySelector('[data-testid="member-enrollment-pin"]')!, '482730');
+    setInput(element.querySelector('[data-testid="member-enrollment-confirmation"]')!, '482730');
+    submit(element);
+    await applicationRef.whenStable();
+
+    expect(api.enroll).toHaveBeenCalledWith(ACCESS_A, INVITE_A, '482730');
   });
 
   it('scrubs structurally invalid activation credentials and shows only the generic state', async () => {
@@ -102,7 +151,10 @@ describe('MemberClubAccessComponent', () => {
     const fixture = TestBed.createComponent(MemberClubAccessComponent);
     fixture.detectChanges();
 
-    expect(replaceState).toHaveBeenCalledWith('/club/activar', '');
+    expect(navigate).toHaveBeenCalledWith(['/club/activar'], {
+      queryParams: undefined,
+      replaceUrl: true
+    });
     expect(fixture.nativeElement.querySelector('[data-testid="member-invalid-link"]')).toBeTruthy();
     expect(fixture.nativeElement.textContent).not.toContain('not-canonical');
   });
@@ -116,7 +168,10 @@ describe('MemberClubAccessComponent', () => {
     queryParams.next(convertToParamMap({ access: ACCESS_B, invite: INVITE_B }));
     fixture.detectChanges();
 
-    expect(replaceState).toHaveBeenLastCalledWith('/club/activar', `access=${ACCESS_B}`);
+    expect(navigate).toHaveBeenLastCalledWith(['/club/activar'], {
+      queryParams: { access: ACCESS_B },
+      replaceUrl: true
+    });
     const element = fixture.nativeElement as HTMLElement;
     setInput(element.querySelector('[data-testid="member-enrollment-pin"]')!, '482730');
     setInput(element.querySelector('[data-testid="member-enrollment-confirmation"]')!, '482730');
