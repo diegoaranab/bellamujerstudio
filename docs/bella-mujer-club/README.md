@@ -51,5 +51,5 @@ Existing administrative Cognito authentication remains the administrative bounda
 - **Phase 2 — completed, deployed, and production-smoke-tested.** Dedicated Club DynamoDB persistence, aggregate keys, materialized Balance, immutable Visit records, and append-style Ledger storage are live.
 - **Phase 3 — completed, deployed, and production-validated.** Protected administrator APIs now support client creation/list/detail, visit registration, server-authoritative loyalty calculation, idempotent replay, and newest-first ledger reads.
 - **Phase 4 — completed.** The operational administrator UI provides client management, Balance, visit registration, server-authoritative loyalty outcomes, and auditable paginated ledger/history.
-- **Phase 5A — selected architecture (this documentation phase).** Member-access identity, persistence, invitations, PIN verification, throttling, sessions, authorization, reset, and the current hosting tradeoff are defined before implementation.
-- **Next implementation slice: Phase 5B.** Build the member-access persistence and backend authentication foundation without member UI.
+- **Phase 5 — completed, deployed, and production-validated.** Member access is live with the selected security architecture and controlled production validation complete.
+- **Next roadmap work: Phase 5F — UI/UX audit and design-system consolidation.** Tooling readiness and the read-only audit precede design remediation; Phase 6 follows that consolidation.
