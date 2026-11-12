@@ -519,7 +519,7 @@ export class BellaMujerApiStack extends cdk.Stack {
       )
     });
 
-    api.addRoutes({
+    const [memberEnrollmentRoute] = api.addRoutes({
       path: '/club/access/enroll',
       methods: [apigwv2.HttpMethod.POST],
       integration: new integrations.HttpLambdaIntegration(
@@ -528,7 +528,7 @@ export class BellaMujerApiStack extends cdk.Stack {
       )
     });
 
-    api.addRoutes({
+    const [memberLoginRoute] = api.addRoutes({
       path: '/club/access/login',
       methods: [apigwv2.HttpMethod.POST],
       integration: new integrations.HttpLambdaIntegration(
@@ -536,6 +536,12 @@ export class BellaMujerApiStack extends cdk.Stack {
         memberCredentialFunction
       )
     });
+
+    const enrollmentCfnRoute =
+      memberEnrollmentRoute.node.defaultChild as apigwv2.CfnRoute;
+    const loginCfnRoute = memberLoginRoute.node.defaultChild as apigwv2.CfnRoute;
+    defaultStage?.addResourceDependency(enrollmentCfnRoute);
+    defaultStage?.addResourceDependency(loginCfnRoute);
 
     api.addRoutes({
       path: '/club/access/logout',
