@@ -122,7 +122,7 @@ Implementation status:
 - **5B4 complete:** the separate zero-cache member session Lambda authorizer
   and its minimal authenticated session probe.
 
-**5B1–5B4 are implemented.** Production/security validation remains required.
+**5B1–5B4 are implemented.** Production deployment and security validation are complete.
 
 ### Phase 5C — Administrator access-management UI
 
@@ -149,8 +149,22 @@ retried automatically. **Phase 5C is implemented.**
 
 **Phase 5D is implemented.** Phase 5 implementation is functionally complete in code.
 
-Production deployment, real Lambda scrypt benchmarking, end-to-end security smoke validation,
-and documentation closure remain before Phase 5 is declared production-complete.
+### Phase 5 production validation
+
+**Phase 5 is implemented, deployed, production-validated, and production-complete.** The exact
+application HEAD `d5ff2964cbfe70d639d0eed5015320ab213313d6` deployed successfully, the AWS stack
+is stable at `UPDATE_COMPLETE`, and the current GitHub Pages deployment succeeded. A controlled
+production member-access smoke successfully covered the administrator flow, synthetic member
+fixture lifecycle, invitation and enrollment, replay and invalid-PIN rejection, valid login,
+authenticated member authorization, reset-driven invalidation, activation-URL scrubbing, browser
+storage safety, and exact fixture cleanup. No member credential material was retained in browser
+storage, and the selected security architecture was not weakened.
+
+Real production credential-Lambda path observations were 2.377457 s for enrollment, 1.612907 s
+for invalid-PIN verification, and 1.389629 s for valid-login verification. These are end-to-end
+credential-path observations, not isolated scrypt execution times; they show the selected scrypt
+configuration was exercised in the real Lambda path with substantial headroom against the existing
+15-second timeout.
 
 The confirmed experience across these slices remains:
 
@@ -171,12 +185,59 @@ The selected architecture remains separate from administrative Cognito identity.
         ↓
 5D member enrollment/login UI
         ↓
-production deployment/security validation/documentation closure
+production deployment + security validation
+        ↓
+Phase 5F UI/UX audit and design-system consolidation
         ↓
 Phase 6 member Club experience
 ```
 
 Each implementation slice receives its own model/reasoning recommendation, review, and validation.
+
+## Phase 5F — UI/UX audit and design-system consolidation
+
+Audit and deliberately improve the real Bella Mujer UI/UX before expanding the member-facing
+product surface in Phase 6. The application now has enough administrator and member functionality
+to evaluate as a coherent product before designing additional screens on unreviewed foundations.
+
+### 5F0 — UI/UX tooling readiness
+
+Prepare the project-scoped Codex design tooling before the audit. The existing open PR #79,
+`chore: add Codex UI/UX skills`, contains `frontend-design` and `ui-ux-pro-max`, but is not yet
+audit-ready. Tooling readiness must be completed before the audit; PR #79 is unchanged by this
+roadmap entry.
+
+### 5F1 — Read-only UI/UX audit
+
+Audit the current production/repository UI across representative mobile, tablet, and desktop
+viewports before implementing visual changes. Use the two design skills complementarily:
+
+- `ui-ux-pro-max` for usability, information architecture, accessibility, responsive behavior,
+  forms, interaction/state behavior, hierarchy, consistency, and Angular/Material considerations.
+- `frontend-design` for visual identity, distinctiveness, typography, composition, spacing, visual
+  hierarchy, aesthetic coherence, and avoiding generic/template-like AI-generated UI.
+
+`frontend-design` may challenge the existing visual system strongly. Angular Material and current
+Bella Mujer tokens are implementation context, not a prohibition against significant visual
+changes. Confirmed product behavior, security, accessibility, and functional correctness remain
+hard boundaries. Both audits are read-only: they produce findings and proposed direction without
+silently changing application behavior or code.
+
+### 5F2 — Findings prioritization and design direction
+
+Reconcile the audits with Bella Mujer identity, real user flows, the Angular 21 + Angular Material
+stack, existing tokens/components, and implementation cost and risk. Decide what remains, is
+refined, redesigned, or deferred, then define the resulting Bella Mujer design-system direction.
+
+### 5F3 — Atomic UI/UX remediation
+
+Implement approved findings through small, reviewable PRs rather than one bundled redesign. Each
+slice receives its own Codex model/reasoning recommendation, tests/build validation, exact-HEAD
+Codex review, and merge gate.
+
+### 5F4 — UI/UX audit closure
+
+Re-evaluate important screens after remediation and close the audit before beginning Phase 6.
 
 ## Phase 6 — Client Club experience
 
