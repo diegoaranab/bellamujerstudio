@@ -238,6 +238,19 @@ describe('Club infrastructure', () => {
       'POST /club/access/enroll': { ThrottlingBurstLimit: 3, ThrottlingRateLimit: 1 },
       'POST /club/access/login': { ThrottlingBurstLimit: 5, ThrottlingRateLimit: 2 }
     });
+    const routes = template.findResources('AWS::ApiGatewayV2::Route');
+    const enrollmentRouteLogicalId = Object.entries(routes).find(([, route]) =>
+      route.Properties.RouteKey === 'POST /club/access/enroll'
+    )?.[0];
+    const loginRouteLogicalId = Object.entries(routes).find(([, route]) =>
+      route.Properties.RouteKey === 'POST /club/access/login'
+    )?.[0];
+    expect(enrollmentRouteLogicalId).toBeDefined();
+    expect(loginRouteLogicalId).toBeDefined();
+    expect(stage.DependsOn).toEqual(expect.arrayContaining([
+      enrollmentRouteLogicalId,
+      loginRouteLogicalId
+    ]));
     expect(template.findResources('AWS::ApiGatewayV2::Authorizer')).toHaveProperty(
       Object.keys(template.findResources('AWS::ApiGatewayV2::Authorizer'))[0]
     );
