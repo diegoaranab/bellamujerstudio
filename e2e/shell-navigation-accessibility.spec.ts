@@ -17,6 +17,20 @@ async function expectFocusedElementIsNotCovered(page: Page, coveringSelector: st
   expect(isCovered).toBe(false);
 }
 
+async function setEffectiveZoom(page: Page, zoom: number): Promise<void> {
+  await page.evaluate((value) => {
+    document.documentElement.style.zoom = String(value);
+  }, zoom);
+}
+
+async function expectNoHorizontalOverflow(page: Page): Promise<void> {
+  const hasOverflow = await page.evaluate(
+    () => document.documentElement.scrollWidth > document.documentElement.clientWidth
+  );
+
+  expect(hasOverflow).toBe(false);
+}
+
 test('public skip control preserves the hash route and focuses its main region', async ({ page }) => {
   await page.goto('/#/servicios');
   const skip = page.getByTestId('public-skip-link');
@@ -70,12 +84,16 @@ test('desktop admin sidebar exposes one current page and its skip control focuse
 test('mobile fixed shell controls do not cover keyboard-focused content', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 400 });
   await page.goto('/#/');
+  await setEffectiveZoom(page, 2);
   const publicAction = page.getByRole('link', { name: 'Ver contacto' });
   await publicAction.focus();
   await expectFocusedElementIsNotCovered(page, '.sticky-whatsapp');
+  await expectNoHorizontalOverflow(page);
 
   await page.goto('/#/admin/inicio');
+  await setEffectiveZoom(page, 2);
   const adminAction = page.getByRole('link', { name: 'Explorar Club' });
   await adminAction.focus();
   await expectFocusedElementIsNotCovered(page, '.bottom-nav');
+  await expectNoHorizontalOverflow(page);
 });
