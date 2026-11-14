@@ -202,15 +202,16 @@ to evaluate as a coherent product before designing additional screens on unrevie
 
 ### 5F0 — UI/UX tooling readiness
 
-Prepare the project-scoped Codex design tooling before the audit. The existing open PR #79,
-`chore: add Codex UI/UX skills`, contains `frontend-design` and `ui-ux-pro-max`, but is not yet
-audit-ready. Tooling readiness must be completed before the audit; PR #79 is unchanged by this
-roadmap entry.
+**Completed.** The project-scoped `frontend-design` and `ui-ux-pro-max` skills are available for
+the audit, direction, implementation, and closure work.
 
 ### 5F1 — Read-only UI/UX audit
 
-Audit the current production/repository UI across representative mobile, tablet, and desktop
-viewports before implementing visual changes. Use the two design skills complementarily:
+**Completed.** The evidence, 24 findings, and candidate direction are recorded in
+[BELLA_MUJER_UI_UX_AUDIT.md](../BELLA_MUJER_UI_UX_AUDIT.md).
+
+The audit evaluated the current production/repository UI across representative mobile, tablet, and
+desktop viewports and used the two design skills complementarily:
 
 - `ui-ux-pro-max` for usability, information architecture, accessibility, responsive behavior,
   forms, interaction/state behavior, hierarchy, consistency, and Angular/Material considerations.
@@ -225,9 +226,10 @@ silently changing application behavior or code.
 
 ### 5F2 — Findings prioritization and design direction
 
-Reconcile the audits with Bella Mujer identity, real user flows, the Angular 21 + Angular Material
-stack, existing tokens/components, and implementation cost and risk. Decide what remains, is
-refined, redesigned, or deferred, then define the resulting Bella Mujer design-system direction.
+**Direction documented.** [BELLA_MUJER_UI_UX_DIRECTION.md](../BELLA_MUJER_UI_UX_DIRECTION.md)
+records the approved cross-product grammar, token/type/accessibility decisions, all 24 finding
+dispositions, and the ordered Phase 5F3 remediation slices. It is the durable design authority for
+remediation; implementation remains in Phase 5F3.
 
 ### 5F3 — Atomic UI/UX remediation
 
