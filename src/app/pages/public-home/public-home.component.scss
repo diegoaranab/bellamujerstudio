@@ -359,6 +359,22 @@ h2 {
   background: var(--dark);
 }
 
+.contact-panel .cta-button:not(.cta-button--primary) {
+  color: #ffffff;
+  border-color: #ffffff;
+}
+
+.contact-panel .cta-button:not(.cta-button--primary):hover,
+.contact-panel .cta-button:not(.cta-button--primary):focus-visible {
+  color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.14);
+}
+
+.contact-panel .cta-button:not(.cta-button--primary):focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 3px;
+}
+
 .faq-list {
   max-width: 860px;
   margin-inline: auto;
