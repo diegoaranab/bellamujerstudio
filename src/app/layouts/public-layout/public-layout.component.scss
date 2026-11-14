@@ -5,6 +5,27 @@
   max-width: 100%;
 }
 
+.skip-link {
+  position: fixed;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: 100;
+  transform: translateY(-150%);
+  border: 2px solid #ffffff;
+  border-radius: 0.5rem;
+  background: #8a1e3f;
+  color: #ffffff;
+  font: inherit;
+  font-weight: 700;
+  padding: 0.7rem 1rem;
+}
+
+.skip-link:focus-visible {
+  transform: translateY(0);
+  outline: 3px solid color-mix(in srgb, var(--mat-sys-primary) 42%, #ffffff);
+  outline-offset: 3px;
+}
+
 .public-header {
   position: sticky;
   top: 0;

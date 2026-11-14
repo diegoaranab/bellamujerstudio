@@ -1,4 +1,7 @@
 <div class="app-shell" data-testid="admin-shell">
+  <button class="skip-link" type="button" data-testid="admin-skip-link" (click)="skipToMain()">
+    Saltar al contenido
+  </button>
   <aside class="sidenav">
     <div class="sidenav-header">
       <div class="logo">BM</div>
@@ -14,6 +17,7 @@
           [routerLink]="item.path"
           routerLinkActive="active-link"
           [routerLinkActiveOptions]="{ exact: item.path === '/admin/inicio' }"
+          ariaCurrentWhenActive="page"
         >
           <mat-icon matListItemIcon>{{ item.icon }}</mat-icon>
           <span matListItemTitle>{{ item.label }}</span>
@@ -50,7 +54,7 @@
       </button>
     </mat-toolbar>
 
-    <main class="content">
+    <main id="admin-main" class="content" data-navigation-focus-main tabindex="-1">
       <router-outlet />
     </main>
   </div>

@@ -68,6 +68,32 @@ button {
   font-family: inherit;
 }
 
+main[data-navigation-focus-main] {
+  scroll-margin-top: 6rem;
+}
+
+.route-focus-target {
+  scroll-margin-top: 6rem;
+}
+
+.route-focus-target:focus-visible,
+main[data-navigation-focus-main]:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--mat-sys-primary) 42%, #ffffff);
+  outline-offset: 4px;
+}
+
+@media (max-width: 900px) {
+  #admin-main :is(a, button, input, select, textarea, [tabindex]):focus {
+    scroll-margin-bottom: calc(6rem + env(safe-area-inset-bottom));
+  }
+}
+
+@media (max-width: 720px) {
+  #public-main .public-home :is(a, button, input, select, textarea, [tabindex]):focus {
+    scroll-margin-bottom: 5.5rem;
+  }
+}
+
 .bm-data-list {
   display: flex;
   flex-direction: column;

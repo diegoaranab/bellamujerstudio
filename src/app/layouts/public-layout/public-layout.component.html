@@ -1,4 +1,7 @@
 <div class="public-shell" data-testid="public-shell">
+  <button class="skip-link" type="button" data-testid="public-skip-link" (click)="skipToMain()">
+    Saltar al contenido
+  </button>
   <header class="public-header" aria-label="Bella Mujer Studio">
     <a class="public-brand" routerLink="/">
       <div class="logo" aria-hidden="true">BM</div>
@@ -90,7 +93,7 @@
     </nav>
   </header>
 
-  <main class="public-content">
+  <main id="public-main" class="public-content" data-navigation-focus-main tabindex="-1">
     <router-outlet />
   </main>
 </div>
