@@ -444,8 +444,13 @@ Disposition totals:
 ## 15. Ordered Phase 5F3 remediation slices
 
 Each slice is a separate implementation/review unit. A slice may cover only the named boundaries; it may
-not opportunistically redesign adjacent pages. `Codex` below means the current supported Codex coding
-model in the repository workflow, not a permanently pinned marketing model name.
+not opportunistically redesign adjacent pages. The recommendations below are initial task
+recommendations, not permanent model pins. Before each slice, consult the current `Software_Workflow.md`
+and reassess the configuration against how determined the solution now is; the remaining diagnosis and
+decision-making; security, concurrency, data-loss, and irreversibility risk; whether the slice can be
+reduced further; and evidence from prior slices. Preserve the rule `design expensive, execute cheap`:
+de-escalate when analysis has made implementation deterministic. `Codex` below means the current
+supported Codex coding model in the repository workflow, not a permanently pinned marketing model name.
 
 ### 5F3-01 — Public contrast hotfix
 
@@ -456,7 +461,8 @@ model in the repository workflow, not a permanently pinned marketing model name.
 - **Likely risk:** low; accidental weakening of hover/focus or visual action hierarchy.
 - **Required validation:** computed contrast for default/hover/focus, keyboard focus, 200% zoom, public
   home regression at mobile and desktop.
-- **Suggested Codex model/reasoning:** Codex, medium reasoning.
+- **Initial GPT-5.6 model/reasoning recommendation:** `GPT-5.6 Luna · Medium`. Localized, diagnosed
+  visual/accessibility defect with explicit acceptance criteria.
 - **Dependencies:** none; ship first because it is a measured user-facing failure.
 
 ### 5F3-02 — Truthful administrator toolbar
@@ -468,7 +474,8 @@ model in the repository workflow, not a permanently pinned marketing model name.
 - **Likely risk:** low; toolbar spacing and assumptions in responsive tests.
 - **Required validation:** desktop/tablet/mobile shell render, keyboard order, no empty action container,
   existing navigation tests.
-- **Suggested Codex model/reasoning:** Codex, medium reasoning.
+- **Initial GPT-5.6 model/reasoning recommendation:** `GPT-5.6 Luna · Medium`. Small, well-defined
+  template/layout/test change.
 - **Dependencies:** none.
 
 ### 5F3-03 — Shell navigation accessibility
@@ -482,7 +489,8 @@ model in the repository workflow, not a permanently pinned marketing model name.
   fixed-control regressions.
 - **Required validation:** keyboard-only navigation, screen-reader-oriented DOM assertions, browser
   back/forward behavior, 200% zoom, short-height viewport, mobile bottom bar and public WhatsApp control.
-- **Suggested Codex model/reasoning:** Codex, high reasoning.
+- **Initial GPT-5.6 model/reasoning recommendation:** `GPT-5.6 Terra · Medium`. Cross-shell router/focus
+  behavior requires normal multi-file engineering judgment, but the requirements are already defined.
 - **Dependencies:** 5F3-02 first to test the final toolbar control set.
 
 ### 5F3-04 — Bella Mujer semantic design foundation
@@ -496,8 +504,9 @@ model in the repository workflow, not a permanently pinned marketing model name.
   uncontrolled token proliferation.
 - **Required validation:** token authority inventory, Material control states, contrast matrix, real font
   weights/fallback/loading, reduced motion, representative screenshots at 390/820/1440, build and E2E.
-- **Suggested Codex model/reasoning:** Codex, high reasoning, with `frontend-design` and
-  `ui-ux-pro-max` used together.
+- **Initial GPT-5.6 model/reasoning recommendation:** `GPT-5.6 Sol · Medium`, with `frontend-design`
+  and `ui-ux-pro-max` used together. System-wide semantic design/token decisions plus typography/palette
+  visual judgment remain, while the overall architecture is already selected.
 - **Dependencies:** 5F3-01 remains an independent hotfix; 5F3-03 establishes focus requirements that the
   focus roles must preserve.
 
@@ -512,7 +521,9 @@ model in the repository workflow, not a permanently pinned marketing model name.
   WhatsApp handoff.
 - **Required validation:** keyboard and screen-reader flow, linked-field focus, one announcement,
   success/error contrast, popup-blocked and API-error paths, existing gift-card tests.
-- **Suggested Codex model/reasoning:** Codex, high reasoning.
+- **Initial GPT-5.6 model/reasoning recommendation:** `GPT-5.6 Terra · Medium`. Focus timing, error
+  summary semantics, Angular rendering, and shared feedback behavior need normal engineering judgment
+  but not High reasoning by default.
 - **Dependencies:** 5F3-04 semantic state roles.
 
 ### 5F3-06 — Member trust and accessible NIP entry
@@ -527,7 +538,10 @@ model in the repository workflow, not a permanently pinned marketing model name.
 - **Required validation:** invitation URL scrubbing, recovery message contains no credential, paste and
   autocomplete, reveal accessible name/state, invalid-form focus, refresh/new-tab copy accuracy, logout,
   reduced motion, 200% zoom.
-- **Suggested Codex model/reasoning:** Codex, high reasoning.
+- **Initial GPT-5.6 model/reasoning recommendation:** `GPT-5.6 Terra · Medium`. This touches
+  credential-bearing UI, but the security architecture and invariants are already fixed; this is not an
+  auth/security redesign. Escalate only if implementation discovers unresolved security semantics or
+  unexpected coupling.
 - **Dependencies:** 5F3-04 tokens/type and 5F3-05 error-summary pattern where applicable.
 
 ### 5F3-07 — Public compact mobile navigation
@@ -539,7 +553,9 @@ model in the repository workflow, not a permanently pinned marketing model name.
 - **Likely risk:** medium; menu focus management, long-label/text-zoom fit, header/WhatsApp duplication.
 - **Required validation:** 320/390/820 widths, 200% zoom, keyboard open/close/Escape/focus return,
   current route, all five destinations, one-action WhatsApp, focus not obscured.
-- **Suggested Codex model/reasoning:** Codex, high reasoning plus visual review.
+- **Initial GPT-5.6 model/reasoning recommendation:** `GPT-5.6 Terra · Medium`, plus visual review.
+  Normal responsive/navigation engineering plus visual review; retain `frontend-design` for
+  representative visual review where useful.
 - **Dependencies:** 5F3-03 focus strategy and 5F3-04 semantic foundation.
 
 ### 5F3-08 — Club route and selected-client context foundation
@@ -553,7 +569,12 @@ model in the repository workflow, not a permanently pinned marketing model name.
   loading, accidental PII in URLs.
 - **Required validation:** deep link/refresh/back/forward, opaque IDs, restored directory state, client
   switch race tests, retry/idempotency behavior unchanged, mobile and desktop routing E2E.
-- **Suggested Codex model/reasoning:** Codex, high reasoning.
+- **Initial GPT-5.6 model/reasoning recommendation:** `GPT-5.6 Terra · High`. Routing, selected-client
+  orchestration, deep links, back/forward behavior, stale async results, state restoration, and PII-safe
+  identifiers create meaningful state-management uncertainty. This recommendation MUST be reassessed
+  immediately before execution: if investigation has frozen the route/context algorithm and race
+  semantics, de-escalate to `GPT-5.6 Terra · Medium`; escalate to Sol only if architecture remains
+  materially unresolved.
 - **Dependencies:** 5F3-04 semantic foundation; route architecture lands before visual recomposition.
 
 ### 5F3-09 — Club operational workspace composition
@@ -568,8 +589,10 @@ model in the repository workflow, not a permanently pinned marketing model name.
 - **Required validation:** representative configured/unconfigured/loading/error/rich states; selection →
   visit and selection → history task checks; keyboard and screen-reader flow; 390/820/1440 screenshots;
   no horizontal overflow; existing race, ledger, access, and visit tests.
-- **Suggested Codex model/reasoning:** Codex, high reasoning, with both design skills and
-  explicit visual/product judgment.
+- **Initial GPT-5.6 model/reasoning recommendation:** `GPT-5.6 Sol · Medium`, with both design skills
+  and explicit visual/product judgment. The implementation combines state-heavy operational behavior
+  with significant visual/product judgment across mobile and desktop. Do not use High by default unless
+  execution exposes materially unresolved architecture/state behavior.
 - **Dependencies:** 5F3-08 routes/context, plus the shared roles from 5F3-04.
 
 All 14 `FIX_BEFORE_PHASE6` findings are covered by 5F3-01 through 5F3-09. Phase 6 may begin only after
