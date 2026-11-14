@@ -67,20 +67,21 @@ for (const viewport of [
 
     await expect(page.getByText('Panel Bella Mujer', { exact: true })).toBeVisible();
     await expect(page.locator('.topbar').getByRole('button', { name: 'Nueva cita' })).toBeHidden();
-    await expect(page.getByRole('button', { name: 'Buscar' })).toBeHidden();
-    await expect(page.getByRole('button', { name: 'Notificaciones' })).toBeHidden();
+    await expect(page.getByRole('button', { name: 'Buscar' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Notificaciones' })).toHaveCount(0);
     await expect(page.getByTestId('admin-bottom-nav')).toBeInViewport();
     await expectNoHorizontalOverflow(page);
   });
 }
 
-test('desktop keeps the sidebar and topbar controls without a bottom navigation', async ({ page }) => {
+test('desktop keeps the sidebar and real topbar actions without a bottom navigation', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto('/#/admin/inicio');
 
   await expect(page.locator('.sidenav')).toBeVisible();
   await expect(page.getByTestId('admin-bottom-nav')).toBeHidden();
-  await expect(page.getByRole('button', { name: 'Buscar' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Notificaciones' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Buscar' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Notificaciones' })).toHaveCount(0);
   await expect(page.locator('.topbar').getByRole('button', { name: 'Nueva cita' })).toBeVisible();
+  await expectNoHorizontalOverflow(page);
 });
