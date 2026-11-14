@@ -29,12 +29,6 @@
         <span class="page-subtitle">Operación diaria del estudio</span>
       </div>
       <span class="spacer"></span>
-      <button class="desktop-topbar-control" mat-icon-button aria-label="Buscar">
-        <mat-icon>search</mat-icon>
-      </button>
-      <button class="desktop-topbar-control" mat-icon-button aria-label="Notificaciones">
-        <mat-icon>notifications</mat-icon>
-      </button>
       @if (auth.isCognitoMode && auth.isAuthenticated()) {
         <button
           class="logout-button"
