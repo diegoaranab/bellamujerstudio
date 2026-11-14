@@ -200,6 +200,11 @@
 }
 
 @media (max-width: 600px) {
+  .kpi-grid,
+  .grid-two {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .page-header {
     align-items: flex-start;
   }
@@ -221,5 +226,11 @@
   .club-preview__action {
     grid-column: 1 / -1;
     justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .club-preview {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

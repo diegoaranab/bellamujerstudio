@@ -10,6 +10,7 @@ import { MatToolbarModule } from '@angular/material/toolbar';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
 import { AuthService } from '../../core/auth/auth.service';
+import { NavigationFocusService } from '../../core/services/navigation-focus.service';
 import { NuevaCitaDialogComponent } from '../../shared/dialogs/nueva-cita-dialog/nueva-cita-dialog.component';
 
 interface NavItem {
@@ -41,6 +42,7 @@ export class AdminLayoutComponent {
   private readonly dialog = inject(MatDialog);
   private readonly breakpointObserver = inject(BreakpointObserver);
   private readonly router = inject(Router);
+  private readonly navigationFocus = inject(NavigationFocusService);
   protected readonly auth = inject(AuthService);
 
   protected readonly navItems: NavItem[] = [
@@ -108,6 +110,10 @@ export class AdminLayoutComponent {
     return this.mobileMoreNavItems.some(
       (item) => currentPath === item.path || currentPath.startsWith(`${item.path}/`)
     );
+  }
+
+  protected skipToMain(): void {
+    this.navigationFocus.focusMain('admin-main');
   }
 
   openNuevaCita(): void {
