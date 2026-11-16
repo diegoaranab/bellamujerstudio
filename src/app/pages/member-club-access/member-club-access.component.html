@@ -1,6 +1,9 @@
 <main class="member-access-page" data-testid="member-club-access">
   <mat-card class="member-access-card" appearance="outlined">
-    <div class="brand-mark" aria-hidden="true">BM</div>
+    <div class="brand-identity">
+      <div class="brand-mark" aria-hidden="true">BM</div>
+      <span>Bella Mujer Studio</span>
+    </div>
     <mat-card-header>
       <p class="eyebrow">Programa de fidelidad</p>
       <h1 mat-card-title>Bella Mujer Club</h1>
@@ -19,15 +22,33 @@
         <section class="access-state" data-testid="member-invalid-link">
           <mat-icon aria-hidden="true">link_off</mat-icon>
           <h2>Este enlace no es válido</h2>
-          <p>Solicita un nuevo enlace privado en Bella Mujer Studio.</p>
+          <p>Solicita al estudio un nuevo enlace privado para recuperar tu acceso.</p>
+          <a
+            mat-flat-button
+            [href]="recoveryWhatsAppUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+            data-testid="member-invalid-link-recovery"
+          >
+            <mat-icon aria-hidden="true">chat</mat-icon>
+            Pedir nuevo enlace por WhatsApp
+          </a>
         </section>
       } @else if (needsPrivateLink()) {
         <section class="access-state" data-testid="member-reopen-private-link">
           <mat-icon aria-hidden="true">mark_email_unread</mat-icon>
-          <h2>Abre nuevamente tu enlace privado</h2>
-          <p>
-            Vuelve a abrir el enlace privado que recibiste de Bella Mujer Studio para continuar.
-          </p>
+          <h2>Necesitas un nuevo enlace privado</h2>
+          <p>El estudio puede enviarte un nuevo enlace para continuar con tu activación.</p>
+          <a
+            mat-flat-button
+            [href]="recoveryWhatsAppUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+            data-testid="member-reopen-private-link-recovery"
+          >
+            <mat-icon aria-hidden="true">chat</mat-icon>
+            Pedir nuevo enlace por WhatsApp
+          </a>
         </section>
       } @else if (isCheckingSession()) {
         <section class="access-state" role="status" data-testid="member-session-checking">
@@ -56,13 +77,24 @@
               <mat-label>NIP de seis dígitos</mat-label>
               <input
                 matInput
-                type="password"
+                [type]="isNipVisible() ? 'text' : 'password'"
                 inputmode="numeric"
                 autocomplete="new-password"
                 maxlength="6"
                 formControlName="pin"
                 data-testid="member-enrollment-pin"
               />
+              <button
+                mat-icon-button
+                matSuffix
+                type="button"
+                [attr.aria-label]="isNipVisible() ? 'Ocultar NIP' : 'Mostrar NIP'"
+                [attr.aria-pressed]="isNipVisible()"
+                (click)="toggleNipVisibility()"
+                data-testid="member-enrollment-reveal"
+              >
+                <mat-icon aria-hidden="true">{{ isNipVisible() ? 'visibility_off' : 'visibility' }}</mat-icon>
+              </button>
               @if (enrollmentForm.controls.pin.touched && enrollmentForm.controls.pin.invalid) {
                 <mat-error>Ingresa exactamente seis dígitos.</mat-error>
               }
@@ -71,13 +103,24 @@
               <mat-label>Confirma tu NIP</mat-label>
               <input
                 matInput
-                type="password"
+                [type]="isNipVisible() ? 'text' : 'password'"
                 inputmode="numeric"
                 autocomplete="new-password"
                 maxlength="6"
                 formControlName="confirmation"
                 data-testid="member-enrollment-confirmation"
               />
+              <button
+                mat-icon-button
+                matSuffix
+                type="button"
+                [attr.aria-label]="isNipVisible() ? 'Ocultar NIP' : 'Mostrar NIP'"
+                [attr.aria-pressed]="isNipVisible()"
+                (click)="toggleNipVisibility()"
+                data-testid="member-enrollment-reveal-confirmation"
+              >
+                <mat-icon aria-hidden="true">{{ isNipVisible() ? 'visibility_off' : 'visibility' }}</mat-icon>
+              </button>
               @if (
                 enrollmentForm.controls.confirmation.touched &&
                 enrollmentForm.controls.confirmation.invalid
@@ -101,7 +144,7 @@
         <section class="access-state access-state--success" data-testid="member-session-active">
           <mat-icon aria-hidden="true">verified</mat-icon>
           <h2>Tu sesión está activa</h2>
-          <p>Ya puedes continuar con tu experiencia Bella Mujer Club.</p>
+          <p>Tu acceso al Club está verificado en esta pestaña.</p>
           @if (session.expiresAtISO(); as expiresAtISO) {
             <p class="session-expiry">Válida hasta {{ expiresAtISO | date: 'short' }}.</p>
           }
@@ -135,13 +178,24 @@
               <mat-label>Tu NIP</mat-label>
               <input
                 matInput
-                type="password"
+                [type]="isNipVisible() ? 'text' : 'password'"
                 inputmode="numeric"
                 autocomplete="current-password"
                 maxlength="6"
                 formControlName="pin"
                 data-testid="member-login-pin"
               />
+              <button
+                mat-icon-button
+                matSuffix
+                type="button"
+                [attr.aria-label]="isNipVisible() ? 'Ocultar NIP' : 'Mostrar NIP'"
+                [attr.aria-pressed]="isNipVisible()"
+                (click)="toggleNipVisibility()"
+                data-testid="member-login-reveal"
+              >
+                <mat-icon aria-hidden="true">{{ isNipVisible() ? 'visibility_off' : 'visibility' }}</mat-icon>
+              </button>
               @if (loginForm.controls.pin.touched && loginForm.controls.pin.invalid) {
                 <mat-error>Ingresa exactamente seis dígitos.</mat-error>
               }
@@ -162,7 +216,7 @@
 
     <footer>
       <mat-icon aria-hidden="true">shield</mat-icon>
-      <p>Tu sesión se guarda únicamente en la memoria de este dispositivo.</p>
+      <p>Tu sesión permanece sólo en esta pestaña y se pierde al recargarla o cerrarla.</p>
     </footer>
   </mat-card>
 </main>

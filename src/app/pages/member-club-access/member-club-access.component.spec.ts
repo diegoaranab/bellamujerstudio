@@ -267,6 +267,164 @@ describe('MemberClubAccessComponent', () => {
     expect(fixture.nativeElement.querySelector('[data-testid="member-login"]')).toBeFalsy();
   });
 
+  it.each([
+    ['invalid link', {}, 'member-invalid-link-recovery'],
+    ['reopen private link', { access: ACCESS_A }, 'member-reopen-private-link-recovery']
+  ])('offers safe WhatsApp recovery for %s', async (_state, query, recoveryTestId) => {
+    await configure(query);
+    const fixture = TestBed.createComponent(MemberClubAccessComponent);
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+    const recovery = element.querySelector<HTMLAnchorElement>(`[data-testid="${recoveryTestId}"]`)!;
+    const href = recovery.href;
+    const message = new URL(href).searchParams.get('text')!;
+
+    expect(href).toContain('https://wa.me/');
+    expect(decodeURIComponent(message)).toContain('recuperar mi acceso a Bella Mujer Club');
+    expect(decodeURIComponent(message)).toContain('nuevo enlace privado');
+    for (const secret of [ACCESS_A, ACCESS_B, INVITE_A, INVITE_B, SESSION_TOKEN, '482731']) {
+      expect(href).not.toContain(secret);
+      expect(element.textContent).not.toContain(secret);
+    }
+    expect(recovery.getAttribute('rel')).toBe('noopener noreferrer');
+  });
+
+  it('uses truthful current-tab session copy without a future Club destination', async () => {
+    await configure({ access: ACCESS_A }, 'club');
+    api.checkSession.mockReturnValue(of({ authenticated: true }));
+    TestBed.inject(MemberClubSessionService).establish(sessionResponse().session);
+    const fixture = TestBed.createComponent(MemberClubAccessComponent);
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+
+    expect(element.textContent).toContain('Tu acceso al Club está verificado en esta pestaña.');
+    expect(element.textContent).toContain('se pierde al recargarla o cerrarla');
+    expect(element.textContent).not.toContain('Ya puedes continuar con tu experiencia');
+    expect(element.textContent).not.toContain('Ir a Mi Club');
+  });
+
+  it('reveals and conceals the login NIP without changing its value or authentication affordances', async () => {
+    await configure({ access: ACCESS_A }, 'club');
+    const fixture = TestBed.createComponent(MemberClubAccessComponent);
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+    const input = element.querySelector<HTMLInputElement>('[data-testid="member-login-pin"]')!;
+    const reveal = element.querySelector<HTMLButtonElement>('[data-testid="member-login-reveal"]')!;
+    setInput(input, '482731');
+
+    expect(input.type).toBe('password');
+    expect(input.autocomplete).toBe('current-password');
+    expect(input.inputMode).toBe('numeric');
+    reveal.click();
+    fixture.detectChanges();
+    expect(input.type).toBe('text');
+    expect(input.value).toBe('482731');
+    expect(reveal.getAttribute('aria-label')).toBe('Ocultar NIP');
+    reveal.click();
+    fixture.detectChanges();
+    expect(input.type).toBe('password');
+    expect(input.value).toBe('482731');
+  });
+
+  it('reveals both enrollment NIP fields while preserving their autocomplete and input mode', async () => {
+    await configure({ access: ACCESS_A, invite: INVITE_A });
+    const fixture = TestBed.createComponent(MemberClubAccessComponent);
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+    const pin = element.querySelector<HTMLInputElement>('[data-testid="member-enrollment-pin"]')!;
+    const confirmation = element.querySelector<HTMLInputElement>(
+      '[data-testid="member-enrollment-confirmation"]'
+    )!;
+
+    element
+      .querySelector<HTMLButtonElement>('[data-testid="member-enrollment-reveal"]')!
+      .click();
+    fixture.detectChanges();
+    expect(pin.type).toBe('text');
+    expect(confirmation.type).toBe('text');
+    expect(pin.autocomplete).toBe('new-password');
+    expect(confirmation.autocomplete).toBe('new-password');
+    expect(pin.inputMode).toBe('numeric');
+    expect(confirmation.inputMode).toBe('numeric');
+  });
+
+  it('conceals enrollment NIP fields when reused for a new activation state', async () => {
+    await configure({ access: ACCESS_A, invite: INVITE_A });
+    const fixture = TestBed.createComponent(MemberClubAccessComponent);
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+
+    element.querySelector<HTMLButtonElement>('[data-testid="member-enrollment-reveal"]')!.click();
+    fixture.detectChanges();
+    expect(
+      element.querySelector<HTMLInputElement>('[data-testid="member-enrollment-pin"]')!.type
+    ).toBe('text');
+
+    queryParams.next(convertToParamMap({ access: ACCESS_B, invite: INVITE_B }));
+    fixture.detectChanges();
+
+    expect(
+      element.querySelector<HTMLInputElement>('[data-testid="member-enrollment-pin"]')!.type
+    ).toBe('password');
+    expect(
+      element.querySelector<HTMLInputElement>('[data-testid="member-enrollment-confirmation"]')!.type
+    ).toBe('password');
+    expect(
+      element.querySelector<HTMLButtonElement>('[data-testid="member-enrollment-reveal"]')!
+        .getAttribute('aria-label')
+    ).toBe('Mostrar NIP');
+  });
+
+  it('returns focus to the first invalid enrollment field after client-side validation fails', async () => {
+    await configure({ access: ACCESS_A, invite: INVITE_A });
+    const fixture = TestBed.createComponent(MemberClubAccessComponent);
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+    submit(element);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(document.activeElement).toBe(
+      element.querySelector('[data-testid="member-enrollment-pin"]')
+    );
+
+    setInput(element.querySelector('[data-testid="member-enrollment-pin"]')!, '482731');
+    submit(element);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(document.activeElement).toBe(
+      element.querySelector('[data-testid="member-enrollment-confirmation"]')
+    );
+  });
+
+  it('focuses confirmation for a mismatched enrollment and the login NIP for invalid login', async () => {
+    await configure({ access: ACCESS_A, invite: INVITE_A });
+    const enrollmentFixture = TestBed.createComponent(MemberClubAccessComponent);
+    enrollmentFixture.detectChanges();
+    const enrollment = enrollmentFixture.nativeElement as HTMLElement;
+    setInput(enrollment.querySelector('[data-testid="member-enrollment-pin"]')!, '482731');
+    setInput(
+      enrollment.querySelector('[data-testid="member-enrollment-confirmation"]')!,
+      '482730'
+    );
+    submit(enrollment);
+    enrollmentFixture.detectChanges();
+    await enrollmentFixture.whenStable();
+    expect(document.activeElement).toBe(
+      enrollment.querySelector('[data-testid="member-enrollment-confirmation"]')
+    );
+
+    TestBed.resetTestingModule();
+    await configure({ access: ACCESS_A }, 'club');
+    const loginFixture = TestBed.createComponent(MemberClubAccessComponent);
+    loginFixture.detectChanges();
+    const login = loginFixture.nativeElement as HTMLElement;
+    submit(login);
+    loginFixture.detectChanges();
+    await loginFixture.whenStable();
+    expect(document.activeElement).toBe(login.querySelector('[data-testid="member-login-pin"]'));
+    expect(api.login).not.toHaveBeenCalled();
+  });
+
   it('clears a session after an authentication-denied probe', async () => {
     await configure({ access: ACCESS_A }, 'club');
     api.checkSession.mockReturnValue(
@@ -320,6 +478,36 @@ describe('MemberClubAccessComponent', () => {
 
     expect(api.logout).toHaveBeenCalledWith(SESSION_TOKEN);
     expect(TestBed.inject(MemberClubSessionService).token()).toBeNull();
+  });
+
+  it('conceals the login NIP after a successful session and logout transition', async () => {
+    await configure({ access: ACCESS_A }, 'club');
+    api.login.mockReturnValue(of(sessionResponse()));
+    api.logout.mockReturnValue(of(undefined));
+    const fixture = TestBed.createComponent(MemberClubAccessComponent);
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+    const loginInput = element.querySelector<HTMLInputElement>('[data-testid="member-login-pin"]')!;
+
+    element.querySelector<HTMLButtonElement>('[data-testid="member-login-reveal"]')!.click();
+    fixture.detectChanges();
+    expect(loginInput.type).toBe('text');
+
+    setInput(loginInput, '482731');
+    submit(element);
+    fixture.detectChanges();
+    expect(element.querySelector('[data-testid="member-session-active"]')).toBeTruthy();
+
+    element.querySelector<HTMLButtonElement>('[data-testid="member-logout"]')!.click();
+    fixture.detectChanges();
+
+    expect(element.querySelector<HTMLInputElement>('[data-testid="member-login-pin"]')!.type).toBe(
+      'password'
+    );
+    expect(
+      element.querySelector<HTMLButtonElement>('[data-testid="member-login-reveal"]')!
+        .getAttribute('aria-label')
+    ).toBe('Mostrar NIP');
   });
 
   it.each(['network', 'server'] as const)(
