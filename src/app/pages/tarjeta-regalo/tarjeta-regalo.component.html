@@ -188,6 +188,9 @@
               data-testid="custom-amount-input"
               formControlName="amountMXN"
             />
+            <mat-error *ngIf="form.controls.amountMXN.hasError('required')">
+              El monto es obligatorio.
+            </mat-error>
             <mat-error *ngIf="form.controls.amountMXN.hasError('min')">
               El monto mínimo es de $300 MXN.
             </mat-error>

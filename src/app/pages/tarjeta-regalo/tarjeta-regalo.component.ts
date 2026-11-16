@@ -236,7 +236,13 @@ export class TarjetaRegaloComponent {
   ): string | null {
     if (!errors) return null;
     if (errors['required']) {
-      return name === 'buyerPhone' ? 'El WhatsApp es obligatorio.' : 'Este nombre es obligatorio.';
+      const requiredMessages: Partial<Record<GiftCardControlName, string>> = {
+        buyerName: 'Este nombre es obligatorio.',
+        buyerPhone: 'El WhatsApp es obligatorio.',
+        recipientName: 'Este nombre es obligatorio.',
+        amountMXN: 'El monto es obligatorio.'
+      };
+      return requiredMessages[name] ?? null;
     }
     if (errors['email']) return 'Escribe un email válido.';
     if (errors['min']) return 'El monto mínimo es de $300 MXN.';

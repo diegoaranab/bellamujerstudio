@@ -736,6 +736,31 @@ test('validation prevents empty gift card requests', async ({ page }) => {
   );
 });
 
+test('empty gift card amounts show the amount-specific validation message', async ({ page }) => {
+  await page.goto('/#/tarjeta-regalo');
+  await page.evaluate(() => {
+    window.open = () => {
+      window.localStorage.setItem('__popup_opened__', 'true');
+      return null;
+    };
+  });
+  await page.getByTestId('buyer-name-input').fill('Diego Arana');
+  await page.getByTestId('buyer-phone-input').fill('2381110000');
+  await page.getByTestId('recipient-name-input').fill('Mamá Lupita');
+  await page.getByTestId('custom-amount-input').fill('');
+
+  await page.getByTestId('submit-whatsapp-button').click();
+
+  const summary = page.getByTestId('gift-card-validation-summary');
+  await expect(summary).toBeFocused();
+  await expect(summary).toContainText('El monto es obligatorio.');
+  await expect(
+    page.locator('mat-error').filter({ hasText: 'El monto es obligatorio.' })
+  ).toBeVisible();
+  await expect(page.getByTestId('success-state')).toBeHidden();
+  expect(await page.evaluate(() => window.localStorage.getItem('__popup_opened__'))).toBeNull();
+});
+
 test('fractional pesos show an error without creating a gift card request', async ({ page }) => {
   await page.goto('/#/tarjeta-regalo');
   await page.evaluate(() => {
