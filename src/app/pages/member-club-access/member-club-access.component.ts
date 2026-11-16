@@ -1,5 +1,15 @@
 import { DatePipe } from '@angular/common';
-import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import {
+  Component,
+  DestroyRef,
+  ElementRef,
+  Injector,
+  OnInit,
+  afterNextRender,
+  computed,
+  inject,
+  signal
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   AbstractControl,
@@ -23,6 +33,7 @@ import {
   MemberClubApiError,
   MemberClubSessionResponse
 } from '../../core/services/member-club-api.client';
+import { buildBellaMujerWhatsAppUrl } from '../../core/constants/contact.constants';
 import { isCanonicalMemberClubCredential } from '../../core/services/member-club-credential';
 import { MemberClubSessionService } from '../../core/services/member-club-session.service';
 
@@ -53,6 +64,8 @@ export class MemberClubAccessComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly api = inject(MemberClubApiClient);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly injector = inject(Injector);
+  private readonly hostElement = inject(ElementRef<HTMLElement>);
   protected readonly session = inject(MemberClubSessionService);
 
   private readonly activationRoute = this.route.snapshot.routeConfig?.path === 'club/activar';
@@ -71,6 +84,10 @@ export class MemberClubAccessComponent implements OnInit {
   protected readonly errorMessage = signal('');
   protected readonly loginRetryAfterSeconds = signal(0);
   protected readonly hasUsableLink = computed(() => this.accessHandle().length > 0);
+  protected readonly isNipVisible = signal(false);
+  protected readonly recoveryWhatsAppUrl = buildBellaMujerWhatsAppUrl(
+    'Hola, Bella Mujer. Necesito ayuda para recuperar mi acceso a Bella Mujer Club. ¿Me pueden enviar un nuevo enlace privado?'
+  );
 
   protected readonly enrollmentForm = new FormGroup(
     {
@@ -113,6 +130,7 @@ export class MemberClubAccessComponent implements OnInit {
     this.errorMessage.set('');
     if (this.enrollmentForm.invalid) {
       this.enrollmentForm.markAllAsTouched();
+      this.focusFirstInvalidEnrollmentField();
       return;
     }
 
@@ -131,6 +149,7 @@ export class MemberClubAccessComponent implements OnInit {
     this.errorMessage.set('');
     if (this.loginForm.invalid) {
       this.loginForm.markAllAsTouched();
+      this.focusInput('member-login-pin');
       return;
     }
 
@@ -164,6 +183,10 @@ export class MemberClubAccessComponent implements OnInit {
         this.errorMessage.set('No pudimos confirmar el cierre de sesión. Intenta nuevamente.');
       }
     });
+  }
+
+  protected toggleNipVisibility(): void {
+    this.isNipVisible.update((isVisible) => !isVisible);
   }
 
   private applyRouteParameters(params: ParamMap): void {
@@ -346,5 +369,24 @@ export class MemberClubAccessComponent implements OnInit {
       this.throttleTimer = null;
     }
     this.loginRetryAfterSeconds.set(0);
+  }
+
+  private focusFirstInvalidEnrollmentField(): void {
+    this.focusInput(
+      this.enrollmentForm.controls.pin.invalid
+        ? 'member-enrollment-pin'
+        : 'member-enrollment-confirmation'
+    );
+  }
+
+  private focusInput(testId: string): void {
+    afterNextRender(
+      () => {
+        (this.hostElement.nativeElement as HTMLElement)
+          .querySelector<HTMLInputElement>(`[data-testid="${testId}"]`)
+          ?.focus();
+      },
+      { injector: this.injector }
+    );
   }
 }

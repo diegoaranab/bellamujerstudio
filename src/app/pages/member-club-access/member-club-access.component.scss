@@ -24,16 +24,28 @@
   box-shadow: var(--bm-elevation-raised);
 }
 
+.brand-identity {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: var(--bm-space-2);
+  margin-bottom: var(--bm-space-6);
+  color: var(--bm-text-secondary);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
 .brand-mark {
-  width: 54px;
-  height: 54px;
-  margin-bottom: 1.25rem;
-  border-radius: var(--bm-radius-control);
+  width: 32px;
+  height: 32px;
   display: grid;
   place-items: center;
-  color: #fff;
-  background: var(--bm-brand-primary);
-  font-weight: 700;
+  border: 1px solid var(--bm-border-standard);
+  border-radius: 50%;
+  color: var(--bm-on-brand-soft);
+  background: var(--bm-surface-subtle);
+  font-size: 0.7rem;
+  font-weight: 600;
   letter-spacing: 0.04em;
 }
 
@@ -96,13 +108,13 @@ form {
 }
 
 mat-form-field,
-form button,
-.access-state button {
+form > button,
+.access-state > :is(button, a) {
   width: 100%;
 }
 
-form button,
-.access-state button {
+form > button,
+.access-state > :is(button, a) {
   min-height: 48px;
 }
 
@@ -141,7 +153,7 @@ form button,
   color: var(--bm-success-indicator);
 }
 
-.access-state button {
+.access-state > :is(button, a) {
   margin-top: 1.5rem;
 }
 

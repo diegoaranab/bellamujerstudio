@@ -97,3 +97,62 @@ test('mobile member access has no horizontal overflow', async ({ page }) => {
   await expect(page.getByTestId('member-login')).toBeVisible();
   await expectNoHorizontalOverflow(page);
 });
+
+test('member recovery and reveal controls remain usable at mobile text scaling', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`/#/club?access=${MEMBER_ACCESS}`);
+  await page.addStyleTag({ content: 'html { font-size: 200%; }' });
+  await expect(page.getByTestId('member-login-reveal')).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+
+  await page.goto('/#/club');
+  await page.addStyleTag({ content: 'html { font-size: 200%; }' });
+  await expect(page.getByTestId('member-invalid-link-recovery')).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+});
+
+test('member NIP entry keeps paste, autocomplete, and keyboard-operated reveal available', async ({
+  page,
+  context
+}) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'], {
+    origin: 'http://127.0.0.1:4200'
+  });
+  await page.goto(`/#/club?access=${MEMBER_ACCESS}`);
+  const pin = page.getByTestId('member-login-pin');
+  const reveal = page.getByTestId('member-login-reveal');
+
+  await expect(pin).toHaveAttribute('autocomplete', 'current-password');
+  await expect(pin).toHaveAttribute('inputmode', 'numeric');
+  await page.evaluate(() => navigator.clipboard.writeText('482731'));
+  await pin.focus();
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+V' : 'Control+V');
+  await expect(pin).toHaveValue('482731');
+
+  await page.keyboard.press('Tab');
+  await expect(reveal).toBeFocused();
+  await expect(reveal).toHaveAttribute('aria-label', 'Mostrar NIP');
+  await page.keyboard.press('Enter');
+  await expect(pin).toHaveAttribute('type', 'text');
+  await expect(pin).toHaveValue('482731');
+  await expect(reveal).toHaveAttribute('aria-label', 'Ocultar NIP');
+});
+
+test('member invalid forms focus the field that needs correction without requesting authentication', async ({
+  page
+}) => {
+  await page.goto(`/#/club/activar?access=${MEMBER_ACCESS}&invite=${MEMBER_INVITATION}`);
+  await page.getByRole('button', { name: 'Activar mi acceso' }).click();
+  await expect(page.getByTestId('member-enrollment-pin')).toBeFocused();
+  await expect(page.getByText('Ingresa exactamente seis dígitos.')).toBeVisible();
+
+  await page.getByTestId('member-enrollment-pin').fill('482731');
+  await page.getByRole('button', { name: 'Activar mi acceso' }).click();
+  await expect(page.getByTestId('member-enrollment-confirmation')).toBeFocused();
+  await expect(page.getByText('Confirma los seis dígitos.')).toBeVisible();
+
+  await page.goto(`/#/club?access=${MEMBER_ACCESS}`);
+  await page.getByTestId('member-login-submit').click();
+  await expect(page.getByTestId('member-login-pin')).toBeFocused();
+  await expect(page.getByText('Ingresa exactamente seis dígitos.')).toBeVisible();
+});
