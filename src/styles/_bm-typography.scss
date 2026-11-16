@@ -1,0 +1,68 @@
+@mixin emit() {
+  :root {
+    --bm-font-expressive: 'Newsreader', Georgia, 'Times New Roman', serif;
+    --bm-font-interface: 'Source Sans 3', 'Segoe UI', Arial, sans-serif;
+  }
+
+  body {
+    font-family: var(--bm-font-interface);
+    font-synthesis: none;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  .mat-typography h1,
+  .mat-typography h2,
+  .mat-typography h3,
+  .mat-typography h4 {
+    font-family: var(--bm-font-expressive);
+    font-weight: 600;
+  }
+
+  button,
+  input,
+  select,
+  textarea,
+  .mat-mdc-button,
+  .mat-mdc-button-base,
+  .mat-mdc-text-button,
+  .mat-mdc-unelevated-button,
+  .mat-mdc-outlined-button,
+  .mat-mdc-raised-button,
+  .mat-mdc-icon-button,
+  .mat-mdc-form-field,
+  .mat-mdc-menu-item {
+    font-family: var(--bm-font-interface);
+  }
+
+  .app-shell button,
+  .app-shell input,
+  .app-shell select,
+  .app-shell textarea,
+  .app-shell .mat-mdc-button-base,
+  .app-shell .mat-mdc-menu-item {
+    font-family: var(--bm-font-interface);
+  }
+
+  .bm-data-list,
+  .bm-data-meta,
+  .bm-data-value,
+  [data-bm-data] {
+    font-variant-numeric: tabular-nums;
+  }
+
+  // The workbench stays interface-led; Newsreader is reserved for public/member signature moments.
+  .app-shell h1,
+  .app-shell h2,
+  .app-shell h3,
+  .app-shell h4 {
+    font-family: var(--bm-font-interface);
+    font-weight: 700;
+  }
+
+  .app-shell {
+    --mat-sys-title-large-font: var(--bm-font-interface);
+  }
+}
