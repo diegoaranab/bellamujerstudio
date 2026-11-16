@@ -136,15 +136,56 @@ mat-form-field {
   border-radius: 999px;
 }
 
-.success {
+.feedback {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   gap: 0.75rem;
   padding: 1rem;
-  border-radius: 8px;
-  background: #fff;
-  color: #31533f;
-  border: 1px solid rgba(49, 83, 63, 0.22);
+  border: 1px solid currentColor;
+  border-radius: var(--bm-radius-control);
+}
+
+.feedback mat-icon {
+  color: var(--feedback-indicator);
+}
+
+.feedback h2,
+.feedback p {
+  margin: 0;
+}
+
+.feedback p + p,
+.feedback p + ul {
+  margin-top: 0.5rem;
+}
+
+.feedback--success {
+  --feedback-indicator: var(--bm-success-indicator);
+  background: var(--bm-success-surface);
+  color: var(--bm-success-foreground);
+}
+
+.feedback--error {
+  --feedback-indicator: var(--bm-error-indicator);
+  background: var(--bm-error-surface);
+  color: var(--bm-error-foreground);
+}
+
+.validation-summary:focus {
+  outline: 3px solid var(--bm-focus-ring);
+  outline-offset: 3px;
+}
+
+.validation-summary ul {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.75rem 0 0;
+  padding-left: 1.25rem;
+}
+
+.validation-summary a {
+  color: inherit;
+  font-weight: 700;
 }
 
 .preview-wrap {

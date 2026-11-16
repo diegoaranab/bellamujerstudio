@@ -11,6 +11,31 @@
 
   <div class="gift-layout">
     <form class="gift-form" [formGroup]="form" (ngSubmit)="onSubmit()">
+      <section
+        *ngIf="validationSummaryVisible() && form.invalid"
+        class="feedback feedback--error validation-summary"
+        id="gift-card-validation-summary"
+        data-testid="gift-card-validation-summary"
+        role="alert"
+        aria-labelledby="gift-card-validation-summary-title"
+        tabindex="-1"
+      >
+        <mat-icon aria-hidden="true">error</mat-icon>
+        <div>
+          <h2 id="gift-card-validation-summary-title">Revisa estos datos</h2>
+          <p>Corrige los campos señalados para continuar.</p>
+          <ul>
+            @for (item of validationSummaryItems(); track item.fieldId) {
+              <li>
+                <a [href]="'#' + item.fieldId" (click)="focusInvalidField($event, item.fieldId)">
+                  {{ item.message }}
+                </a>
+              </li>
+            }
+          </ul>
+        </div>
+      </section>
+
       <mat-card>
         <mat-card-header>
           <mat-card-title>Datos de quien regala</mat-card-title>
@@ -59,7 +84,7 @@
 
           <mat-form-field appearance="outline">
             <mat-label>Email opcional</mat-label>
-            <input matInput data-testid="buyer-email-input" formControlName="buyerEmail" maxlength="160" />
+            <input matInput id="buyer-email" data-testid="buyer-email-input" formControlName="buyerEmail" maxlength="160" />
             <mat-error *ngIf="form.controls.buyerEmail.hasError('email')">
               Escribe un email válido.
             </mat-error>
@@ -159,9 +184,13 @@
               type="number"
               min="300"
               step="1"
+              id="gift-amount"
               data-testid="custom-amount-input"
               formControlName="amountMXN"
             />
+            <mat-error *ngIf="form.controls.amountMXN.hasError('required')">
+              El monto es obligatorio.
+            </mat-error>
             <mat-error *ngIf="form.controls.amountMXN.hasError('min')">
               El monto mínimo es de $300 MXN.
             </mat-error>
@@ -214,8 +243,8 @@
         Enviar solicitud por WhatsApp
       </button>
 
-      <div class="success" data-testid="success-state" *ngIf="successMessage()">
-        <mat-icon>check_circle</mat-icon>
+      <div class="feedback feedback--success" data-testid="success-state" role="status" aria-live="polite" *ngIf="successMessage()">
+        <mat-icon aria-hidden="true">check_circle</mat-icon>
         <div>
           <strong>Solicitud creada</strong>
           <p>{{ successMessage() }}</p>
@@ -230,8 +259,12 @@
           </p>
         </div>
       </div>
-      <div class="success" role="alert" data-testid="request-error" *ngIf="errorMessage()">
-        <p>{{ errorMessage() }}</p>
+      <div class="feedback feedback--error" role="alert" data-testid="request-error" *ngIf="errorMessage()">
+        <mat-icon aria-hidden="true">error</mat-icon>
+        <div>
+          <h2>No pudimos crear la solicitud</h2>
+          <p>{{ errorMessage() }}</p>
+        </div>
       </div>
     </form>
 

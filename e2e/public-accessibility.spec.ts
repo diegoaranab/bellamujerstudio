@@ -85,11 +85,24 @@ test('gift-card controls have names and keyboard interaction reaches the submit 
 test('empty gift-card submission exposes required errors and invalid inputs', async ({ page }) => {
   await page.goto('/#/tarjeta-regalo');
   await page.getByRole('button', { name: 'Enviar solicitud por WhatsApp' }).click();
+  const summary = page.getByTestId('gift-card-validation-summary');
+
+  await expect(summary).toBeVisible();
+  await expect(summary).toBeFocused();
+  await expect(summary.getByRole('heading', { name: 'Revisa estos datos' })).toBeVisible();
+  await expect(summary.getByRole('link')).toHaveCount(3);
   for (const name of ['Nombre de quien regala', 'WhatsApp de quien regala', 'Nombre de quien recibe']) {
     await expect(page.getByLabel(name, { exact: true })).toHaveAttribute('aria-invalid', 'true');
   }
-  await expect(page.getByText('Este nombre es obligatorio.')).toHaveCount(2);
-  await expect(page.getByText('El WhatsApp es obligatorio.')).toBeVisible();
+  const inlineErrors = page.locator('mat-error');
+  await expect(
+    inlineErrors.filter({ hasText: 'Este nombre es obligatorio.' })
+  ).toHaveCount(2);
+  await expect(
+    inlineErrors.filter({ hasText: 'El WhatsApp es obligatorio.' })
+  ).toHaveCount(1);
+  await summary.getByRole('link', { name: 'Este nombre es obligatorio.' }).first().click();
+  await expect(page.getByTestId('buyer-name-input')).toBeFocused();
   await expect(page.getByTestId('success-state')).toHaveCount(0);
 });
 
