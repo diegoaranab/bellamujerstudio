@@ -29,6 +29,7 @@ test('public routes expose a named navigation, main region, and one page heading
 });
 
 test('header navigation and the primary customer action accept keyboard focus', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto('/#/');
   const nav = page.getByRole('navigation', { name: 'Navegación pública' });
   for (const name of ['Inicio', 'Servicios', 'Galería', 'Contacto', 'Tarjeta de regalo']) {
@@ -110,8 +111,40 @@ test('mobile navigation and customer controls remain usable within the viewport'
   await page.setViewportSize({ width: 375, height: 812 });
   for (const route of routes) {
     await page.goto(route.path);
+    const menuToggle = page.getByTestId('public-menu-toggle');
+    const mobileWhatsapp = page.getByTestId('public-mobile-whatsapp-link');
+    const nav = page.getByRole('navigation', { name: 'Navegación pública' });
+    if (await menuToggle.getAttribute('aria-expanded') === 'true') {
+      await menuToggle.click();
+    }
+    await expect(menuToggle).toBeVisible();
+    await expect(mobileWhatsapp).toBeVisible();
+    await expect(nav).toBeHidden();
+
+    for (const control of [menuToggle, mobileWhatsapp]) {
+      await control.scrollIntoViewIfNeeded();
+      const box = await control.boundingBox();
+      expect(box).not.toBeNull();
+      expect(box!.width).toBeGreaterThanOrEqual(24);
+      expect(box!.height).toBeGreaterThanOrEqual(24);
+      expect(box!.x).toBeGreaterThanOrEqual(0);
+      expect(box!.x + box!.width).toBeLessThanOrEqual(376);
+    }
+    await tabTo(page, mobileWhatsapp);
+    await expect(mobileWhatsapp).toBeFocused();
+    await tabTo(page, menuToggle);
+    await expect(menuToggle).toBeFocused();
+
+    await menuToggle.click();
+    await expect(menuToggle).toHaveAttribute('aria-expanded', 'true');
+    await expect(nav).toBeVisible();
+    await expect(nav.getByRole('link')).toHaveCount(5);
+    await expect(nav.getByRole('link').first()).toBeFocused();
+
     const controls = [
-      ...await page.getByRole('navigation', { name: 'Navegación pública' }).getByRole('link').filter({ visible: true }).all(),
+      menuToggle,
+      mobileWhatsapp,
+      ...await nav.getByRole('link').all(),
       route.path === '/#/tarjeta-regalo'
         ? page.getByRole('button', { name: 'Enviar solicitud por WhatsApp' })
         : page.getByTestId(route.path === '/#/' ? 'public-home-whatsapp-link' :

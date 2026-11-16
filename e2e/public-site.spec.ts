@@ -139,16 +139,12 @@ const mobileViewports = [
   { width: 360, height: 800 }
 ];
 
-// Covers the 380, 430, 620, 720, 760, and 900px public CSS transitions.
+// Covers compact navigation, page responsiveness, and desktop inline navigation.
 const responsiveViewports = [
   { width: 320, height: 700 },
-  { width: 375, height: 812 },
   { width: 390, height: 844 },
-  { width: 430, height: 932 },
-  { width: 768, height: 1024 },
-  { width: 1024, height: 768 },
-  { width: 1280, height: 900 },
-  { width: 1920, height: 1080 }
+  { width: 820, height: 1024 },
+  { width: 1440, height: 900 }
 ];
 
 const heroCollageRegressionViewports = [
@@ -208,6 +204,16 @@ async function expectPublicNav(page: Page): Promise<Locator> {
   await expect(whatsappLink).not.toHaveAttribute('aria-current', 'page');
 
   return nav;
+}
+
+async function openCompactNav(page: Page): Promise<Locator> {
+  const toggle = page.getByTestId('public-menu-toggle');
+  await expect(toggle).toBeVisible();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByTestId('public-nav')).toBeVisible();
+  return page.getByTestId('public-nav');
 }
 
 async function expectPageNearTop(page: Page, heading: string): Promise<void> {
@@ -446,7 +452,20 @@ test('public routes remain usable across the responsive viewport matrix', async 
 
       await expect(page.getByTestId('public-shell')).toBeVisible();
       await expect(page.getByTestId(route.pageTestId)).toBeVisible();
-      await expect(page.getByTestId('public-nav')).toBeVisible();
+      const isCompact = viewport.width <= 900;
+      const nav = page.getByTestId('public-nav');
+      const menuToggle = page.getByTestId('public-menu-toggle');
+      const mobileWhatsapp = page.getByTestId('public-mobile-whatsapp-link');
+
+      if (isCompact) {
+        await expect(menuToggle).toBeVisible();
+        await expect(mobileWhatsapp).toBeVisible();
+        await expect(nav).toBeHidden();
+      } else {
+        await expect(menuToggle).toBeHidden();
+        await expect(mobileWhatsapp).toBeHidden();
+        await expect(nav).toBeVisible();
+      }
 
       const content = page.getByTestId(route.pageTestId);
       const heading = content.getByRole('heading', { level: 1 });
@@ -482,11 +501,10 @@ test('public routes remain usable across the responsive viewport matrix', async 
         }
       }
 
-      for (const link of navLinks) {
-        await expect(page.getByTestId(link.testId)).toBeVisible();
-      }
+      if (isCompact) await openCompactNav(page);
+      for (const link of navLinks) await expect(page.getByTestId(link.testId)).toBeVisible();
       const whatsappLink = page.getByTestId('public-nav-whatsapp-link');
-      if (viewport.width <= 620) {
+      if (isCompact) {
         await expect(whatsappLink).toBeHidden();
       } else {
         await expect(whatsappLink).toBeVisible();
@@ -501,10 +519,54 @@ test('public routes remain usable across the responsive viewport matrix', async 
       }
       await page.getByTestId(route.activeNavTestId).click();
       await expect(page).toHaveURL(route.expectedUrl);
+      if (isCompact) await expect(nav).toBeHidden();
       await expectAdminShellAbsent(page);
       await expectNoHorizontalOverflow(page);
     }
   }
+});
+
+test('compact public navigation manages keyboard focus and closes predictably', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#/');
+
+  const toggle = page.getByTestId('public-menu-toggle');
+  const nav = page.getByTestId('public-nav');
+  await toggle.focus();
+  await expect(toggle).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  await expect(nav).toBeVisible();
+  await expect(page.getByTestId('public-nav-home-link')).toBeFocused();
+
+  await page.keyboard.press('Escape');
+  await expect(nav).toBeHidden();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await expect(toggle).toBeFocused();
+
+  await toggle.click();
+  await expect(nav).toBeVisible();
+  await toggle.click();
+  await expect(nav).toBeHidden();
+  await expect(toggle).toBeFocused();
+});
+
+test('compact navigation retains route state and direct WhatsApp access at 200% text scaling', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#/tarjeta-regalo?utm_source=instagram');
+  await page.locator('html').evaluate((element) => {
+    element.style.fontSize = '200%';
+  });
+
+  const mobileWhatsapp = page.getByTestId('public-mobile-whatsapp-link');
+  await expect(mobileWhatsapp).toBeVisible();
+  await expect(mobileWhatsapp).toHaveAttribute('href', /https:\/\/wa\.me\/522381117950/);
+  await expectNoHorizontalOverflow(page);
+
+  await openCompactNav(page);
+  await expect(page.getByTestId('public-nav-gift-card-link')).toHaveAttribute('aria-current', 'page');
+  for (const link of navLinks) await expect(page.getByTestId(link.testId)).toBeVisible();
+  await expectNoHorizontalOverflow(page);
 });
 
 test('public crawl files remain homepage-only for hash-routed public children', async ({

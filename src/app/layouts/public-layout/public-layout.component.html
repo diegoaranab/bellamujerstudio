@@ -3,14 +3,44 @@
     Saltar al contenido
   </button>
   <header class="public-header" aria-label="Bella Mujer Studio">
-    <a class="public-brand" routerLink="/">
+    <a class="public-brand" routerLink="/" (click)="closeMenu()">
       <div class="logo" aria-hidden="true">BM</div>
-      <div>
+      <div class="public-brand__copy">
         <p class="brand-name">Bella Mujer Studio</p>
         <p class="brand-subtitle">Tehuacán, Puebla</p>
       </div>
     </a>
-    <nav class="public-nav" aria-label="Navegación pública" data-testid="public-nav">
+    <div class="public-header__actions">
+      <a
+        class="public-mobile-whatsapp"
+        [href]="whatsappUrl"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Abrir WhatsApp para agendar"
+        data-testid="public-mobile-whatsapp-link"
+      >
+        WhatsApp
+      </a>
+      <button
+        class="public-menu-toggle"
+        type="button"
+        [attr.aria-expanded]="isMenuOpen()"
+        aria-controls="public-nav"
+        [attr.aria-label]="isMenuOpen() ? 'Cerrar menú de navegación' : 'Abrir menú de navegación'"
+        data-testid="public-menu-toggle"
+        (click)="toggleMenu()"
+      >
+        <span aria-hidden="true">{{ isMenuOpen() ? 'Cerrar' : 'Menú' }}</span>
+      </button>
+    </div>
+    <nav
+      id="public-nav"
+      class="public-nav"
+      [class.public-nav--open]="isMenuOpen()"
+      aria-label="Navegación pública"
+      data-testid="public-nav"
+      (keydown.escape)="closeMenu(true)"
+    >
       <a
         routerLink="/"
         routerLinkActive="public-nav__link--active"
@@ -22,6 +52,7 @@
         }"
         ariaCurrentWhenActive="page"
         data-testid="public-nav-home-link"
+        (click)="closeMenu()"
       >
         Inicio
       </a>
@@ -36,6 +67,7 @@
         }"
         ariaCurrentWhenActive="page"
         data-testid="public-nav-services-link"
+        (click)="closeMenu()"
       >
         Servicios
       </a>
@@ -50,6 +82,7 @@
         }"
         ariaCurrentWhenActive="page"
         data-testid="public-nav-gallery-link"
+        (click)="closeMenu()"
       >
         Galería
       </a>
@@ -64,6 +97,7 @@
         }"
         ariaCurrentWhenActive="page"
         data-testid="public-nav-contact-link"
+        (click)="closeMenu()"
       >
         Contacto
       </a>
@@ -78,6 +112,7 @@
         }"
         ariaCurrentWhenActive="page"
         data-testid="public-nav-gift-card-link"
+        (click)="closeMenu()"
       >
         Tarjeta de regalo
       </a>
@@ -85,7 +120,7 @@
         class="public-nav__whatsapp"
         [href]="whatsappUrl"
         target="_blank"
-        rel="noopener"
+        rel="noopener noreferrer"
         data-testid="public-nav-whatsapp-link"
       >
         WhatsApp
