@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Bella Mujer · comparación tipográfica 5F3-04A</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Spike-only comparison. The product must load only the approved system. -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Playfair+Display:wght@600;700&family=Poppins:wght@400;500;600;700&family=Source+Sans+3:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="specimen.css" />
+  </head>
+  <body class="system-a">
+    <header class="review-bar">
+      <div>
+        <span class="review-bar__phase">5F3-04A · espécimen, no producto</span>
+        <strong id="system-name">Sistema A · Playfair Display + Poppins</strong>
+      </div>
+      <span id="scale-name">Escala de texto 100%</span>
+    </header>
+
+    <main>
+      <section class="mode mode--public" aria-labelledby="public-title">
+        <div class="mode-label">Público · editorial / oficio</div>
+        <div class="public-hero">
+          <div class="public-hero__copy">
+            <p class="context-label">Bella Mujer Studio · Tehuacán, Puebla</p>
+            <h1 id="public-title">Belleza cuidada, con cita y atención cercana.</h1>
+            <p class="lead">
+              Uñas, pestañas, maquillaje, peinado, cejas y cabello en un estudio local
+              pensado para verte y sentirte lista sin prisas.
+            </p>
+            <div class="actions" aria-label="Acciones de muestra">
+              <span class="button button--primary">Agendar por WhatsApp</span>
+              <span class="button button--secondary">Ver servicios</span>
+            </div>
+          </div>
+          <figure class="public-hero__image">
+            <img
+              src="../../../public/assets/gallery/maquillaje-peinado-glam-01.webp"
+              alt="Maquillaje glam y peinado con ondas realizado en Bella Mujer Studio Tehuacán"
+              width="1200"
+              height="1600"
+            />
+            <figcaption>Trabajo real · Maquillaje y peinado</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section class="mode mode--admin" aria-labelledby="admin-title">
+        <div class="mode-label">Administración · mesa de trabajo compacta</div>
+        <div class="admin-heading">
+          <div>
+            <p class="context-label">Bella Mujer Club</p>
+            <h2 id="admin-title">Clientas Club</h2>
+            <p class="supporting">Consulta perfiles y revisa el saldo actual.</p>
+          </div>
+          <span class="button button--primary">Registrar clienta</span>
+        </div>
+        <div class="admin-workspace">
+          <div class="directory">
+            <label for="search">Buscar entre clientas cargadas</label>
+            <div class="field" id="search" aria-hidden="true">Buscar por nombre o teléfono</div>
+            <div class="row row--selected">
+              <span class="avatar" aria-hidden="true">B</span>
+              <span><strong>Perfil seleccionado</strong><small>Acceso activo</small></span>
+              <span class="status">Activa</span>
+            </div>
+            <div class="row">
+              <span class="avatar" aria-hidden="true">C</span>
+              <span><strong>Otro perfil</strong><small>Invitación pendiente</small></span>
+              <span class="status status--quiet">Pendiente</span>
+            </div>
+          </div>
+          <div class="detail">
+            <p class="context-label">Saldo actual</p>
+            <h3>Detalle de clienta</h3>
+            <dl>
+              <div><dt>Sellos</dt><dd>1 sello</dd></div>
+              <div><dt>Saldo elegible acumulado</dt><dd>$550 MXN</dd></div>
+              <div><dt>Estado</dt><dd>Acceso activo</dd></div>
+            </dl>
+            <span class="button button--secondary">Registrar visita</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="mode mode--member" aria-labelledby="member-title">
+        <div class="mode-label">Mi Club · progreso / reconocimiento</div>
+        <div class="member-header">
+          <div class="member-header__mark" aria-hidden="true">BM</div>
+          <div class="member-header__copy">
+            <p class="context-label">Acceso verificado</p>
+            <h2 id="member-title">Mi Club</h2>
+            <p class="lead">Cada visita, reconocida con cercanía.</p>
+          </div>
+          <div class="progress-copy">
+            <span>Tu progreso</span>
+            <strong>1 sello</strong>
+            <small>Saldo elegible acumulado · $550 MXN</small>
+          </div>
+        </div>
+      </section>
+
+      <section class="role-strip" aria-labelledby="roles-title">
+        <h2 id="roles-title">Roles en la misma escala</h2>
+        <div class="role-grid">
+          <div><span>Expresivo</span><strong class="role-display">Cuidado que se nota</strong></div>
+          <div><span>Título de página</span><strong class="role-page">Bella Mujer Club</strong></div>
+          <div><span>Título de sección</span><strong class="role-section">Citas de hoy</strong></div>
+          <div><span>Cuerpo</span><p>Disponibilidad y cotización se confirman por WhatsApp.</p></div>
+          <div><span>Interfaz / control</span><strong class="role-interface">Guardar cambios</strong></div>
+          <div><span>Datos</span><strong class="role-data">14 nov 2026 · $550 MXN</strong></div>
+          <div><span>Etiqueta</span><strong class="role-label">Acceso activo</strong></div>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const parameters = new URLSearchParams(window.location.search);
+      const system = parameters.get('system') === 'b' ? 'b' : 'a';
+      const scale = parameters.get('scale') === '200' ? '200' : '100';
+      document.body.className = `system-${system} scale-${scale}`;
+      document.getElementById('system-name').textContent =
+        system === 'a'
+          ? 'Sistema A · Playfair Display + Poppins'
+          : 'Sistema B · Newsreader + Source Sans 3';
+      document.getElementById('scale-name').textContent = `Escala de texto ${scale}%`;
+    </script>
+  </body>
+</html>

@@ -1,0 +1,92 @@
+@use 'bm-references' as ref;
+
+// The application-facing authority: semantic roles, never brand primitives.
+@mixin emit() {
+  :root {
+    --bm-brand-primary: #{ref.$wine-700};
+    --bm-brand-strong: #{ref.$plum-950};
+    --bm-brand-soft: #f7dde4;
+    --bm-on-brand: #{ref.$studio-white};
+    --bm-on-brand-soft: #5b102a;
+    --bm-brand-accent-rose: #{ref.$rose-500};
+    --bm-brand-accent-material: #{ref.$material-500};
+
+    --bm-surface-canvas: #{ref.$blush-050};
+    --bm-surface: #{ref.$studio-white};
+    --bm-surface-raised: #{ref.$studio-white};
+    --bm-surface-subtle: #f8eef1;
+    --bm-surface-inverse: #{ref.$plum-950};
+    --bm-surface-scrim: rgb(53 16 31 / 56%);
+
+    --bm-text-primary: #{ref.$plum-950};
+    --bm-text-secondary: #6a4c58;
+    --bm-text-muted: #765b66;
+    --bm-text-inverse: #{ref.$blush-050};
+    --bm-text-link: #{ref.$wine-700};
+
+    --bm-action-primary: #{ref.$wine-700};
+    --bm-action-primary-hover: #{ref.$wine-800};
+    --bm-action-primary-pressed: #{ref.$wine-900};
+    --bm-action-secondary: #{ref.$wine-700};
+    --bm-action-secondary-hover-surface: #f7dde4;
+    --bm-action-quiet: #6a4c58;
+    --bm-action-destructive: #{ref.$red-700};
+    --bm-action-disabled-opacity: 0.38;
+
+    --bm-border-subtle: #e2cbd2;
+    --bm-border-standard: #c9aeb7;
+    --bm-border-interactive: #765b66;
+    --bm-border-strong: #{ref.$wine-700};
+
+    --bm-success-surface: #{ref.$green-050};
+    --bm-success-foreground: #{ref.$green-700};
+    --bm-success-indicator: #{ref.$green-700};
+    --bm-warning-surface: #{ref.$amber-050};
+    --bm-warning-foreground: #{ref.$amber-800};
+    --bm-warning-indicator: #{ref.$amber-800};
+    --bm-error-surface: #{ref.$red-050};
+    --bm-error-foreground: #{ref.$red-700};
+    --bm-error-indicator: #{ref.$red-700};
+    --bm-info-surface: #{ref.$blue-050};
+    --bm-info-foreground: #{ref.$blue-700};
+    --bm-info-indicator: #{ref.$blue-700};
+
+    --bm-focus-ring: #{ref.$focus-blue};
+    --bm-focus-ring-inverse: #{ref.$focus-amber};
+    --bm-focus-offset: #{ref.$studio-white};
+
+    --bm-radius-control: 8px;
+    --bm-radius-group: 12px;
+    --bm-radius-overlay: 16px;
+    --bm-elevation-flat: none;
+    --bm-elevation-raised: 0 8px 24px rgb(53 16 31 / 10%);
+    --bm-elevation-overlay: 0 18px 48px rgb(53 16 31 / 18%);
+
+    --bm-space-1: 4px;
+    --bm-space-2: 8px;
+    --bm-space-3: 12px;
+    --bm-space-4: 16px;
+    --bm-space-6: 24px;
+    --bm-space-8: 32px;
+    --bm-space-12: 48px;
+    --bm-space-16: 64px;
+
+    --bm-motion-instant: 0ms;
+    --bm-motion-feedback: 120ms;
+    --bm-motion-enter: 180ms;
+    --bm-motion-exit: 120ms;
+    --bm-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+    --bm-ease-exit: cubic-bezier(0.4, 0, 1, 1);
+
+    // Temporary compatibility mappings for unmigrated routes. They derive from the semantic authority
+    // and are removed as those routes are migrated; representative 5F3-04B surfaces do not use them.
+    --bm-brand-wine: var(--bm-brand-primary);
+    --bm-brand-rose: var(--bm-brand-accent-rose);
+    --bm-brand-sand: var(--bm-brand-accent-material);
+    --bm-brand-blush: var(--bm-surface-canvas);
+    --bm-border-soft: var(--bm-border-subtle);
+    --bm-radius-card: var(--bm-radius-group);
+    --bm-radius-soft: var(--bm-radius-control);
+    --bm-shadow-soft: var(--bm-elevation-raised);
+  }
+}
