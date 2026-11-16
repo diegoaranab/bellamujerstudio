@@ -551,6 +551,54 @@ test('compact public navigation manages keyboard focus and closes predictably', 
   await expect(toggle).toBeFocused();
 });
 
+test('compact navigation returns focus to the toggle for an exact current URL', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#/');
+
+  const toggle = page.getByTestId('public-menu-toggle');
+  await openCompactNav(page);
+  await expect(page.getByTestId('public-nav-home-link')).toBeFocused();
+
+  await page.getByTestId('public-nav-home-link').click();
+
+  await expect(page).toHaveURL(/#\/$/);
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await expect(toggle).toBeFocused();
+});
+
+test('compact navigation lets real route changes focus the destination heading', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#/');
+
+  const toggle = page.getByTestId('public-menu-toggle');
+  await openCompactNav(page);
+  await page.getByTestId('public-nav-services-link').click();
+
+  await expect(page).toHaveURL(/#\/servicios$/);
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Servicios de belleza en Bella Mujer Studio' })
+  ).toBeFocused();
+  await expect(toggle).not.toBeFocused();
+});
+
+test('compact navigation treats query-param differences as real route changes', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#/servicios?utm_source=instagram');
+
+  const toggle = page.getByTestId('public-menu-toggle');
+  await openCompactNav(page);
+  await expect(page.getByTestId('public-nav-services-link')).toHaveAttribute('aria-current', 'page');
+  await page.getByTestId('public-nav-services-link').click();
+
+  await expect(page).toHaveURL(/#\/servicios$/);
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Servicios de belleza en Bella Mujer Studio' })
+  ).toBeFocused();
+  await expect(toggle).not.toBeFocused();
+});
+
 test('compact navigation retains route state and direct WhatsApp access at 200% text scaling', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/#/tarjeta-regalo?utm_source=instagram');

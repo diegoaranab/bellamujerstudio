@@ -1,6 +1,6 @@
 import { DOCUMENT } from '@angular/common';
 import { Component, Injector, afterNextRender, inject, signal } from '@angular/core';
-import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { Router, RouterLink, RouterLinkActive, RouterOutlet, UrlTree } from '@angular/router';
 
 import { buildBellaMujerWhatsAppUrl } from '../../core/constants/contact.constants';
 import { NavigationFocusService } from '../../core/services/navigation-focus.service';
@@ -14,10 +14,17 @@ import { NavigationFocusService } from '../../core/services/navigation-focus.ser
 export class PublicLayoutComponent {
   private readonly document = inject(DOCUMENT);
   private readonly injector = inject(Injector);
+  private readonly router = inject(Router);
 
   constructor(private readonly navigationFocus: NavigationFocusService) {}
 
   protected readonly isMenuOpen = signal(false);
+
+  protected readonly homeUrl = this.router.createUrlTree(['/']);
+  protected readonly servicesUrl = this.router.createUrlTree(['/servicios']);
+  protected readonly galleryUrl = this.router.createUrlTree(['/galeria']);
+  protected readonly contactUrl = this.router.createUrlTree(['/contacto']);
+  protected readonly giftCardUrl = this.router.createUrlTree(['/tarjeta-regalo']);
 
   protected readonly whatsappUrl = buildBellaMujerWhatsAppUrl(
     'Hola Bella Mujer Studio, quiero pedir información para agendar una cita.'
@@ -43,6 +50,10 @@ export class PublicLayoutComponent {
     if (returnFocusToToggle) {
       afterNextRender(() => this.focusMenuToggle(), { injector: this.injector });
     }
+  }
+
+  protected closeMenuForNavigation(targetUrl: UrlTree): void {
+    this.closeMenu(this.router.serializeUrl(targetUrl) === this.router.url);
   }
 
   private focusFirstRouteLink(): void {

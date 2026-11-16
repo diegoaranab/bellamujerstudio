@@ -3,7 +3,7 @@
     Saltar al contenido
   </button>
   <header class="public-header" aria-label="Bella Mujer Studio">
-    <a class="public-brand" routerLink="/" (click)="closeMenu()">
+    <a class="public-brand" routerLink="/" (click)="closeMenuForNavigation(homeUrl)">
       <div class="logo" aria-hidden="true">BM</div>
       <div class="public-brand__copy">
         <p class="brand-name">Bella Mujer Studio</p>
@@ -52,7 +52,7 @@
         }"
         ariaCurrentWhenActive="page"
         data-testid="public-nav-home-link"
-        (click)="closeMenu()"
+        (click)="closeMenuForNavigation(homeUrl)"
       >
         Inicio
       </a>
@@ -67,7 +67,7 @@
         }"
         ariaCurrentWhenActive="page"
         data-testid="public-nav-services-link"
-        (click)="closeMenu()"
+        (click)="closeMenuForNavigation(servicesUrl)"
       >
         Servicios
       </a>
@@ -82,7 +82,7 @@
         }"
         ariaCurrentWhenActive="page"
         data-testid="public-nav-gallery-link"
-        (click)="closeMenu()"
+        (click)="closeMenuForNavigation(galleryUrl)"
       >
         Galería
       </a>
@@ -97,7 +97,7 @@
         }"
         ariaCurrentWhenActive="page"
         data-testid="public-nav-contact-link"
-        (click)="closeMenu()"
+        (click)="closeMenuForNavigation(contactUrl)"
       >
         Contacto
       </a>
@@ -112,7 +112,7 @@
         }"
         ariaCurrentWhenActive="page"
         data-testid="public-nav-gift-card-link"
-        (click)="closeMenu()"
+        (click)="closeMenuForNavigation(giftCardUrl)"
       >
         Tarjeta de regalo
       </a>
