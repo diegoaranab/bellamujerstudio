@@ -51,15 +51,34 @@ describe('TarjetaRegaloComponent', () => {
     openSpy.mockRestore();
   });
 
-  it('prevents invalid submit when required fields are missing', () => {
+  it('marks invalid fields, enables the summary, and does not create a request', () => {
     const fixture = TestBed.createComponent(TarjetaRegaloComponent);
     const component = fixture.componentInstance;
 
     component.onSubmit();
 
     expect(component.form.invalid).toBe(true);
+    expect(component.form.controls.buyerName.touched).toBe(true);
+    expect(component.validationSummaryVisible()).toBe(true);
+    expect(component.validationSummaryItems()).toEqual([
+      { fieldId: 'buyer-name', message: 'Este nombre es obligatorio.' },
+      { fieldId: 'buyer-phone', message: 'El WhatsApp es obligatorio.' },
+      { fieldId: 'recipient-name', message: 'Este nombre es obligatorio.' }
+    ]);
     expect(createGiftCard).not.toHaveBeenCalled();
     expect(openSpy).not.toHaveBeenCalled();
+  });
+
+  it('clears stale validation-summary state when a subsequent submit is valid', () => {
+    const component = TestBed.createComponent(TarjetaRegaloComponent).componentInstance;
+    component.onSubmit();
+    expect(component.validationSummaryVisible()).toBe(true);
+
+    component.form.patchValue({ buyerName: 'Diego', buyerPhone: '2381110000', recipientName: 'Lupita' });
+    component.onSubmit();
+
+    expect(component.validationSummaryVisible()).toBe(false);
+    expect(createGiftCard).toHaveBeenCalledOnce();
   });
 
   it('updates preset and custom amount preview state', () => {

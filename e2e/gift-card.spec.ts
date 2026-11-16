@@ -715,8 +715,25 @@ test('validation prevents empty gift card requests', async ({ page }) => {
   await page.getByTestId('submit-whatsapp-button').click();
 
   await expect(page.getByTestId('success-state')).toBeHidden();
-  await expect(page.getByText('Este nombre es obligatorio.').first()).toBeVisible();
-  await expect(page.getByText('El WhatsApp es obligatorio.')).toBeVisible();
+  const buyerNameField = page.locator('mat-form-field').filter({
+    has: page.getByTestId('buyer-name-input')
+  });
+  const buyerPhoneField = page.locator('mat-form-field').filter({
+    has: page.getByTestId('buyer-phone-input')
+  });
+  const recipientNameField = page.locator('mat-form-field').filter({
+    has: page.getByTestId('recipient-name-input')
+  });
+
+  await expect(buyerNameField.locator('mat-error')).toHaveText(
+    'Este nombre es obligatorio.'
+  );
+  await expect(buyerPhoneField.locator('mat-error')).toHaveText(
+    'El WhatsApp es obligatorio.'
+  );
+  await expect(recipientNameField.locator('mat-error')).toHaveText(
+    'Este nombre es obligatorio.'
+  );
 });
 
 test('fractional pesos show an error without creating a gift card request', async ({ page }) => {
@@ -735,7 +752,16 @@ test('fractional pesos show an error without creating a gift card request', asyn
 
   await page.getByTestId('submit-whatsapp-button').click();
 
-  await expect(page.getByText('Ingresa un monto en pesos enteros, sin centavos.')).toBeVisible();
+  const summary = page.getByTestId('gift-card-validation-summary');
+  await expect(summary).toBeFocused();
+  await expect(summary).toContainText('Ingresa un monto en pesos enteros, sin centavos.');
+  await expect(
+    page.locator('mat-error').filter({
+      hasText: 'Ingresa un monto en pesos enteros, sin centavos.'
+    })
+  ).toBeVisible();
+  await summary.getByRole('link', { name: 'Ingresa un monto en pesos enteros, sin centavos.' }).click();
+  await expect(page.getByTestId('custom-amount-input')).toBeFocused();
   await expect(page.getByTestId('success-state')).toBeHidden();
   expect(await page.evaluate(() => window.localStorage.getItem('bm_state_v1'))).toBe(storedBefore);
   expect(await page.evaluate(() => window.localStorage.getItem('__popup_opened__'))).toBeNull();
@@ -773,6 +799,11 @@ test('submit creates WhatsApp URL without navigating externally', async ({ page 
   await page.getByTestId('submit-whatsapp-button').click();
 
   await expect(page.getByTestId('success-state')).toBeVisible();
+  const success = page.getByTestId('success-state');
+  await expect(success).toHaveAttribute('role', 'status');
+  await expect(success).toHaveAttribute('aria-live', 'polite');
+  await expect(success).toHaveClass(/feedback--success/);
+  await expect(success).not.toHaveClass(/feedback--error/);
   const openedUrl = await page.evaluate(() => window.localStorage.getItem('__last_open_url__'));
 
   expect(openedUrl).toContain('https://wa.me/522381117950');
@@ -782,6 +813,52 @@ test('submit creates WhatsApp URL without navigating externally', async ({ page 
   expect(decodeURIComponent(openedUrl ?? '')).toContain('$700');
   expect(decodeURIComponent(openedUrl ?? '')).toContain('transferencia');
   expect(decodeURIComponent(openedUrl ?? '')).toContain('comprobante');
+});
+
+test('popup-blocked gift card requests use error feedback semantics', async ({ page }) => {
+  await page.goto('/#/tarjeta-regalo');
+  await page.evaluate(() => {
+    window.open = () => null;
+  });
+  await page.getByTestId('buyer-name-input').fill('Diego Arana');
+  await page.getByTestId('buyer-phone-input').fill('2381110000');
+  await page.getByTestId('recipient-name-input').fill('Mamá Lupita');
+  await page.getByTestId('submit-whatsapp-button').click();
+
+  const error = page.getByTestId('request-error');
+  await expect(error).toBeVisible();
+  await expect(error).toHaveAttribute('role', 'alert');
+  await expect(error).toHaveClass(/feedback--error/);
+  await expect(error).not.toHaveClass(/feedback--success/);
+  await expect(error.getByRole('heading', { name: 'No pudimos crear la solicitud' })).toBeVisible();
+  await expect(error).toContainText('Permite las ventanas emergentes');
+
+  const colors = await error.evaluate((element) => {
+    const expectedColor = (property: '--bm-error-surface' | '--bm-error-foreground') => {
+      const probe = document.createElement('div');
+      probe.style.backgroundColor = `var(${property})`;
+      document.body.append(probe);
+      const value = getComputedStyle(probe).backgroundColor;
+      probe.remove();
+      return value;
+    };
+    const style = getComputedStyle(element);
+    return {
+      background: style.backgroundColor,
+      color: style.color,
+      errorSurface: expectedColor('--bm-error-surface'),
+      errorForeground: (() => {
+        const probe = document.createElement('div');
+        probe.style.color = 'var(--bm-error-foreground)';
+        document.body.append(probe);
+        const value = getComputedStyle(probe).color;
+        probe.remove();
+        return value;
+      })()
+    };
+  });
+  expect(colors.background).toBe(colors.errorSurface);
+  expect(colors.color).toBe(colors.errorForeground);
 });
 
 test('created request appears in admin and status can change', async ({ page }) => {

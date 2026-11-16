@@ -1,5 +1,5 @@
-import { CurrencyPipe, NgClass, NgIf } from '@angular/common';
-import { Component, inject, signal } from '@angular/core';
+import { CurrencyPipe, DOCUMENT, NgClass, NgIf } from '@angular/common';
+import { Component, Injector, afterNextRender, inject, signal } from '@angular/core';
 import {
   FormControl,
   FormGroup,
@@ -27,6 +27,20 @@ import {
 const wholePesoAmount: ValidatorFn = (control) =>
   Number.isInteger(control.value) ? null : { wholePeso: true };
 
+type GiftCardControlName =
+  | 'buyerName'
+  | 'buyerPhone'
+  | 'buyerEmail'
+  | 'recipientName'
+  | 'recipientPhone'
+  | 'message'
+  | 'amountMXN';
+
+interface ValidationSummaryItem {
+  fieldId: string;
+  message: string;
+}
+
 @Component({
   selector: 'app-tarjeta-regalo',
   imports: [
@@ -45,7 +59,9 @@ const wholePesoAmount: ValidatorFn = (control) =>
   styleUrl: './tarjeta-regalo.component.scss'
 })
 export class TarjetaRegaloComponent {
+  private readonly document = inject(DOCUMENT);
   private readonly giftCardRequests = inject(GIFT_CARD_REQUEST_DATA_ACCESS);
+  private readonly injector = inject(Injector);
   readonly dataMode = inject(GIFT_CARD_API_CONFIG).mode;
 
   readonly presetAmounts = GIFT_CARD_PRESET_AMOUNTS_MXN;
@@ -55,6 +71,7 @@ export class TarjetaRegaloComponent {
   readonly whatsappFallbackUrl = signal('');
   readonly errorMessage = signal('');
   readonly isSubmitting = signal(false);
+  readonly validationSummaryVisible = signal(false);
   private pendingApiRequest?: { body: string; key: string };
 
   readonly form = new FormGroup({
@@ -106,6 +123,33 @@ export class TarjetaRegaloComponent {
     return this.form.controls.amountMXN.value === amount;
   }
 
+  validationSummaryItems(): ValidationSummaryItem[] {
+    const fields: Array<{ name: GiftCardControlName; fieldId: string }> = [
+      { name: 'buyerName', fieldId: 'buyer-name' },
+      { name: 'buyerPhone', fieldId: 'buyer-phone' },
+      { name: 'buyerEmail', fieldId: 'buyer-email' },
+      { name: 'recipientName', fieldId: 'recipient-name' },
+      { name: 'recipientPhone', fieldId: 'recipient-phone' },
+      { name: 'message', fieldId: 'gift-message' },
+      { name: 'amountMXN', fieldId: 'gift-amount' }
+    ];
+
+    return fields.flatMap(({ name, fieldId }) => {
+      const control = this.form.controls[name];
+      const message = this.validationMessage(name, control.errors);
+      return message ? [{ fieldId, message }] : [];
+    });
+  }
+
+  focusInvalidField(event: Event, fieldId: string): void {
+    event.preventDefault();
+    const field = this.document.getElementById(fieldId) as HTMLElement | null;
+    if (!field) return;
+
+    field.scrollIntoView({ block: 'center' });
+    field.focus({ preventScroll: true });
+  }
+
   onSubmit(): void {
     if (this.isSubmitting()) return;
 
@@ -115,8 +159,14 @@ export class TarjetaRegaloComponent {
 
     if (this.form.invalid) {
       this.form.markAllAsTouched();
+      this.validationSummaryVisible.set(true);
+      afterNextRender(() => {
+        this.document.getElementById('gift-card-validation-summary')?.focus();
+      }, { injector: this.injector });
       return;
     }
+
+    this.validationSummaryVisible.set(false);
 
     // Open while the submit gesture still has transient user activation.
     const whatsappWindow = window.open('', '_blank');
@@ -178,5 +228,30 @@ export class TarjetaRegaloComponent {
   private optionalText(value: string): string | undefined {
     const trimmed = value.trim();
     return trimmed ? trimmed : undefined;
+  }
+
+  private validationMessage(
+    name: GiftCardControlName,
+    errors: Record<string, unknown> | null
+  ): string | null {
+    if (!errors) return null;
+    if (errors['required']) {
+      return name === 'buyerPhone' ? 'El WhatsApp es obligatorio.' : 'Este nombre es obligatorio.';
+    }
+    if (errors['email']) return 'Escribe un email válido.';
+    if (errors['min']) return 'El monto mínimo es de $300 MXN.';
+    if (errors['wholePeso']) return 'Ingresa un monto en pesos enteros, sin centavos.';
+    if (errors['maxlength']) {
+      return {
+        buyerName: 'El nombre de quien regala no puede superar 120 caracteres.',
+        buyerPhone: 'El WhatsApp de quien regala no puede superar 30 caracteres.',
+        buyerEmail: 'El email no puede superar 160 caracteres.',
+        recipientName: 'El nombre de quien recibe no puede superar 120 caracteres.',
+        recipientPhone: 'El WhatsApp de quien recibe no puede superar 30 caracteres.',
+        message: 'El mensaje no puede superar 500 caracteres.',
+        amountMXN: ''
+      }[name] || null;
+    }
+    return null;
   }
 }
