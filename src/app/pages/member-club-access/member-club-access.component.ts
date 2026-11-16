@@ -190,6 +190,7 @@ export class MemberClubAccessComponent implements OnInit {
   }
 
   private applyRouteParameters(params: ParamMap): void {
+    this.concealNip();
     const access = params.get('access') ?? '';
     const hasValidAccess = isCanonicalMemberClubCredential(access);
     if (
@@ -298,6 +299,7 @@ export class MemberClubAccessComponent implements OnInit {
   }
 
   private establishSession(response: MemberClubSessionResponse, accessHandle: string): void {
+    this.concealNip();
     if (!this.session.establish(response.session)) {
       this.handleRequestError(
         new MemberClubApiError(
@@ -324,8 +326,13 @@ export class MemberClubAccessComponent implements OnInit {
   }
 
   private finishLogout(): void {
+    this.concealNip();
     this.session.clear();
     this.isSubmitting.set(false);
+  }
+
+  private concealNip(): void {
+    this.isNipVisible.set(false);
   }
 
   private handleRequestError(
