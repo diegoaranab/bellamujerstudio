@@ -37,6 +37,7 @@ test('emits the approved semantic foundation and production font request', async
     return {
       action: root.getPropertyValue('--bm-action-primary').trim(),
       canvas: root.getPropertyValue('--bm-surface-canvas').trim(),
+      compatAccent: root.getPropertyValue('--bm-surface-accent').trim(),
       error: root.getPropertyValue('--bm-error-foreground').trim(),
       focus: root.getPropertyValue('--bm-focus-ring').trim(),
       motion: root.getPropertyValue('--bm-motion-feedback').trim(),
@@ -48,6 +49,7 @@ test('emits the approved semantic foundation and production font request', async
 
   expect(foundation.action).toBe('#7a1838');
   expect(foundation.canvas).toBe('#fff7f9');
+  expect(foundation.compatAccent).not.toBe('');
   expect(foundation.error).toBe('#8c1d2c');
   expect(foundation.focus).toBe('#0b63a5');
   expect(foundation.motion).toBe('120ms');

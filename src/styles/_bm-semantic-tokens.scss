@@ -84,6 +84,8 @@
     --bm-brand-rose: var(--bm-brand-accent-rose);
     --bm-brand-sand: var(--bm-brand-accent-material);
     --bm-brand-blush: var(--bm-surface-canvas);
+    --bm-surface-accent:
+      color-mix(in srgb, var(--bm-brand-primary) 7%, var(--bm-surface));
     --bm-border-soft: var(--bm-border-subtle);
     --bm-radius-card: var(--bm-radius-group);
     --bm-radius-soft: var(--bm-radius-control);
