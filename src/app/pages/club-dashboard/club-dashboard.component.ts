@@ -28,6 +28,7 @@ import {
   Observable,
   Subject,
   catchError,
+  EMPTY,
   finalize,
   map,
   of,
@@ -61,7 +62,8 @@ import {
 type DetailIntent =
   | { kind: 'load'; client: ClubClient }
   | { kind: 'loadById'; clientId: string }
-  | { kind: 'resolved'; detail: AdminClubClientDetailResponse };
+  | { kind: 'resolved'; detail: AdminClubClientDetailResponse }
+  | { kind: 'clear' };
 
 type DetailResult =
   | { kind: 'success'; detail: AdminClubClientDetailResponse }
@@ -1010,7 +1012,11 @@ export class ClubDashboardComponent implements OnInit {
     }
 
     this.routeContext.sync(clientId, subview);
-    if (!clientId || clientId === previousClientId || !this.isConfigured) {
+    if (!clientId) {
+      this.deactivateSelectedClient();
+      return;
+    }
+    if (clientId === previousClientId || !this.isConfigured) {
       return;
     }
 
@@ -1054,11 +1060,41 @@ export class ClubDashboardComponent implements OnInit {
     this.loadClientAccess(clientId, false);
   }
 
+  private deactivateSelectedClient(): void {
+    this.handledRouteClientId = null;
+
+    this.accessReadRevision.update((revision) => revision + 1);
+    this.accessLoading.set(false);
+    this.selectedAccess.set(null);
+    this.accessReadError.set(null);
+    this.accessMutationError.set(null);
+    this.resetConfirmationOpen.set(false);
+    this.discardOneTimeInvitation();
+
+    this.historyGeneration += 1;
+    this.historyClientId.set(null);
+    this.historyFirstPageLoading.set(false);
+    this.historyLoadMoreLoading.set(false);
+    this.historyFirstPageError.set(null);
+    this.historyLoadMoreError.set(null);
+    this.historyNextToken.set(undefined);
+    this.ledgerEntries.set([]);
+
+    this.detailIntents.next({ kind: 'clear' });
+  }
+
   private connectDetailSelection(): void {
     this.detailIntents
       .pipe(
         switchMap((intent): Observable<DetailResult> => {
           this.detailError.set(null);
+          if (intent.kind === 'clear') {
+            this.selectedClientId.set(null);
+            this.selectedClient.set(null);
+            this.selectedBalance.set(null);
+            this.detailLoading.set(false);
+            return EMPTY;
+          }
           if (intent.kind === 'resolved') {
             return of({ kind: 'success', detail: intent.detail });
           }

@@ -149,6 +149,9 @@ interface RouteTestActions extends AccessTestActions {
   selectedClientId(): string | null;
   selectedClient(): ClubClient | null;
   selectedBalance(): LoyaltyBalance | null;
+  accessLoading(): boolean;
+  historyFirstPageLoading(): boolean;
+  historyLoadMoreLoading(): boolean;
 }
 
 function balance(
@@ -620,6 +623,78 @@ describe('ClubDashboardComponent', () => {
 
     expect(component.selectedClient()).toEqual(beatriz);
     expect(component.selectedBalance()).toEqual(balance(beatriz.clientId, 2, 700));
+  });
+
+  it('resets selection lifecycle when navigating to the directory and reconstructs on return', async () => {
+    const oldAccess = new Subject<AdminClubAccessReadResponse>();
+    const newAccess = new Subject<AdminClubAccessReadResponse>();
+    let accessAttempt = 0;
+    await configure({
+      accessResponse: () => (accessAttempt++ === 0 ? oldAccess : newAccess)
+    });
+    const fixture = render();
+    const actions = fixture.componentInstance as unknown as RouteTestActions;
+
+    actions.selectClient(ana);
+    expect(actions.accessLoading()).toBe(true);
+
+    syncRouteSelection(fixture, null);
+
+    expect(actions.selectedClientId()).toBeNull();
+    expect(actions.accessLoading()).toBe(false);
+    expect(actions.historyFirstPageLoading()).toBe(false);
+    expect(actions.historyLoadMoreLoading()).toBe(false);
+    oldAccess.next({ access: activeAccess });
+    fixture.detectChanges();
+    expect(actions.selectedAccess()).toBeNull();
+
+    syncRouteSelection(fixture, ana.clientId);
+
+    expect(getClient).toHaveBeenCalledTimes(2);
+    expect(listLedgerEntries).toHaveBeenCalledTimes(2);
+    expect(getClientAccess).toHaveBeenCalledTimes(2);
+    expect(actions.selectedClientId()).toBe(ana.clientId);
+    expect(actions.accessLoading()).toBe(true);
+
+    newAccess.next({ access: activeAccess });
+    newAccess.complete();
+    fixture.detectChanges();
+    expect(actions.accessLoading()).toBe(false);
+    expect(actions.selectedAccess()).toEqual(activeAccess);
+  });
+
+  it('cannot repopulate directory selection from a pending detail response', async () => {
+    const pendingDetail = new Subject<AdminClubClientDetailResponse>();
+    await configure({ detailResponse: () => pendingDetail });
+    const fixture = render();
+    const actions = fixture.componentInstance as unknown as RouteTestActions;
+
+    actions.selectClient(ana);
+    syncRouteSelection(fixture, null);
+    pendingDetail.next({ client: ana, balance: balance(ana.clientId, 9, 999) });
+    pendingDetail.complete();
+    fixture.detectChanges();
+
+    expect(actions.selectedClientId()).toBeNull();
+    expect(actions.selectedClient()).toBeNull();
+    expect(actions.selectedBalance()).toBeNull();
+  });
+
+  it('ignores a late history response after selection is deactivated', async () => {
+    const pendingHistory = new Subject<AdminClubLedgerListResponse>();
+    await configure({ ledgerResponse: () => pendingHistory });
+    const fixture = render();
+    const actions = fixture.componentInstance as unknown as RouteTestActions;
+
+    actions.selectClient(ana);
+    expect(actions.historyFirstPageLoading()).toBe(true);
+    syncRouteSelection(fixture, null);
+    pendingHistory.next({ items: [ledgerEntry({ entryId: 'late-directory-entry' })] });
+    pendingHistory.complete();
+    fixture.detectChanges();
+
+    expect(actions.historyFirstPageLoading()).toBe(false);
+    expect(text(fixture)).not.toContain('late-directory-entry');
   });
 
   it('loads access independently when a client is selected', async () => {
