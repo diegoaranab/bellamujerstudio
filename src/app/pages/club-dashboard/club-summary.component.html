@@ -1,0 +1,30 @@
+<section class="workflow-surface workflow-surface--summary" aria-labelledby="summary-title" data-testid="client-detail">
+  <header class="workflow-heading">
+    <div>
+      <h2 id="summary-title" tabindex="-1">Estado actual</h2>
+      <p>Saldo, sellos y siguiente acción de esta cuenta.</p>
+    </div>
+  </header>
+  @if (vm.detailLoading()) {
+    <div class="inline-state" data-testid="detail-loading" role="status"><mat-spinner diameter="28" /><span>Consultando saldo…</span></div>
+  } @else if (vm.detailError(); as error) {
+    <div class="error-state" data-testid="detail-error" role="alert">
+      <p>{{ error }}</p>
+      <button mat-stroked-button type="button" (click)="vm.retrySelectedClientDetail()">Intentar de nuevo</button>
+    </div>
+  } @else if (vm.selectedDetail(); as detail) {
+    <p class="summary-identity"><strong>{{ detail.client.name }}</strong></p>
+    <dl class="summary-facts">
+      <div><dt>Estado</dt><dd>{{ vm.statusLabel(detail.client) }}</dd></div>
+      <div><dt>Sellos actuales</dt><dd data-testid="stamp-count">{{ vm.stampLabel(detail.balance.stampCount) }}</dd></div>
+      <div><dt>Saldo elegible acumulado</dt><dd data-testid="eligible-balance">{{ vm.formatMXN(detail.balance.eligibleSpendCarryMXN) }}</dd></div>
+    </dl>
+    <div class="summary-actions">
+      <a mat-flat-button [routerLink]="['/admin/club/clientas', detail.client.clientId, 'visita']" data-testid="summary-register-visit">
+        <mat-icon aria-hidden="true">event_available</mat-icon>
+        Registrar visita
+      </a>
+      <a mat-button [routerLink]="['/admin/club/clientas', detail.client.clientId, 'historial']">Ver historial</a>
+    </div>
+  }
+</section>

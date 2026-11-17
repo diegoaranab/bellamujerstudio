@@ -1,0 +1,34 @@
+<section class="workflow-surface workflow-surface--visit" aria-labelledby="visit-title" data-testid="visit-registration">
+  <header class="workflow-heading"><div><h2 id="visit-title" tabindex="-1">Registrar visita</h2><p>Captura los importes de esta atención.</p></div></header>
+  @if (!vm.selectedClient()) { <div class="feedback-row" data-testid="visit-no-client"><mat-icon aria-hidden="true">touch_app</mat-icon><p>Selecciona una clienta del directorio para registrar su visita.</p></div> }
+  <form [formGroup]="vm.visitForm" (ngSubmit)="vm.registerVisit()" data-testid="visit-form">
+    <fieldset class="visit-fields" [disabled]="!vm.isConfigured || !vm.selectedClient() || vm.visitLoading() || vm.pendingVisitAttempt() !== null">
+      <div class="visit-fields__money">
+        <mat-form-field appearance="outline"><mat-label>Fecha y hora de la visita</mat-label><input matInput type="datetime-local" formControlName="occurredAtLocal" data-testid="visit-date" />@if (vm.visitForm.controls.occurredAtLocal.invalid) { <mat-error>Ingresa una fecha y hora válidas.</mat-error> }</mat-form-field>
+        <mat-form-field appearance="outline"><mat-label>Total pagado (MXN)</mat-label><input matInput type="number" min="0" step="1" inputmode="numeric" formControlName="amountMXN" data-testid="visit-amount" />@if (vm.visitForm.controls.amountMXN.hasError('required')) { <mat-error>El total pagado es obligatorio.</mat-error> } @else if (vm.visitForm.controls.amountMXN.hasError('min')) { <mat-error>El total no puede ser negativo.</mat-error> } @else if (vm.visitForm.controls.amountMXN.hasError('integer')) { <mat-error>Usa pesos enteros, sin centavos.</mat-error> }</mat-form-field>
+        <mat-form-field appearance="outline"><mat-label>Monto elegible Club (MXN)</mat-label><input matInput type="number" min="0" step="1" inputmode="numeric" formControlName="eligibleAmountMXN" data-testid="visit-eligible-amount" />@if (vm.visitForm.controls.eligibleAmountMXN.hasError('required')) { <mat-error>El monto elegible es obligatorio.</mat-error> } @else if (vm.visitForm.controls.eligibleAmountMXN.hasError('min')) { <mat-error>El monto elegible no puede ser negativo.</mat-error> } @else if (vm.visitForm.controls.eligibleAmountMXN.hasError('integer')) { <mat-error>Usa pesos enteros, sin centavos.</mat-error> }</mat-form-field>
+      </div>
+      @if (vm.visitForm.hasError('eligibleExceedsAmount') && (vm.visitForm.controls.amountMXN.touched || vm.visitForm.controls.eligibleAmountMXN.touched)) { <p class="form-message form-message--error" data-testid="visit-amount-error">El monto elegible no puede superar el total pagado.</p> }
+      <div class="service-selector" aria-labelledby="visit-services-title">
+        <div class="service-selector__header"><div><h3 id="visit-services-title">Servicios asociados</h3><p>Referencia informativa; no modifica los montos capturados.</p></div><span>{{ vm.visitForm.controls.serviceIds.value.length }}/50</span></div>
+        @if (vm.serviceCatalogLoading()) { <div class="inline-state inline-state--compact" data-testid="services-loading"><mat-spinner diameter="22" /><span>Cargando servicios…</span></div> }
+        @else if (vm.serviceCatalogError(); as error) { <p class="form-message form-message--error" data-testid="services-error" role="alert">{{ error }} Puedes registrar la visita sin asociar servicios.</p> }
+        @else if (vm.activeServices().length === 0) { <p>No hay servicios activos para seleccionar.</p> }
+        @else { <div class="service-options" data-testid="active-service-options">@for (service of vm.activeServices(); track service.id) { <mat-checkbox [checked]="vm.isServiceSelected(service.id)" [disabled]="!vm.isConfigured || !vm.selectedClient() || vm.serviceSelectionDisabled(service.id)" (change)="vm.toggleService(service.id, $event.checked)" [attr.data-service-id]="service.id">{{ service.nombre }}</mat-checkbox> }</div> }
+        <p class="muted">La selección es opcional.</p>
+      </div>
+    </fieldset>
+    @if (vm.visitError(); as error) {
+      <div class="feedback-row feedback-row--error" data-testid="visit-error" role="alert"><mat-icon aria-hidden="true">error_outline</mat-icon><div><strong>No se pudo confirmar la visita</strong><p>{{ error }}</p>@if (vm.pendingVisitAttempt(); as attempt) { <p>El intento permanece guardado para {{ attempt.clientName }}. Reintentar enviará exactamente los mismos datos.</p> }</div></div>
+    }
+    @if (vm.pendingVisitAttempt()) { @if (!vm.visitLoading()) { <div class="action-row" data-testid="visit-retry-actions"><button mat-flat-button type="button" (click)="vm.retryVisit()" data-testid="visit-retry"><mat-icon aria-hidden="true">refresh</mat-icon>Reintentar la misma visita</button><button mat-stroked-button type="button" (click)="vm.editVisitAttempt()" data-testid="visit-edit">Editar y crear un nuevo intento</button></div> } }
+    <button mat-flat-button class="primary-submit" type="submit" [disabled]="!vm.isConfigured || !vm.selectedClient() || vm.visitForm.invalid || vm.visitLoading() || vm.pendingVisitAttempt() !== null" data-testid="visit-submit">@if (vm.visitLoading()) { <mat-spinner diameter="18" /> } @else { <mat-icon aria-hidden="true">add_task</mat-icon> }{{ vm.visitLoading() ? 'Procesando visita…' : 'Registrar visita' }}</button>
+  </form>
+  @if (vm.visitOutcome(); as outcome) {
+    <div class="visit-outcome" [class.visit-outcome--replayed]="outcome.response.replayed" data-testid="visit-outcome" role="status">
+      <div class="visit-outcome__title"><mat-icon aria-hidden="true">{{ outcome.response.replayed ? 'verified' : 'check_circle' }}</mat-icon><div><h3>{{ outcome.response.replayed ? 'La visita ya estaba registrada' : 'Visita registrada correctamente' }}</h3>@if (outcome.response.replayed) { <p>Se recuperó el resultado sin duplicar sellos.</p> }</div></div>
+      <p><strong>{{ outcome.clientName }}</strong> · {{ vm.formatVisitDate(outcome.response.visit.occurredAtISO) }}</p>
+      <dl class="summary-facts"><div><dt>Resultado de sello</dt><dd data-testid="visit-stamp-award">{{ vm.stampAwardLabel(outcome) }}</dd></div><div><dt>Saldo resultante</dt><dd data-testid="visit-result-stamps">{{ vm.stampLabel(outcome.response.balance.stampCount) }}</dd></div><div><dt>Saldo elegible resultante</dt><dd data-testid="visit-result-carry">{{ vm.formatMXN(outcome.response.balance.eligibleSpendCarryMXN) }}</dd></div><div><dt>Importes</dt><dd data-testid="visit-result-amounts">{{ vm.formatMXN(outcome.response.visit.amountMXN) }} total · {{ vm.formatMXN(outcome.response.visit.eligibleAmountMXN) }} elegible</dd></div></dl>
+    </div>
+  }
+</section>

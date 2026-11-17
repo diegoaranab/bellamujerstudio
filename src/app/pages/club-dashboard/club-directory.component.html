@@ -1,0 +1,86 @@
+<section class="workflow-surface workflow-surface--directory directory" aria-labelledby="clients-title" data-testid="club-directory-task">
+  <header class="workflow-heading">
+    <div>
+      <h2 id="clients-title">Clientas Club</h2>
+      <p>Busca una cuenta o abre una nueva relación de Club.</p>
+    </div>
+    <a mat-flat-button routerLink="/admin/club/clientas/nueva" data-testid="new-client-link">
+      <mat-icon aria-hidden="true">person_add</mat-icon>
+      Nueva clienta
+    </a>
+  </header>
+
+  @if (vm.isConfigured) {
+    <mat-form-field appearance="outline" class="filter-field">
+      <mat-label>Buscar por nombre o teléfono</mat-label>
+      <mat-icon matPrefix aria-hidden="true">search</mat-icon>
+      <input matInput [formControl]="vm.filterControl" data-testid="client-filter" />
+      <mat-hint>Busca entre los perfiles cargados.</mat-hint>
+    </mat-form-field>
+
+    @if (vm.initialLoading()) {
+      <div class="inline-state" data-testid="clients-loading" role="status">
+        <mat-spinner diameter="28" />
+        <span>Cargando clientas…</span>
+      </div>
+    } @else if (vm.initialError(); as error) {
+      <div class="error-state" data-testid="clients-error" role="alert">
+        <p>{{ error }}</p>
+        <button mat-stroked-button type="button" (click)="vm.loadFirstPage()">Intentar de nuevo</button>
+      </div>
+    } @else if (vm.clients().length === 0) {
+      <div class="empty-state" data-testid="clients-empty">
+        <mat-icon aria-hidden="true">person_add</mat-icon>
+        <h3>Aún no hay clientas en el Club</h3>
+        <p>Registra la primera clienta para comenzar.</p>
+        <a mat-stroked-button routerLink="/admin/club/clientas/nueva">Crear primera clienta</a>
+      </div>
+    } @else if (vm.filteredClients().length === 0) {
+      <div class="empty-state" data-testid="filter-empty">
+        <mat-icon aria-hidden="true">search_off</mat-icon>
+        <h3>Sin coincidencias</h3>
+        <p>Prueba con otro nombre o teléfono.</p>
+      </div>
+    } @else {
+      <div class="client-list" data-testid="client-list">
+        @for (client of vm.filteredClients(); track client.clientId) {
+          <button
+            type="button"
+            class="client-row"
+            [class.client-row--selected]="vm.selectedClientId() === client.clientId"
+            (click)="vm.selectClient(client)"
+            [disabled]="vm.accessMutationLoading()"
+            [attr.data-client-id]="client.clientId"
+            [attr.aria-current]="vm.selectedClientId() === client.clientId ? 'true' : null"
+          >
+            <span class="client-row__main">
+              <strong>{{ client.name }}</strong>
+            </span>
+            <span class="status-pill" [class.status-pill--inactive]="client.status === 'inactive'">
+              {{ vm.statusLabel(client) }}
+            </span>
+            <mat-icon aria-hidden="true">chevron_right</mat-icon>
+          </button>
+        }
+      </div>
+    }
+
+    @if (!vm.initialLoading() && !vm.initialError() && vm.nextToken()) {
+      <div class="pagination">
+        @if (vm.loadMoreError(); as error) {
+          <p class="form-message form-message--error" data-testid="load-more-error" role="alert">{{ error }}</p>
+        }
+        <button mat-stroked-button type="button" (click)="vm.loadMore()" [disabled]="vm.loadMoreLoading()" data-testid="load-more">
+          @if (vm.loadMoreLoading()) { <mat-spinner diameter="18" /> } @else { <mat-icon aria-hidden="true">expand_more</mat-icon> }
+          {{ vm.loadMoreLoading() ? 'Cargando…' : vm.loadMoreError() ? 'Reintentar carga' : 'Cargar más' }}
+        </button>
+      </div>
+    }
+  } @else {
+    <div class="empty-state">
+      <mat-icon aria-hidden="true">cloud_off</mat-icon>
+      <h3>Directorio no disponible</h3>
+      <p>No se cargarán perfiles hasta configurar el servicio.</p>
+    </div>
+  }
+</section>

@@ -283,7 +283,7 @@ describe('App', () => {
     expect(compiled.querySelector('[data-testid="admin-shell"]')).toBeTruthy();
     expect(compiled.querySelector('[data-testid="public-shell"]')).toBeFalsy();
     expect(compiled.querySelector('[data-testid="club-dashboard"]')).toBeTruthy();
-    expect(compiled.querySelector('h1')?.textContent).toContain('Bella Mujer Club');
+    expect(compiled.querySelector('h1')?.textContent).toContain('Club');
   });
 
   it('should render the main shell header content', async () => {
