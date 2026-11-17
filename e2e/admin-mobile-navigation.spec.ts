@@ -46,7 +46,7 @@ test('mobile admin navigation exposes five focused actions and the secondary men
   );
 
   await bottomNav.getByRole('link', { name: 'Club' }).click();
-  await expect(page).toHaveURL(/#\/admin\/club$/);
+  await expect(page).toHaveURL(/#\/admin\/club\/clientas$/);
   await expect(page.getByRole('heading', { level: 1, name: 'Bella Mujer Club' })).toBeVisible();
 
   await page.getByRole('button', { name: 'Nueva cita' }).click();

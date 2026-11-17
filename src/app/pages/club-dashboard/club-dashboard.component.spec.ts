@@ -1,5 +1,6 @@
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter, Router } from '@angular/router';
 import { Observable, Subject, of, throwError } from 'rxjs';
 
 import {
@@ -27,6 +28,7 @@ import {
   buildClubActivationUrl,
   ClubDashboardComponent
 } from './club-dashboard.component';
+import { ClubRouteContext } from './club-route-context.service';
 
 const ana: ClubClient = {
   studioId: 'studio-1',
@@ -138,6 +140,18 @@ interface AccessTestActions {
   selectedAccess(): AdminClubAccessSummary | null;
   oneTimeInvitation(): { activationUrl: string; expiresAtISO: string } | null;
   accessMutationLoading(): boolean;
+}
+
+interface RouteTestActions extends AccessTestActions {
+  beginClientSelectionById(clientId: string): void;
+  syncSelectionFromRoute(): void;
+  route: unknown;
+  selectedClientId(): string | null;
+  selectedClient(): ClubClient | null;
+  selectedBalance(): LoyaltyBalance | null;
+  accessLoading(): boolean;
+  historyFirstPageLoading(): boolean;
+  historyLoadMoreLoading(): boolean;
 }
 
 function balance(
@@ -329,6 +343,8 @@ describe('ClubDashboardComponent', () => {
       imports: [ClubDashboardComponent],
       providers: [
         provideNoopAnimations(),
+        provideRouter([]),
+        ClubRouteContext,
         {
           provide: AdminClubApiClient,
           useValue: {
@@ -407,6 +423,23 @@ describe('ClubDashboardComponent', () => {
     fixture: ComponentFixture<ClubDashboardComponent>
   ): AccessTestActions {
     return fixture.componentInstance as unknown as AccessTestActions;
+  }
+
+  function syncRouteSelection(
+    fixture: ComponentFixture<ClubDashboardComponent>,
+    clientId: string | null,
+    subview: 'resumen' | 'visita' | 'historial' | 'acceso' = 'resumen'
+  ): void {
+    const actions = fixture.componentInstance as unknown as RouteTestActions;
+    vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    actions.route = {
+      snapshot: {
+        paramMap: { get: () => clientId },
+        data: { clubSubview: subview },
+        routeConfig: { path: 'club' }
+      }
+    };
+    actions.syncSelectionFromRoute();
   }
 
   afterEach(() => {
@@ -539,6 +572,36 @@ describe('ClubDashboardComponent', () => {
     expect(text(fixture)).toContain('2 sellos acumulados');
   });
 
+  it('retries a failed deep-linked detail by its opaque selected ID', async () => {
+    const detailError = new AdminClubApiError('network', 'No fue posible cargar el detalle.');
+    let detailAttempts = 0;
+    await configure({
+      detailResponse: () => {
+        detailAttempts += 1;
+        return detailAttempts === 1
+          ? throwError(() => detailError)
+          : of({ client: ana, balance: balance(ana.clientId, 3, 850) });
+      }
+    });
+    const fixture = render();
+    const actions = fixture.componentInstance as unknown as RouteTestActions;
+
+    actions.beginClientSelectionById('opaque-deep-link-client');
+    fixture.detectChanges();
+
+    expect(actions.selectedClientId()).toBe('opaque-deep-link-client');
+    expect(actions.selectedClient()).toBeNull();
+    expect(text(fixture)).toContain(detailError.message);
+    expect(fixture.nativeElement.querySelector('[data-testid="detail-error"] button')).toBeTruthy();
+
+    click(fixture, '[data-testid="detail-error"] button');
+
+    expect(getClient).toHaveBeenNthCalledWith(1, 'opaque-deep-link-client');
+    expect(getClient).toHaveBeenNthCalledWith(2, 'opaque-deep-link-client');
+    expect(actions.selectedClient()).toEqual(ana);
+    expect(actions.selectedBalance()).toEqual(balance(ana.clientId, 3, 850));
+  });
+
   it('prevents a stale detail response from replacing the latest selection', async () => {
     const anaResponse = new Subject<AdminClubClientDetailResponse>();
     const beatrizResponse = new Subject<AdminClubClientDetailResponse>();
@@ -560,6 +623,78 @@ describe('ClubDashboardComponent', () => {
 
     expect(component.selectedClient()).toEqual(beatriz);
     expect(component.selectedBalance()).toEqual(balance(beatriz.clientId, 2, 700));
+  });
+
+  it('resets selection lifecycle when navigating to the directory and reconstructs on return', async () => {
+    const oldAccess = new Subject<AdminClubAccessReadResponse>();
+    const newAccess = new Subject<AdminClubAccessReadResponse>();
+    let accessAttempt = 0;
+    await configure({
+      accessResponse: () => (accessAttempt++ === 0 ? oldAccess : newAccess)
+    });
+    const fixture = render();
+    const actions = fixture.componentInstance as unknown as RouteTestActions;
+
+    actions.selectClient(ana);
+    expect(actions.accessLoading()).toBe(true);
+
+    syncRouteSelection(fixture, null);
+
+    expect(actions.selectedClientId()).toBeNull();
+    expect(actions.accessLoading()).toBe(false);
+    expect(actions.historyFirstPageLoading()).toBe(false);
+    expect(actions.historyLoadMoreLoading()).toBe(false);
+    oldAccess.next({ access: activeAccess });
+    fixture.detectChanges();
+    expect(actions.selectedAccess()).toBeNull();
+
+    syncRouteSelection(fixture, ana.clientId);
+
+    expect(getClient).toHaveBeenCalledTimes(2);
+    expect(listLedgerEntries).toHaveBeenCalledTimes(2);
+    expect(getClientAccess).toHaveBeenCalledTimes(2);
+    expect(actions.selectedClientId()).toBe(ana.clientId);
+    expect(actions.accessLoading()).toBe(true);
+
+    newAccess.next({ access: activeAccess });
+    newAccess.complete();
+    fixture.detectChanges();
+    expect(actions.accessLoading()).toBe(false);
+    expect(actions.selectedAccess()).toEqual(activeAccess);
+  });
+
+  it('cannot repopulate directory selection from a pending detail response', async () => {
+    const pendingDetail = new Subject<AdminClubClientDetailResponse>();
+    await configure({ detailResponse: () => pendingDetail });
+    const fixture = render();
+    const actions = fixture.componentInstance as unknown as RouteTestActions;
+
+    actions.selectClient(ana);
+    syncRouteSelection(fixture, null);
+    pendingDetail.next({ client: ana, balance: balance(ana.clientId, 9, 999) });
+    pendingDetail.complete();
+    fixture.detectChanges();
+
+    expect(actions.selectedClientId()).toBeNull();
+    expect(actions.selectedClient()).toBeNull();
+    expect(actions.selectedBalance()).toBeNull();
+  });
+
+  it('ignores a late history response after selection is deactivated', async () => {
+    const pendingHistory = new Subject<AdminClubLedgerListResponse>();
+    await configure({ ledgerResponse: () => pendingHistory });
+    const fixture = render();
+    const actions = fixture.componentInstance as unknown as RouteTestActions;
+
+    actions.selectClient(ana);
+    expect(actions.historyFirstPageLoading()).toBe(true);
+    syncRouteSelection(fixture, null);
+    pendingHistory.next({ items: [ledgerEntry({ entryId: 'late-directory-entry' })] });
+    pendingHistory.complete();
+    fixture.detectChanges();
+
+    expect(actions.historyFirstPageLoading()).toBe(false);
+    expect(text(fixture)).not.toContain('late-directory-entry');
   });
 
   it('loads access independently when a client is selected', async () => {
@@ -898,6 +1033,49 @@ describe('ClubDashboardComponent', () => {
     pendingMutation.complete();
     fixture.detectChanges();
     expect(text(fixture)).toContain('Acceso de Ana López');
+  });
+
+  it('keeps the mutation client when navigation targets the directory before an invitation completes', async () => {
+    const pendingMutation = new Subject<AdminClubAccessMutationResponse>();
+    await configure({ invitationResponse: () => pendingMutation });
+    const fixture = render();
+    const actions = fixture.componentInstance as unknown as RouteTestActions;
+
+    click(fixture, '[data-client-id="client-ana"]');
+    actions.generateAccessInvitation();
+    syncRouteSelection(fixture, null);
+
+    expect(actions.selectedClientId()).toBe(ana.clientId);
+    expect(actions.accessMutationLoading()).toBe(true);
+    pendingMutation.next(accessMutation());
+    pendingMutation.complete();
+    fixture.detectChanges();
+
+    expect(actions.oneTimeInvitation()).not.toBeNull();
+    expect(text(fixture)).toContain('Acceso de Ana López');
+  });
+
+  it('keeps the mutation client on Back navigation so a reset response is not discarded', async () => {
+    const pendingMutation = new Subject<AdminClubAccessMutationResponse>();
+    await configure({
+      accessResponse: () => of({ access: activeAccess }),
+      resetResponse: () => pendingMutation
+    });
+    const fixture = render();
+    const actions = fixture.componentInstance as unknown as RouteTestActions;
+
+    click(fixture, '[data-client-id="client-ana"]');
+    actions.requestAccessReset();
+    actions.confirmAccessReset();
+    syncRouteSelection(fixture, null);
+
+    expect(actions.selectedClientId()).toBe(ana.clientId);
+    pendingMutation.next(accessMutation(invitedAccess));
+    pendingMutation.complete();
+    fixture.detectChanges();
+
+    expect(actions.oneTimeInvitation()).not.toBeNull();
+    expect(actions.selectedAccess()).toEqual(invitedAccess);
   });
 
   it('clears a one-time invitation when deliberately selecting another client', async () => {

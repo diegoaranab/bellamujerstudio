@@ -4,8 +4,7 @@
 }
 
 .club-page {
-  display: flex;
-  flex-direction: column;
+  display: grid;
   gap: 1.5rem;
   width: min(100%, 1240px);
   margin: 0 auto;
@@ -40,10 +39,6 @@
   height: 280px;
   border: 48px solid color-mix(in srgb, white 8%, transparent);
   border-radius: 50%;
-}
-
-.club-hero__content {
-  max-width: 720px;
 }
 
 .club-hero__meta,
@@ -111,7 +106,6 @@
 }
 
 .club-hero__description {
-  max-width: 640px;
   margin-top: 0.75rem;
   line-height: 1.7;
   opacity: 0.86;
@@ -122,12 +116,10 @@
   height: 138px;
   display: grid;
   place-items: center;
-  align-content: center;
   gap: 0.35rem;
   border: 1px solid color-mix(in srgb, white 45%, transparent);
   border-radius: 50%;
   background: color-mix(in srgb, white 12%, transparent);
-  box-shadow: inset 0 0 0 8px color-mix(in srgb, white 5%, transparent);
 }
 
 .club-hero__mark mat-icon {
@@ -139,6 +131,30 @@
 .club-hero__mark span {
   font-family: 'Playfair Display', 'Times New Roman', serif;
   font-size: 1.15rem;
+}
+
+.club-workspace-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0.5rem;
+  border: 1px solid var(--bm-border-soft);
+  border-radius: var(--bm-radius-soft);
+  background: white;
+}
+
+.club-workspace-nav a {
+  padding: 0.45rem 0.7rem;
+  border-radius: 999px;
+  color: var(--bm-brand-wine);
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.club-workspace-nav a:is(:hover, :focus-visible, .is-active) {
+  color: white;
+  background: var(--bm-brand-wine);
 }
 
 .state-notice {
@@ -153,7 +169,6 @@
 }
 
 .state-notice h2 {
-  font-family: inherit;
   font-size: 1rem;
 }
 
@@ -198,13 +213,11 @@
 }
 
 .client-list {
-  display: flex;
-  flex-direction: column;
+  display: grid;
   margin-top: 0.7rem;
 }
 
 .client-row {
-  width: 100%;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto auto;
   align-items: center;
@@ -253,8 +266,7 @@
 
 .client-row__main {
   min-width: 0;
-  display: flex;
-  flex-direction: column;
+  display: grid;
 }
 
 .client-row__main strong,
@@ -273,7 +285,6 @@
 
 .status-pill {
   display: inline-flex;
-  width: fit-content;
   padding: 0.28rem 0.55rem;
   border-radius: 999px;
   color: #386142;
@@ -296,7 +307,6 @@
   gap: 0.75rem;
   min-height: 150px;
   padding: 1.5rem;
-  text-align: center;
 }
 
 .empty-state,

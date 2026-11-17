@@ -17,13 +17,23 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import {
+  ActivatedRoute,
+  NavigationEnd,
+  Router,
+  RouterLink,
+  RouterLinkActive,
+  RouterOutlet
+} from '@angular/router';
+import {
   Observable,
   Subject,
   catchError,
+  EMPTY,
   finalize,
   map,
   of,
   startWith,
+  filter,
   switchMap
 } from 'rxjs';
 
@@ -44,10 +54,16 @@ import {
   AdminClubVisitCreateResponse
 } from '../../core/services/admin-club-api.client';
 import { DbFacadeService } from '../../core/services/db-facade.service';
+import {
+  ClubRouteContext,
+  ClubWorkspaceSubview
+} from './club-route-context.service';
 
 type DetailIntent =
   | { kind: 'load'; client: ClubClient }
-  | { kind: 'resolved'; detail: AdminClubClientDetailResponse };
+  | { kind: 'loadById'; clientId: string }
+  | { kind: 'resolved'; detail: AdminClubClientDetailResponse }
+  | { kind: 'clear' };
 
 type DetailResult =
   | { kind: 'success'; detail: AdminClubClientDetailResponse }
@@ -145,7 +161,10 @@ const serviceCountValidator: ValidatorFn = (
     MatFormFieldModule,
     MatIconModule,
     MatInputModule,
-    MatProgressSpinnerModule
+    MatProgressSpinnerModule,
+    RouterLink,
+    RouterLinkActive,
+    RouterOutlet
   ],
   templateUrl: './club-dashboard.component.html',
   styleUrl: './club-dashboard.component.scss'
@@ -155,6 +174,9 @@ export class ClubDashboardComponent implements OnInit {
   private readonly dbFacade = inject(DbFacadeService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly document = inject(DOCUMENT);
+  private readonly router = inject(Router, { optional: true });
+  private readonly route = inject(ActivatedRoute, { optional: true });
+  protected readonly routeContext = inject(ClubRouteContext);
   private readonly detailIntents = new Subject<DetailIntent>();
   private readonly historyFirstPageIntents = new Subject<HistoryFirstPageIntent>();
   private directoryRevision = 0;
@@ -222,7 +244,7 @@ export class ClubDashboardComponent implements OnInit {
   protected readonly loadMoreLoading = signal(false);
   protected readonly loadMoreError = signal<string | null>(null);
 
-  protected readonly selectedClientId = signal<string | null>(null);
+  protected readonly selectedClientId = this.routeContext.selectedClientId;
   protected readonly selectedClient = signal<ClubClient | null>(null);
   protected readonly selectedBalance = signal<LoyaltyBalance | null>(null);
   protected readonly detailLoading = signal(false);
@@ -257,6 +279,10 @@ export class ClubDashboardComponent implements OnInit {
   protected readonly pendingVisitAttempt = signal<PendingVisitAttempt | null>(null);
   protected readonly visitError = signal<string | null>(null);
   protected readonly visitOutcome = signal<VisitOutcome | null>(null);
+  private handledRouteClientId: string | null = null;
+  private accessMutationClientId: string | null = null;
+  private accessMutationSubview: ClubWorkspaceSubview = 'resumen';
+  protected readonly activeWorkspaceSubview = this.routeContext.workspaceSubview;
 
   protected readonly activeServices = computed(() => {
     const state = this.serviceCatalogState();
@@ -290,6 +316,7 @@ export class ClubDashboardComponent implements OnInit {
   ngOnInit(): void {
     this.connectDetailSelection();
     this.connectHistoryFirstPageLoading();
+    this.connectRouteSelection();
     if (this.isConfigured) {
       this.loadFirstPage();
     }
@@ -358,10 +385,17 @@ export class ClubDashboardComponent implements OnInit {
     if (this.accessMutationLoading()) {
       return;
     }
-    this.prepareAccessSelection(client.clientId);
-    this.detailIntents.next({ kind: 'load', client });
-    this.loadHistoryFirstPage(client.clientId, false);
-    this.loadClientAccess(client.clientId, false);
+    this.handledRouteClientId = client.clientId;
+    this.beginClientSelection(client);
+    this.navigateToClientWorkspace(client.clientId);
+  }
+
+  protected retrySelectedClientDetail(): void {
+    const clientId = this.selectedClientId();
+    if (!clientId || this.detailLoading()) {
+      return;
+    }
+    this.detailIntents.next({ kind: 'loadById', clientId });
   }
 
   protected createClient(): void {
@@ -405,10 +439,12 @@ export class ClubDashboardComponent implements OnInit {
           this.createdClientRevisions.set(detail.client.clientId, this.directoryRevision);
           this.clients.set(this.replaceClient(this.clients(), detail.client));
           if (!this.accessMutationLoading()) {
+            this.handledRouteClientId = detail.client.clientId;
             this.prepareAccessSelection(detail.client.clientId);
             this.detailIntents.next({ kind: 'resolved', detail });
             this.loadHistoryFirstPage(detail.client.clientId, false);
             this.loadClientAccess(detail.client.clientId, false);
+            this.navigateToClientWorkspace(detail.client.clientId);
           }
           this.createForm.reset({ name: '', phone: '' });
           this.createSuccess.set('Clienta creada correctamente.');
@@ -792,8 +828,8 @@ export class ClubDashboardComponent implements OnInit {
       });
   }
 
-  private prepareAccessSelection(clientId: string): void {
-    if (this.selectedClientId() !== clientId) {
+  private prepareAccessSelection(clientId: string, force = false): void {
+    if (force || this.selectedClientId() !== clientId) {
       this.accessReadRevision.update((revision) => revision + 1);
       this.selectedAccess.set(null);
       this.accessLoading.set(false);
@@ -844,6 +880,8 @@ export class ClubDashboardComponent implements OnInit {
   }
 
   private runAccessMutation(clientId: string, kind: AccessMutationKind): void {
+    this.accessMutationClientId = clientId;
+    this.accessMutationSubview = this.activeWorkspaceSubview();
     this.accessMutationLoading.set(true);
     this.accessMutationError.set(null);
     this.oneTimeInvitation.set(null);
@@ -860,10 +898,12 @@ export class ClubDashboardComponent implements OnInit {
       .subscribe({
         next: (response) => {
           if (this.selectedClientId() !== clientId) {
+            this.clearAccessMutationIdentity(clientId);
             this.accessMutationLoading.set(false);
             return;
           }
           this.applyAccessMutationResponse(response);
+          this.clearAccessMutationIdentity(clientId);
           this.accessMutationLoading.set(false);
         },
         error: (error: unknown) => {
@@ -871,9 +911,16 @@ export class ClubDashboardComponent implements OnInit {
             this.accessMutationError.set(this.safeErrorMessage(error));
             this.resetConfirmationOpen.set(false);
           }
+          this.clearAccessMutationIdentity(clientId);
           this.accessMutationLoading.set(false);
         }
       });
+  }
+
+  private clearAccessMutationIdentity(clientId: string): void {
+    if (this.accessMutationClientId === clientId) {
+      this.accessMutationClientId = null;
+    }
   }
 
   private applyAccessMutationResponse(response: AdminClubAccessMutationResponse): void {
@@ -926,20 +973,138 @@ export class ClubDashboardComponent implements OnInit {
     return localDate.toISOString().slice(0, 16);
   }
 
+  private connectRouteSelection(): void {
+    if (!this.router || !this.route) {
+      return;
+    }
+
+    this.router.events
+      .pipe(
+        filter((event): event is NavigationEnd => event instanceof NavigationEnd),
+        startWith(null),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe(() => this.syncSelectionFromRoute());
+  }
+
+  private syncSelectionFromRoute(): void {
+    const route = this.deepestActiveRoute();
+    if (!route) {
+      return;
+    }
+
+    const clientId = route.snapshot.paramMap.get('opaqueClientId');
+    const subview = (route.snapshot.data['clubSubview'] ?? 'resumen') as ClubWorkspaceSubview;
+    const previousClientId = this.handledRouteClientId;
+
+    const mutationClientId = this.accessMutationClientId;
+    if (
+      this.accessMutationLoading() &&
+      mutationClientId &&
+      clientId !== mutationClientId
+    ) {
+      // A mutation is tied to one client. Revert a manual URL change rather
+      // than allowing route identity and mutation state to diverge, including
+      // navigation to the directory where the client ID would otherwise clear.
+      this.routeContext.sync(mutationClientId, this.accessMutationSubview);
+      this.navigateToClientWorkspace(mutationClientId, this.accessMutationSubview);
+      return;
+    }
+
+    this.routeContext.sync(clientId, subview);
+    if (!clientId) {
+      this.deactivateSelectedClient();
+      return;
+    }
+    if (clientId === previousClientId || !this.isConfigured) {
+      return;
+    }
+
+    this.handledRouteClientId = clientId;
+    this.beginClientSelectionById(clientId);
+  }
+
+  private deepestActiveRoute(): ActivatedRoute | null {
+    let route = this.route;
+    if (!route) {
+      return null;
+    }
+    while (route.firstChild) {
+      route = route.firstChild;
+    }
+    return route;
+  }
+
+  private navigateToClientWorkspace(
+    clientId: string,
+    subview: ClubWorkspaceSubview = 'resumen'
+  ): void {
+    if (this.route?.snapshot.routeConfig?.path === 'club') {
+      this.routeContext.navigateToClient(clientId, subview);
+    }
+  }
+
+  private beginClientSelection(client: ClubClient): void {
+    this.prepareAccessSelection(client.clientId);
+    this.detailIntents.next({ kind: 'load', client });
+    this.loadHistoryFirstPage(client.clientId, false);
+    this.loadClientAccess(client.clientId, false);
+  }
+
+  private beginClientSelectionById(clientId: string): void {
+    this.prepareAccessSelection(clientId, true);
+    this.selectedClient.set(null);
+    this.selectedBalance.set(null);
+    this.detailIntents.next({ kind: 'loadById', clientId });
+    this.loadHistoryFirstPage(clientId, false);
+    this.loadClientAccess(clientId, false);
+  }
+
+  private deactivateSelectedClient(): void {
+    this.handledRouteClientId = null;
+
+    this.accessReadRevision.update((revision) => revision + 1);
+    this.accessLoading.set(false);
+    this.selectedAccess.set(null);
+    this.accessReadError.set(null);
+    this.accessMutationError.set(null);
+    this.resetConfirmationOpen.set(false);
+    this.discardOneTimeInvitation();
+
+    this.historyGeneration += 1;
+    this.historyClientId.set(null);
+    this.historyFirstPageLoading.set(false);
+    this.historyLoadMoreLoading.set(false);
+    this.historyFirstPageError.set(null);
+    this.historyLoadMoreError.set(null);
+    this.historyNextToken.set(undefined);
+    this.ledgerEntries.set([]);
+
+    this.detailIntents.next({ kind: 'clear' });
+  }
+
   private connectDetailSelection(): void {
     this.detailIntents
       .pipe(
         switchMap((intent): Observable<DetailResult> => {
           this.detailError.set(null);
+          if (intent.kind === 'clear') {
+            this.selectedClientId.set(null);
+            this.selectedClient.set(null);
+            this.selectedBalance.set(null);
+            this.detailLoading.set(false);
+            return EMPTY;
+          }
           if (intent.kind === 'resolved') {
             return of({ kind: 'success', detail: intent.detail });
           }
 
-          this.selectedClientId.set(intent.client.clientId);
-          this.selectedClient.set(intent.client);
+          const clientId = intent.kind === 'load' ? intent.client.clientId : intent.clientId;
+          this.selectedClientId.set(clientId);
+          this.selectedClient.set(intent.kind === 'load' ? intent.client : null);
           this.selectedBalance.set(null);
           this.detailLoading.set(true);
-          return this.clubApi.getClient(intent.client.clientId).pipe(
+          return this.clubApi.getClient(clientId).pipe(
             map((detail) => ({ kind: 'success', detail }) as const),
             catchError((error: unknown) =>
               of({ kind: 'error', message: this.safeErrorMessage(error) } as const)
@@ -951,6 +1116,8 @@ export class ClubDashboardComponent implements OnInit {
       .subscribe((result) => {
         this.detailLoading.set(false);
         if (result.kind === 'error') {
+          this.selectedClient.set(null);
+          this.selectedBalance.set(null);
           this.detailError.set(result.message);
           return;
         }

@@ -16,6 +16,8 @@ import { ServiciosComponent } from './pages/servicios/servicios.component';
 import { TarjetaRegaloDetalleComponent } from './pages/tarjeta-regalo-detalle/tarjeta-regalo-detalle.component';
 import { TarjetaRegaloComponent } from './pages/tarjeta-regalo/tarjeta-regalo.component';
 import { TarjetasRegaloComponent } from './pages/tarjetas-regalo/tarjetas-regalo.component';
+import { ClubRouteContext } from './pages/club-dashboard/club-route-context.service';
+import { ClubWorkspaceRouteComponent } from './pages/club-dashboard/club-workspace-route.component';
 import {
   CONTACT_SEO_METADATA,
   GALLERY_SEO_METADATA,
@@ -52,10 +54,41 @@ export const routes: Routes = [
       { path: 'inicio', component: DashboardComponent },
       {
         path: 'club',
+        providers: [ClubRouteContext],
         loadComponent: () =>
           import('./pages/club-dashboard/club-dashboard.component').then(
             ({ ClubDashboardComponent }) => ClubDashboardComponent
-          )
+          ),
+        children: [
+          { path: '', redirectTo: 'clientas', pathMatch: 'full' },
+          { path: 'clientas/nueva', component: ClubWorkspaceRouteComponent },
+          { path: 'clientas', component: ClubWorkspaceRouteComponent },
+          {
+            path: 'clientas/:opaqueClientId',
+            redirectTo: 'clientas/:opaqueClientId/resumen',
+            pathMatch: 'full'
+          },
+          {
+            path: 'clientas/:opaqueClientId/resumen',
+            component: ClubWorkspaceRouteComponent,
+            data: { clubSubview: 'resumen' }
+          },
+          {
+            path: 'clientas/:opaqueClientId/visita',
+            component: ClubWorkspaceRouteComponent,
+            data: { clubSubview: 'visita' }
+          },
+          {
+            path: 'clientas/:opaqueClientId/historial',
+            component: ClubWorkspaceRouteComponent,
+            data: { clubSubview: 'historial' }
+          },
+          {
+            path: 'clientas/:opaqueClientId/acceso',
+            component: ClubWorkspaceRouteComponent,
+            data: { clubSubview: 'acceso' }
+          }
+        ]
       },
       { path: 'servicios', component: ServiciosComponent },
       { path: 'clientes', component: ClientesComponent },

@@ -15,6 +15,8 @@ import {
 import { AdminLayoutComponent } from './layouts/admin-layout/admin-layout.component';
 import { PublicLayoutComponent } from './layouts/public-layout/public-layout.component';
 import { ClubDashboardComponent } from './pages/club-dashboard/club-dashboard.component';
+import { ClubRouteContext } from './pages/club-dashboard/club-route-context.service';
+import { ClubWorkspaceRouteComponent } from './pages/club-dashboard/club-workspace-route.component';
 import { NuevaCitaDialogComponent } from './shared/dialogs/nueva-cita-dialog/nueva-cita-dialog.component';
 
 @Component({
@@ -33,7 +35,41 @@ describe('App', () => {
             component: AdminLayoutComponent,
             children: [
               { path: 'inicio', component: TestRouteComponent },
-              { path: 'club', component: ClubDashboardComponent },
+              {
+                path: 'club',
+                component: ClubDashboardComponent,
+                providers: [ClubRouteContext],
+                children: [
+                  { path: '', redirectTo: 'clientas', pathMatch: 'full' },
+                  { path: 'clientas/nueva', component: ClubWorkspaceRouteComponent },
+                  { path: 'clientas', component: ClubWorkspaceRouteComponent },
+                  {
+                    path: 'clientas/:opaqueClientId',
+                    redirectTo: 'clientas/:opaqueClientId/resumen',
+                    pathMatch: 'full'
+                  },
+                  {
+                    path: 'clientas/:opaqueClientId/resumen',
+                    component: ClubWorkspaceRouteComponent,
+                    data: { clubSubview: 'resumen' }
+                  },
+                  {
+                    path: 'clientas/:opaqueClientId/visita',
+                    component: ClubWorkspaceRouteComponent,
+                    data: { clubSubview: 'visita' }
+                  },
+                  {
+                    path: 'clientas/:opaqueClientId/historial',
+                    component: ClubWorkspaceRouteComponent,
+                    data: { clubSubview: 'historial' }
+                  },
+                  {
+                    path: 'clientas/:opaqueClientId/acceso',
+                    component: ClubWorkspaceRouteComponent,
+                    data: { clubSubview: 'acceso' }
+                  }
+                ]
+              },
               { path: 'servicios', component: TestRouteComponent },
               { path: 'clientes', component: TestRouteComponent },
               { path: 'inventario', component: TestRouteComponent },
