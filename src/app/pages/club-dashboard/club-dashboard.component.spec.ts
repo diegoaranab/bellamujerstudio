@@ -1,5 +1,6 @@
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { Observable, Subject, of, throwError } from 'rxjs';
 
 import {
@@ -27,6 +28,7 @@ import {
   buildClubActivationUrl,
   ClubDashboardComponent
 } from './club-dashboard.component';
+import { ClubRouteContext } from './club-route-context.service';
 
 const ana: ClubClient = {
   studioId: 'studio-1',
@@ -329,6 +331,8 @@ describe('ClubDashboardComponent', () => {
       imports: [ClubDashboardComponent],
       providers: [
         provideNoopAnimations(),
+        provideRouter([]),
+        ClubRouteContext,
         {
           provide: AdminClubApiClient,
           useValue: {

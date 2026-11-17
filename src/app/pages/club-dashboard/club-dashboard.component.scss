@@ -141,6 +141,33 @@
   font-size: 1.15rem;
 }
 
+.club-workspace-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  padding: 0.65rem;
+  border: 1px solid var(--bm-border-soft);
+  border-radius: var(--bm-radius-soft);
+  background: white;
+  box-shadow: var(--bm-shadow-soft);
+}
+
+.club-workspace-nav a {
+  padding: 0.5rem 0.75rem;
+  border-radius: 999px;
+  color: var(--bm-brand-wine);
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.club-workspace-nav a:hover,
+.club-workspace-nav a:focus-visible,
+.club-workspace-nav a.is-active {
+  color: white;
+  background: var(--bm-brand-wine);
+}
+
 .state-notice {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);

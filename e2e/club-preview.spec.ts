@@ -15,9 +15,10 @@ async function expectNoHorizontalOverflow(page: Page): Promise<void> {
 }
 
 test('desktop Club administration renders its safe local configuration state', async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/#/admin/club');
 
+  await expect(page).toHaveURL(/#\/admin\/club\/clientas$/);
   await expect(page.getByTestId('admin-shell')).toBeVisible();
   await expect(page.getByTestId('public-shell')).toHaveCount(0);
   await expect(page.getByRole('heading', { level: 1, name: 'Bella Mujer Club' })).toBeVisible();
@@ -60,8 +61,19 @@ test('mobile Club administration remains readable and is discoverable from Inici
   await expect(clubEntry).toBeVisible();
   await expectNoHorizontalOverflow(page);
   await clubEntry.getByRole('link', { name: /Explorar Club/ }).click();
-  await expect(page).toHaveURL(/#\/admin\/club$/);
+  await expect(page).toHaveURL(/#\/admin\/club\/clientas$/);
   await expect(page.getByRole('heading', { level: 1, name: 'Bella Mujer Club' })).toBeVisible();
+});
+
+test('Club workspace deep links use only the opaque client identifier', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#/admin/club/clientas/client-opaque-123/historial');
+
+  await expect(page).toHaveURL(/#\/admin\/club\/clientas\/client-opaque-123\/historial$/);
+  expect(page.url()).not.toContain('?');
+  expect(page.url()).not.toContain('Ana');
+  await expect(page.getByRole('heading', { level: 1, name: 'Bella Mujer Club' })).toBeVisible();
+  await expectNoHorizontalOverflow(page);
 });
 
 test('member Club route renders its access surface', async ({ page }) => {

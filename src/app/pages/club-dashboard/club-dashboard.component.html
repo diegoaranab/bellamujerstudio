@@ -21,6 +21,23 @@
     </div>
   </header>
 
+  @if (selectedClientId(); as clientId) {
+    <nav class="club-workspace-nav" aria-label="Espacio de trabajo de clienta" data-testid="club-workspace-nav">
+      <a [routerLink]="['/admin/club/clientas', clientId, 'resumen']" routerLinkActive="is-active">
+        Resumen
+      </a>
+      <a [routerLink]="['/admin/club/clientas', clientId, 'visita']" routerLinkActive="is-active">
+        Visita
+      </a>
+      <a [routerLink]="['/admin/club/clientas', clientId, 'historial']" routerLinkActive="is-active">
+        Historial
+      </a>
+      <a [routerLink]="['/admin/club/clientas', clientId, 'acceso']" routerLinkActive="is-active">
+        Acceso
+      </a>
+    </nav>
+  }
+
   @if (!isConfigured) {
     <section
       class="state-notice"
@@ -929,4 +946,8 @@
       </div>
     }
   </section>
+
+  <!-- Child routes are intentionally thin; this outlet keeps the shared Club
+       orchestration alive while the URL describes the active workspace. -->
+  <router-outlet />
 </article>
