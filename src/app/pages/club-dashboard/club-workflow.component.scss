@@ -3,7 +3,7 @@
 .workflow-surface { min-width: 0; padding: clamp(1.25rem, 2.5vw, 2rem); border: var(--club-workflow-border, 1px solid var(--bm-border-subtle)); border-radius: 0; background: var(--bm-surface); }
 .workflow-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--bm-space-4); padding-bottom: var(--bm-space-4); border-bottom: 1px solid var(--bm-border-subtle); }
 .workflow-heading h2 { color: var(--bm-text-primary); font: 700 clamp(1.4rem, 2.8vw, 1.8rem)/1.15 var(--bm-font-interface); letter-spacing: -.01em; }
-.workflow-heading h2:focus { outline: 3px solid var(--bm-focus-ring); outline-offset: 3px; border-radius: 2px; }
+.workflow-heading h2:focus { outline: none; }
 .workflow-heading p { max-width: 60ch; margin-top: var(--bm-space-1); color: var(--bm-text-secondary); }
 .back-link { display: inline-flex; align-items: center; min-height: 44px; margin-bottom: var(--bm-space-3); color: var(--bm-text-link); font-weight: 600; text-decoration: none; }
 .back-link mat-icon { margin-right: var(--bm-space-2); }
