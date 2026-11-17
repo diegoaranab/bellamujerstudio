@@ -375,6 +375,22 @@ describe('ClubDashboardComponent', () => {
     return fixture;
   }
 
+  function renderRouteTask(
+    task: 'directorio' | 'nueva' | 'clienta',
+    subview: 'resumen' | 'visita' | 'historial' | 'acceso' = 'resumen'
+  ): ComponentFixture<ClubDashboardComponent> {
+    const fixture = TestBed.createComponent(ClubDashboardComponent);
+    (fixture.componentInstance as unknown as { isRouteBacked: boolean }).isRouteBacked = true;
+    const clientId = task === 'clienta' ? ana.clientId : null;
+    fixture.detectChanges();
+    TestBed.inject(ClubRouteContext).sync(clientId, subview, task);
+    if (clientId) {
+      accessActions(fixture).selectClient(ana);
+    }
+    fixture.detectChanges();
+    return fixture;
+  }
+
   function text(fixture: ComponentFixture<ClubDashboardComponent>): string {
     return (fixture.nativeElement as HTMLElement).textContent ?? '';
   }
@@ -461,6 +477,52 @@ describe('ClubDashboardComponent', () => {
     expect(fixture.nativeElement.querySelector('[data-testid="client-list"]')).toBeNull();
   });
 
+  it('composes the directory and creation routes as distinct tasks', async () => {
+    await configure();
+    const directory = renderRouteTask('directorio');
+    expect(directory.nativeElement.querySelector('[data-testid="club-directory-task"]')).toBeTruthy();
+    expect(directory.nativeElement.querySelector('[data-testid="club-new-client-task"]')).toBeNull();
+    directory.destroy();
+
+    const creation = renderRouteTask('nueva');
+    expect(creation.nativeElement.querySelector('[data-testid="club-new-client-task"]')).toBeTruthy();
+    expect(creation.nativeElement.querySelector('[data-testid="club-directory-task"]')).toBeNull();
+  });
+
+  it.each([
+    ['resumen', 'client-detail'],
+    ['visita', 'visit-registration'],
+    ['historial', 'loyalty-history'],
+    ['acceso', 'client-access']
+  ] as const)('renders only the %s selected-client workflow', async (subview, testId) => {
+    await configure();
+    const fixture = renderRouteTask('clienta', subview);
+    const active = fixture.nativeElement.querySelector(`[data-testid="${testId}"]`);
+    expect(active).toBeTruthy();
+    expect(fixture.nativeElement.querySelectorAll('[data-testid="visit-registration"]')).toHaveLength(
+      subview === 'visita' ? 1 : 0
+    );
+    expect(
+      fixture.nativeElement.querySelectorAll('[data-testid="club-workspace-nav"] a')
+    ).toHaveLength(4);
+  });
+
+  it('changes same-client subviews without repeating the selection fan-out', async () => {
+    await configure();
+    const fixture = renderRouteTask('clienta', 'resumen');
+    const detailCalls = getClient.mock.calls.length;
+    const historyCalls = listLedgerEntries.mock.calls.length;
+    const accessCalls = getClientAccess.mock.calls.length;
+
+    TestBed.inject(ClubRouteContext).sync(ana.clientId, 'visita', 'clienta');
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('[data-testid="visit-registration"]')).toBeTruthy();
+    expect(getClient).toHaveBeenCalledTimes(detailCalls);
+    expect(listLedgerEntries).toHaveBeenCalledTimes(historyCalls);
+    expect(getClientAccess).toHaveBeenCalledTimes(accessCalls);
+  });
+
   it('shows initial loading while requesting the first page', async () => {
     const pending = new Subject<AdminClubClientListResponse>();
     await configure({ listResponse: pending });
@@ -477,7 +539,7 @@ describe('ClubDashboardComponent', () => {
     const list = fixture.nativeElement.querySelector('[data-testid="client-list"]') as HTMLElement;
 
     expect(list.textContent).toContain('Ana López');
-    expect(list.textContent).toContain('+52 238 111 0000');
+    expect(list.textContent).not.toContain('+52 238 111 0000');
     expect(list.textContent).toContain('Beatriz Ramos');
     expect(list.textContent).toContain('Inactiva');
     expect(list.textContent).not.toContain('sello');

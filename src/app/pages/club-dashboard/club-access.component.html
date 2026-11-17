@@ -1,0 +1,37 @@
+<section class="workflow-surface access-workflow" aria-labelledby="access-title" data-testid="client-access">
+  <header class="workflow-heading"><div><p class="context-label">Acceso</p><h2 id="access-title" tabindex="-1">Acceso de clienta</h2><p>Consulta o prepara el acceso privado a Bella Mujer Club.</p></div></header>
+  @if (vm.selectedClient(); as client) { <p class="muted">Acceso de <strong>{{ client.name }}</strong></p> }
+  @if (vm.accessLoading() && vm.selectedAccess() === null) {
+    <div class="inline-state" data-testid="access-loading" role="status"><mat-spinner diameter="28" /><span>Consultando acceso…</span></div>
+  } @else if (vm.accessReadError() && vm.selectedAccess() === null) {
+    <div class="error-state" data-testid="access-read-error" role="alert"><p>{{ vm.accessReadError() }}</p><button mat-stroked-button type="button" (click)="vm.refreshClientAccess()">Actualizar estado</button></div>
+  } @else {
+    @if (vm.selectedAccess(); as access) {
+      <div class="access-status" [attr.data-access-status]="access.status">
+        @switch (access.status) {
+          @case ('invited') { <mat-icon aria-hidden="true">mark_email_unread</mat-icon><div><h3>Invitación pendiente</h3><p>La clienta todavía no ha configurado su NIP.</p><p>Al regenerar, el enlace anterior sin usar dejará de funcionar.</p></div> }
+          @case ('active') { <mat-icon aria-hidden="true">verified_user</mat-icon><div><h3>Acceso activo</h3><p>La clienta ya configuró su NIP.</p></div> }
+          @case ('disabled') { <mat-icon aria-hidden="true">lock</mat-icon><div><h3>Acceso deshabilitado</h3><p>Este acceso necesita restablecerse antes de volver a usarse.</p></div> }
+        }
+      </div>
+      <p class="muted">Estado actualizado: {{ vm.formatAccessDate(access.updatedAtISO) }}</p>
+      @if (access.status === 'invited') {
+        <button mat-flat-button type="button" (click)="vm.generateAccessInvitation()" [disabled]="vm.accessMutationLoading() || vm.accessLoading() || vm.accessMutationError() !== null" data-testid="access-invitation-action">@if (vm.accessMutationLoading()) { <mat-spinner diameter="18" /> } @else { <mat-icon aria-hidden="true">refresh</mat-icon> }{{ vm.accessMutationLoading() ? 'Generando…' : 'Regenerar enlace' }}</button>
+      } @else {
+        <div class="danger-zone"><h3>Restablecimiento</h3><p>Esta acción invalida el NIP y las sesiones actuales.</p><button mat-stroked-button type="button" (click)="vm.requestAccessReset()" [disabled]="vm.accessMutationLoading() || vm.accessLoading() || vm.accessMutationError() !== null" data-testid="access-reset-action"><mat-icon aria-hidden="true">lock_reset</mat-icon>Restablecer acceso</button></div>
+      }
+    } @else {
+      <div class="access-status" data-access-status="none"><mat-icon aria-hidden="true">person_off</mat-icon><div><h3>Acceso no configurado</h3><p>Esta clienta todavía no tiene acceso a Bella Mujer Club.</p></div></div>
+      <button mat-flat-button type="button" (click)="vm.generateAccessInvitation()" [disabled]="vm.accessMutationLoading() || vm.accessLoading() || vm.accessMutationError() !== null" data-testid="access-invitation-action">@if (vm.accessMutationLoading()) { <mat-spinner diameter="18" /> } @else { <mat-icon aria-hidden="true">mail</mat-icon> }{{ vm.accessMutationLoading() ? 'Generando…' : 'Generar invitación' }}</button>
+    }
+  }
+  @if (vm.accessLoading() && vm.selectedAccess() !== null) { <p class="form-message" data-testid="access-refreshing" role="status">Actualizando estado…</p> }
+  @if (vm.accessReadError() && vm.selectedAccess() !== null) { <div class="feedback-row feedback-row--error" data-testid="access-refresh-error" role="alert"><p>{{ vm.accessReadError() }}</p><button mat-stroked-button type="button" (click)="vm.refreshClientAccess()">Actualizar estado</button></div> }
+  @if (vm.accessMutationError(); as error) { <div class="feedback-row feedback-row--error" data-testid="access-mutation-error" role="alert"><div><strong>No se pudo confirmar la operación</strong><p>{{ error }}</p><p>La solicitud pudo haber llegado al servidor. Actualiza el estado antes de volver a intentarlo.</p></div><button mat-stroked-button type="button" (click)="vm.refreshClientAccess()">Actualizar estado</button></div> }
+  @if (vm.resetConfirmationOpen()) {
+    <div class="confirmation" data-testid="access-reset-confirmation" role="alert"><h3>Restablecer acceso</h3><p>El NIP actual y las sesiones activas dejarán de funcionar. Se generará un nuevo enlace privado.</p><div class="action-row"><button mat-stroked-button type="button" (click)="vm.cancelAccessReset()" [disabled]="vm.accessMutationLoading()" data-testid="access-reset-cancel">Cancelar</button><button mat-flat-button type="button" (click)="vm.confirmAccessReset()" [disabled]="vm.accessMutationLoading()" data-testid="access-reset-confirm">@if (vm.accessMutationLoading()) { <mat-spinner diameter="18" />Restableciendo… } @else { Restablecer acceso }</button></div></div>
+  }
+  @if (vm.oneTimeInvitation(); as invitation) {
+    <div class="one-time-invitation" data-testid="one-time-invitation" role="status"><div class="visit-outcome__title"><mat-icon aria-hidden="true">vpn_key</mat-icon><div><h3>Enlace privado listo</h3><p>Copia o comparte este enlace ahora.</p></div></div><p>Por seguridad, Bella Mujer no podrá volver a mostrar este mismo enlace. Si se pierde antes de configurar el NIP, tendrás que regenerarlo.</p><p class="muted">Disponible hasta {{ vm.formatAccessDate(invitation.expiresAtISO) }}.</p><div class="action-row"><button mat-flat-button type="button" (click)="vm.copyAccessInvitation()" data-testid="access-copy-link"><mat-icon aria-hidden="true">content_copy</mat-icon>Copiar enlace</button>@if (vm.nativeShareAvailable) { <button mat-stroked-button type="button" (click)="vm.shareAccessInvitation()" data-testid="access-share-link"><mat-icon aria-hidden="true">share</mat-icon>Compartir</button> }<button mat-button type="button" (click)="vm.discardOneTimeInvitation()" data-testid="access-close-link">Cerrar</button></div>@if (vm.copyFeedback(); as feedback) { <p class="form-message" data-testid="access-copy-feedback" role="status">{{ feedback }}</p> }@if (vm.shareFeedback(); as feedback) { <p class="form-message" data-testid="access-share-feedback" role="status">{{ feedback }}</p> }</div>
+  }
+</section>

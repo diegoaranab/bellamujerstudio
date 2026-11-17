@@ -9,6 +9,7 @@ export const CLUB_WORKSPACE_SUBVIEWS = [
 ] as const;
 
 export type ClubWorkspaceSubview = (typeof CLUB_WORKSPACE_SUBVIEWS)[number];
+export type ClubWorkspaceTask = 'directorio' | 'nueva' | 'clienta';
 
 /**
  * The small, route-scoped seam between Club route containers and its shared
@@ -24,10 +25,16 @@ export class ClubRouteContext {
 
   readonly selectedClientId = signal<string | null>(null);
   readonly workspaceSubview = signal<ClubWorkspaceSubview>('resumen');
+  readonly workspaceTask = signal<ClubWorkspaceTask>('directorio');
 
-  sync(clientId: string | null, subview: ClubWorkspaceSubview = 'resumen'): void {
+  sync(
+    clientId: string | null,
+    subview: ClubWorkspaceSubview = 'resumen',
+    task: ClubWorkspaceTask = clientId ? 'clienta' : 'directorio'
+  ): void {
     this.selectedClientId.set(clientId);
     this.workspaceSubview.set(subview);
+    this.workspaceTask.set(task);
   }
 
   navigateToClient(clientId: string, subview: ClubWorkspaceSubview = 'resumen'): void {

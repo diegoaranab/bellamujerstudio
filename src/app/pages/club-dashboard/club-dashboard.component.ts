@@ -1,21 +1,16 @@
 import { DOCUMENT } from '@angular/common';
-import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, computed, forwardRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import {
   AbstractControl,
   FormControl,
   FormGroup,
-  ReactiveFormsModule,
   ValidationErrors,
   ValidatorFn,
   Validators
 } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
-import { MatCheckboxModule } from '@angular/material/checkbox';
-import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
-import { MatInputModule } from '@angular/material/input';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import {
   ActivatedRoute,
   NavigationEnd,
@@ -56,8 +51,16 @@ import {
 import { DbFacadeService } from '../../core/services/db-facade.service';
 import {
   ClubRouteContext,
+  ClubWorkspaceTask,
   ClubWorkspaceSubview
 } from './club-route-context.service';
+import { ClubAccessComponent } from './club-access.component';
+import { ClubDirectoryComponent } from './club-directory.component';
+import { ClubHistoryComponent } from './club-history.component';
+import { ClubNewClientComponent } from './club-new-client.component';
+import { ClubSummaryComponent } from './club-summary.component';
+import { ClubVisitComponent } from './club-visit.component';
+import { CLUB_WORKSPACE_ORCHESTRATOR } from './club-workspace-orchestrator';
 
 type DetailIntent =
   | { kind: 'load'; client: ClubClient }
@@ -155,16 +158,23 @@ const serviceCountValidator: ValidatorFn = (
 @Component({
   selector: 'app-club-dashboard',
   imports: [
-    ReactiveFormsModule,
     MatButtonModule,
-    MatCheckboxModule,
-    MatFormFieldModule,
     MatIconModule,
-    MatInputModule,
-    MatProgressSpinnerModule,
+    ClubAccessComponent,
+    ClubDirectoryComponent,
+    ClubHistoryComponent,
+    ClubNewClientComponent,
+    ClubSummaryComponent,
+    ClubVisitComponent,
     RouterLink,
     RouterLinkActive,
     RouterOutlet
+  ],
+  providers: [
+    {
+      provide: CLUB_WORKSPACE_ORCHESTRATOR,
+      useExisting: forwardRef(() => ClubDashboardComponent)
+    }
   ],
   templateUrl: './club-dashboard.component.html',
   styleUrl: './club-dashboard.component.scss'
@@ -177,6 +187,7 @@ export class ClubDashboardComponent implements OnInit {
   private readonly router = inject(Router, { optional: true });
   private readonly route = inject(ActivatedRoute, { optional: true });
   protected readonly routeContext = inject(ClubRouteContext);
+  protected readonly isRouteBacked = this.route?.snapshot.routeConfig?.path === 'club';
   private readonly detailIntents = new Subject<DetailIntent>();
   private readonly historyFirstPageIntents = new Subject<HistoryFirstPageIntent>();
   private directoryRevision = 0;
@@ -283,6 +294,9 @@ export class ClubDashboardComponent implements OnInit {
   private accessMutationClientId: string | null = null;
   private accessMutationSubview: ClubWorkspaceSubview = 'resumen';
   protected readonly activeWorkspaceSubview = this.routeContext.workspaceSubview;
+  protected readonly activeWorkspaceTask = this.routeContext.workspaceTask;
+  private handledWorkspaceSubview: ClubWorkspaceSubview = 'resumen';
+  private handledWorkspaceTask: ClubWorkspaceTask = 'directorio';
 
   protected readonly activeServices = computed(() => {
     const state = this.serviceCatalogState();
@@ -995,7 +1009,10 @@ export class ClubDashboardComponent implements OnInit {
 
     const clientId = route.snapshot.paramMap.get('opaqueClientId');
     const subview = (route.snapshot.data['clubSubview'] ?? 'resumen') as ClubWorkspaceSubview;
+    const task = (route.snapshot.data['clubTask'] ?? (clientId ? 'clienta' : 'directorio')) as ClubWorkspaceTask;
     const previousClientId = this.handledRouteClientId;
+    const routeViewChanged =
+      task !== this.handledWorkspaceTask || subview !== this.handledWorkspaceSubview;
 
     const mutationClientId = this.accessMutationClientId;
     if (
@@ -1006,12 +1023,17 @@ export class ClubDashboardComponent implements OnInit {
       // A mutation is tied to one client. Revert a manual URL change rather
       // than allowing route identity and mutation state to diverge, including
       // navigation to the directory where the client ID would otherwise clear.
-      this.routeContext.sync(mutationClientId, this.accessMutationSubview);
+      this.routeContext.sync(mutationClientId, this.accessMutationSubview, 'clienta');
       this.navigateToClientWorkspace(mutationClientId, this.accessMutationSubview);
       return;
     }
 
-    this.routeContext.sync(clientId, subview);
+    this.routeContext.sync(clientId, subview, task);
+    this.handledWorkspaceSubview = subview;
+    this.handledWorkspaceTask = task;
+    if (routeViewChanged) {
+      this.focusActiveWorkspaceHeading();
+    }
     if (!clientId) {
       this.deactivateSelectedClient();
       return;
@@ -1022,6 +1044,15 @@ export class ClubDashboardComponent implements OnInit {
 
     this.handledRouteClientId = clientId;
     this.beginClientSelectionById(clientId);
+  }
+
+  private focusActiveWorkspaceHeading(): void {
+    this.document.defaultView?.setTimeout(() => {
+      const heading = this.document.querySelector<HTMLElement>(
+        '[data-testid="club-active-workspace"] h2[tabindex="-1"]'
+      );
+      heading?.focus({ preventScroll: false });
+    });
   }
 
   private deepestActiveRoute(): ActivatedRoute | null {

@@ -1,0 +1,44 @@
+<section class="workflow-surface" aria-labelledby="history-title" data-testid="loyalty-history">
+  <header class="workflow-heading">
+    <div><p class="context-label">Historial</p><h2 id="history-title" tabindex="-1">Movimientos de fidelidad</h2></div>
+  </header>
+  @if (vm.selectedClient(); as client) { <p class="muted">Movimientos de <strong>{{ client.name }}</strong></p> }
+  @if (vm.historyFirstPageLoading() && vm.ledgerEntries().length === 0) {
+    <p class="inline-state" data-testid="history-loading" role="status">Cargando historial…</p>
+  } @else if (vm.historyFirstPageError() && vm.ledgerEntries().length === 0) {
+    <div class="error-state" data-testid="history-error" role="alert">
+      <p>{{ vm.historyFirstPageError() }}</p>
+      <button mat-stroked-button type="button" (click)="vm.retryHistoryFirstPage()">Intentar de nuevo</button>
+    </div>
+  } @else if (vm.ledgerEntries().length === 0) {
+    <div class="empty-state" data-testid="history-empty"><mat-icon aria-hidden="true">history</mat-icon><h3>Sin movimientos todavía</h3><p>Esta clienta aún no tiene movimientos de fidelidad.</p></div>
+  } @else {
+    @if (vm.historyFirstPageLoading()) { <p data-testid="history-refreshing" role="status">Actualizando movimientos…</p> }
+    @if (vm.historyFirstPageError(); as error) {
+      <div class="feedback-row" data-testid="history-refresh-error" role="alert"><span>{{ error }}</span><button mat-stroked-button type="button" (click)="vm.retryHistoryFirstPage()">Reintentar actualización</button></div>
+    }
+    <div class="ledger-list" data-testid="ledger-list">
+      @for (entry of vm.ledgerEntries(); track entry.entryId) {
+        <article class="ledger-row" [attr.data-entry-id]="entry.entryId">
+          <div class="ledger-row__heading"><h3>{{ vm.ledgerTypeLabel(entry) }}</h3><time [attr.datetime]="entry.occurredAtISO">{{ vm.formatVisitDate(entry.occurredAtISO) }}</time></div>
+          @if (vm.ledgerDescription(entry); as description) { <p>{{ description }}</p> }
+          @if (entry.stampDelta !== 0 || entry.eligibleSpendDeltaMXN !== 0) {
+            <p class="delta-list" aria-label="Cambios del movimiento">
+              @if (entry.stampDelta !== 0) { <span class="status-pill" [class.form-message--error]="entry.stampDelta < 0" data-testid="stamp-delta">{{ vm.formatStampDelta(entry.stampDelta) }}</span> }
+              @if (entry.eligibleSpendDeltaMXN !== 0) { <span class="status-pill" [class.form-message--error]="entry.eligibleSpendDeltaMXN < 0" data-testid="spend-delta">{{ vm.formatSignedMXN(entry.eligibleSpendDeltaMXN) }}</span> }
+            </p>
+          }
+          <p class="ledger-row__result">Resultado: <strong>{{ vm.stampLabel(entry.stampCountAfter) }}</strong> · saldo elegible {{ vm.formatMXN(entry.eligibleSpendCarryAfterMXN) }}</p>
+        </article>
+      }
+    </div>
+    @if (vm.historyNextToken()) {
+      <div class="pagination">
+        @if (vm.historyLoadMoreError(); as error) { <p class="form-message form-message--error" data-testid="history-load-more-error" role="alert">{{ error }}</p> }
+        <button mat-stroked-button type="button" (click)="vm.loadMoreHistory()" [disabled]="vm.historyLoadMoreLoading() || vm.historyFirstPageLoading()" data-testid="history-load-more">
+          {{ vm.historyLoadMoreLoading() ? 'Cargando…' : vm.historyLoadMoreError() ? 'Reintentar movimientos anteriores' : 'Cargar movimientos anteriores' }}
+        </button>
+      </div>
+    }
+  }
+</section>

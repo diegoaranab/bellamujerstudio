@@ -61,8 +61,16 @@ export const routes: Routes = [
           ),
         children: [
           { path: '', redirectTo: 'clientas', pathMatch: 'full' },
-          { path: 'clientas/nueva', component: ClubWorkspaceRouteComponent },
-          { path: 'clientas', component: ClubWorkspaceRouteComponent },
+          {
+            path: 'clientas/nueva',
+            component: ClubWorkspaceRouteComponent,
+            data: { clubTask: 'nueva' }
+          },
+          {
+            path: 'clientas',
+            component: ClubWorkspaceRouteComponent,
+            data: { clubTask: 'directorio' }
+          },
           {
             path: 'clientas/:opaqueClientId',
             redirectTo: 'clientas/:opaqueClientId/resumen',

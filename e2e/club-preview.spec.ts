@@ -21,19 +21,16 @@ test('desktop Club administration renders its safe local configuration state', a
   await expect(page).toHaveURL(/#\/admin\/club\/clientas$/);
   await expect(page.getByTestId('admin-shell')).toBeVisible();
   await expect(page.getByTestId('public-shell')).toHaveCount(0);
-  await expect(page.getByRole('heading', { level: 1, name: 'Bella Mujer Club' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Club' })).toBeVisible();
   await expect(page.getByTestId('club-not-configured')).toContainText(
     'Servicio de Club no configurado'
   );
   await expect(page.getByText('Datos de demostración')).toHaveCount(0);
   await expect(page.getByText('Clienta demo A')).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Clientas Club' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Agregar clienta' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Historial de movimientos' })).toBeVisible();
-  await expect(page.getByTestId('history-no-client')).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Registrar visita' })).toBeVisible();
-  await expect(page.getByTestId('create-client-submit')).toBeDisabled();
-  await expect(page.getByTestId('visit-submit')).toBeDisabled();
+  await expect(page.getByTestId('club-directory-task')).toBeVisible();
+  await expect(page.getByTestId('club-new-client-task')).toHaveCount(0);
+  await expect(page.getByTestId('visit-registration')).toHaveCount(0);
   await expectNoHorizontalOverflow(page);
 });
 
@@ -41,14 +38,11 @@ test('mobile Club administration remains readable and is discoverable from Inici
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/#/admin/club');
 
-  await expect(page.getByRole('heading', { level: 1, name: 'Bella Mujer Club' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Club' })).toBeVisible();
   await expect(page.getByTestId('club-not-configured')).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Detalle de clienta' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Agregar clienta' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Historial de movimientos' })).toBeVisible();
-  await expect(page.getByTestId('history-no-client')).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Registrar visita' })).toBeVisible();
-  await expect(page.getByTestId('visit-submit')).toBeDisabled();
+  await expect(page.getByTestId('club-directory-task')).toBeVisible();
+  await expect(page.getByTestId('client-detail')).toHaveCount(0);
+  await expect(page.getByTestId('visit-registration')).toHaveCount(0);
   await expectNoHorizontalOverflow(page);
 
   const bottomNav = page.getByTestId('admin-bottom-nav');
@@ -62,7 +56,7 @@ test('mobile Club administration remains readable and is discoverable from Inici
   await expectNoHorizontalOverflow(page);
   await clubEntry.getByRole('link', { name: /Explorar Club/ }).click();
   await expect(page).toHaveURL(/#\/admin\/club\/clientas$/);
-  await expect(page.getByRole('heading', { level: 1, name: 'Bella Mujer Club' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Club' })).toBeVisible();
 });
 
 test('Club workspace deep links use only the opaque client identifier', async ({ page }) => {
@@ -72,7 +66,35 @@ test('Club workspace deep links use only the opaque client identifier', async ({
   await expect(page).toHaveURL(/#\/admin\/club\/clientas\/client-opaque-123\/historial$/);
   expect(page.url()).not.toContain('?');
   expect(page.url()).not.toContain('Ana');
-  await expect(page.getByRole('heading', { level: 1, name: 'Bella Mujer Club' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Club' })).toBeVisible();
+  await expect(page.getByTestId('loyalty-history')).toBeVisible();
+  await expect(page.getByTestId('visit-registration')).toHaveCount(0);
+  await expect(
+    page.getByTestId('club-workspace-nav').getByRole('link', { name: 'Historial' })
+  ).toHaveAttribute('aria-current', 'page');
+  await expect(page.getByRole('heading', { name: 'Movimientos de fidelidad' })).toBeFocused();
+  await expectNoHorizontalOverflow(page);
+});
+
+test('selected-client composition keeps the URL authoritative across desktop and tablet', async ({
+  page
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/#/admin/club/clientas/client-opaque-123/acceso');
+
+  await expect(page.getByTestId('club-master-detail')).toBeVisible();
+  await expect(page.getByTestId('club-master-detail').locator('aside')).toBeVisible();
+  await expect(page.getByTestId('client-access')).toBeVisible();
+  await expect(page.getByTestId('visit-registration')).toHaveCount(0);
+  await expect(
+    page.getByTestId('club-workspace-nav').getByRole('link', { name: 'Acceso' })
+  ).toHaveAttribute('aria-current', 'page');
+  await expectNoHorizontalOverflow(page);
+
+  await page.setViewportSize({ width: 820, height: 1180 });
+  await expect(page.getByTestId('club-master-detail').locator('aside')).toBeHidden();
+  await expect(page.getByTestId('client-access')).toBeVisible();
+  await expect(page).toHaveURL(/\/client-opaque-123\/acceso$/);
   await expectNoHorizontalOverflow(page);
 });
 
