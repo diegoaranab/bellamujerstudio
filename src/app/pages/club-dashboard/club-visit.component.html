@@ -1,5 +1,5 @@
-<section class="workflow-surface" aria-labelledby="visit-title" data-testid="visit-registration">
-  <header class="workflow-heading"><div><p class="context-label">Visita</p><h2 id="visit-title" tabindex="-1">Registrar visita</h2><p>Captura los importes de esta atención.</p></div></header>
+<section class="workflow-surface workflow-surface--visit" aria-labelledby="visit-title" data-testid="visit-registration">
+  <header class="workflow-heading"><div><h2 id="visit-title" tabindex="-1">Registrar visita</h2><p>Captura los importes de esta atención.</p></div></header>
   @if (!vm.selectedClient()) { <div class="feedback-row" data-testid="visit-no-client"><mat-icon aria-hidden="true">touch_app</mat-icon><p>Selecciona una clienta del directorio para registrar su visita.</p></div> }
   <form [formGroup]="vm.visitForm" (ngSubmit)="vm.registerVisit()" data-testid="visit-form">
     <fieldset class="visit-fields" [disabled]="!vm.isConfigured || !vm.selectedClient() || vm.visitLoading() || vm.pendingVisitAttempt() !== null">

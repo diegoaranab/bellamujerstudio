@@ -1,5 +1,5 @@
-<section class="workflow-surface access-workflow" aria-labelledby="access-title" data-testid="client-access">
-  <header class="workflow-heading"><div><p class="context-label">Acceso</p><h2 id="access-title" tabindex="-1">Acceso de clienta</h2><p>Consulta o prepara el acceso privado a Bella Mujer Club.</p></div></header>
+<section class="workflow-surface workflow-surface--access access-workflow" aria-labelledby="access-title" data-testid="client-access">
+  <header class="workflow-heading"><div><h2 id="access-title" tabindex="-1">Acceso de clienta</h2><p>Consulta o prepara el acceso privado a Bella Mujer Club.</p></div></header>
   @if (vm.selectedClient(); as client) { <p class="muted">Acceso de <strong>{{ client.name }}</strong></p> }
   @if (vm.accessLoading() && vm.selectedAccess() === null) {
     <div class="inline-state" data-testid="access-loading" role="status"><mat-spinner diameter="28" /><span>Consultando acceso…</span></div>

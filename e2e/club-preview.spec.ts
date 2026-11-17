@@ -21,7 +21,7 @@ test('desktop Club administration renders its safe local configuration state', a
   await expect(page).toHaveURL(/#\/admin\/club\/clientas$/);
   await expect(page.getByTestId('admin-shell')).toBeVisible();
   await expect(page.getByTestId('public-shell')).toHaveCount(0);
-  await expect(page.getByRole('heading', { level: 1, name: 'Club' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Bella Mujer Club' })).toBeVisible();
   await expect(page.getByTestId('club-not-configured')).toContainText(
     'Servicio de Club no configurado'
   );
@@ -38,7 +38,7 @@ test('mobile Club administration remains readable and is discoverable from Inici
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/#/admin/club');
 
-  await expect(page.getByRole('heading', { level: 1, name: 'Club' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Bella Mujer Club' })).toBeVisible();
   await expect(page.getByTestId('club-not-configured')).toBeVisible();
   await expect(page.getByTestId('club-directory-task')).toBeVisible();
   await expect(page.getByTestId('client-detail')).toHaveCount(0);
@@ -56,7 +56,7 @@ test('mobile Club administration remains readable and is discoverable from Inici
   await expectNoHorizontalOverflow(page);
   await clubEntry.getByRole('link', { name: /Explorar Club/ }).click();
   await expect(page).toHaveURL(/#\/admin\/club\/clientas$/);
-  await expect(page.getByRole('heading', { level: 1, name: 'Club' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Bella Mujer Club' })).toBeVisible();
 });
 
 test('Club workspace deep links use only the opaque client identifier', async ({ page }) => {
@@ -66,7 +66,7 @@ test('Club workspace deep links use only the opaque client identifier', async ({
   await expect(page).toHaveURL(/#\/admin\/club\/clientas\/client-opaque-123\/historial$/);
   expect(page.url()).not.toContain('?');
   expect(page.url()).not.toContain('Ana');
-  await expect(page.getByRole('heading', { level: 1, name: 'Club' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Bella Mujer Club' })).toBeVisible();
   await expect(page.getByTestId('loyalty-history')).toBeVisible();
   await expect(page.getByTestId('visit-registration')).toHaveCount(0);
   await expect(

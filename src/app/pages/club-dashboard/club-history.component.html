@@ -1,6 +1,6 @@
-<section class="workflow-surface" aria-labelledby="history-title" data-testid="loyalty-history">
+<section class="workflow-surface workflow-surface--history" aria-labelledby="history-title" data-testid="loyalty-history">
   <header class="workflow-heading">
-    <div><p class="context-label">Historial</p><h2 id="history-title" tabindex="-1">Movimientos de fidelidad</h2></div>
+    <div><h2 id="history-title" tabindex="-1">Movimientos de fidelidad</h2><p>Cronología auditable de sellos y saldo elegible.</p></div>
   </header>
   @if (vm.selectedClient(); as client) { <p class="muted">Movimientos de <strong>{{ client.name }}</strong></p> }
   @if (vm.historyFirstPageLoading() && vm.ledgerEntries().length === 0) {

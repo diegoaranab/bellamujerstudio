@@ -1,7 +1,11 @@
 <article class="club-page" data-testid="club-dashboard">
-  <header class="club-header">
-    <div><p>Bella Mujer Studio · Administración</p><h1>Club</h1></div>
-    <a mat-button routerLink="/admin/club/clientas">Directorio de clientas</a>
+  <header class="club-signature">
+    <div class="club-signature__copy">
+      <p>Bella Mujer Studio</p>
+      <h1>Bella Mujer Club</h1>
+      <p class="club-signature__promise">Cada clienta, atendida con cercanía.</p>
+    </div>
+    <a mat-button routerLink="/admin/club/clientas">Ver directorio</a>
   </header>
   @if (!isConfigured) {
     <section class="state-notice" data-testid="club-not-configured" aria-labelledby="configuration-title"><mat-icon aria-hidden="true">settings</mat-icon><div><h2 id="configuration-title">Servicio de Club no configurado</h2><p>La administración de clientas estará disponible cuando este entorno tenga conexión segura con el servicio de Club.</p></div></section>
@@ -26,7 +30,11 @@
         <a class="mobile-back" routerLink="/admin/club/clientas"><mat-icon aria-hidden="true">arrow_back</mat-icon>Volver al directorio</a>
         <section class="selected-context" aria-labelledby="selected-client-name" data-testid="selected-client-context">
           @if (selectedClient(); as client) {
-            <div><p>Clienta seleccionada</p><h2 id="selected-client-name">{{ client.name }}</h2><p class="selected-context__contact">{{ client.phone }} · {{ statusLabel(client) }}</p></div>
+            <div>
+              <p>Cuenta de Club</p>
+              <h2 id="selected-client-name">{{ client.name }}</h2>
+            </div>
+            <p class="selected-context__status">{{ statusLabel(client) }}</p>
           } @else {
             <div><p>Clienta seleccionada</p><h2 id="selected-client-name">Cargando contexto…</h2></div>
           }
