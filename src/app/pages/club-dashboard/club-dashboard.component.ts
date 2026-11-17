@@ -278,6 +278,8 @@ export class ClubDashboardComponent implements OnInit {
   protected readonly visitError = signal<string | null>(null);
   protected readonly visitOutcome = signal<VisitOutcome | null>(null);
   private handledRouteClientId: string | null = null;
+  private accessMutationClientId: string | null = null;
+  private accessMutationSubview: ClubWorkspaceSubview = 'resumen';
   protected readonly activeWorkspaceSubview = this.routeContext.workspaceSubview;
 
   protected readonly activeServices = computed(() => {
@@ -384,6 +386,14 @@ export class ClubDashboardComponent implements OnInit {
     this.handledRouteClientId = client.clientId;
     this.beginClientSelection(client);
     this.navigateToClientWorkspace(client.clientId);
+  }
+
+  protected retrySelectedClientDetail(): void {
+    const clientId = this.selectedClientId();
+    if (!clientId || this.detailLoading()) {
+      return;
+    }
+    this.detailIntents.next({ kind: 'loadById', clientId });
   }
 
   protected createClient(): void {
@@ -868,6 +878,8 @@ export class ClubDashboardComponent implements OnInit {
   }
 
   private runAccessMutation(clientId: string, kind: AccessMutationKind): void {
+    this.accessMutationClientId = clientId;
+    this.accessMutationSubview = this.activeWorkspaceSubview();
     this.accessMutationLoading.set(true);
     this.accessMutationError.set(null);
     this.oneTimeInvitation.set(null);
@@ -884,10 +896,12 @@ export class ClubDashboardComponent implements OnInit {
       .subscribe({
         next: (response) => {
           if (this.selectedClientId() !== clientId) {
+            this.clearAccessMutationIdentity(clientId);
             this.accessMutationLoading.set(false);
             return;
           }
           this.applyAccessMutationResponse(response);
+          this.clearAccessMutationIdentity(clientId);
           this.accessMutationLoading.set(false);
         },
         error: (error: unknown) => {
@@ -895,9 +909,16 @@ export class ClubDashboardComponent implements OnInit {
             this.accessMutationError.set(this.safeErrorMessage(error));
             this.resetConfirmationOpen.set(false);
           }
+          this.clearAccessMutationIdentity(clientId);
           this.accessMutationLoading.set(false);
         }
       });
+  }
+
+  private clearAccessMutationIdentity(clientId: string): void {
+    if (this.accessMutationClientId === clientId) {
+      this.accessMutationClientId = null;
+    }
   }
 
   private applyAccessMutationResponse(response: AdminClubAccessMutationResponse): void {
@@ -974,16 +995,17 @@ export class ClubDashboardComponent implements OnInit {
     const subview = (route.snapshot.data['clubSubview'] ?? 'resumen') as ClubWorkspaceSubview;
     const previousClientId = this.handledRouteClientId;
 
+    const mutationClientId = this.accessMutationClientId;
     if (
-      clientId &&
-      previousClientId &&
-      clientId !== previousClientId &&
-      this.accessMutationLoading()
+      this.accessMutationLoading() &&
+      mutationClientId &&
+      clientId !== mutationClientId
     ) {
       // A mutation is tied to one client. Revert a manual URL change rather
-      // than allowing route identity and mutation state to diverge.
-      this.routeContext.sync(previousClientId, this.activeWorkspaceSubview());
-      this.navigateToClientWorkspace(previousClientId, this.activeWorkspaceSubview());
+      // than allowing route identity and mutation state to diverge, including
+      // navigation to the directory where the client ID would otherwise clear.
+      this.routeContext.sync(mutationClientId, this.accessMutationSubview);
+      this.navigateToClientWorkspace(mutationClientId, this.accessMutationSubview);
       return;
     }
 

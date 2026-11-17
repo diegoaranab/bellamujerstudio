@@ -1,6 +1,6 @@
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { provideRouter, Router } from '@angular/router';
 import { Observable, Subject, of, throwError } from 'rxjs';
 
 import {
@@ -140,6 +140,15 @@ interface AccessTestActions {
   selectedAccess(): AdminClubAccessSummary | null;
   oneTimeInvitation(): { activationUrl: string; expiresAtISO: string } | null;
   accessMutationLoading(): boolean;
+}
+
+interface RouteTestActions extends AccessTestActions {
+  beginClientSelectionById(clientId: string): void;
+  syncSelectionFromRoute(): void;
+  route: unknown;
+  selectedClientId(): string | null;
+  selectedClient(): ClubClient | null;
+  selectedBalance(): LoyaltyBalance | null;
 }
 
 function balance(
@@ -413,6 +422,23 @@ describe('ClubDashboardComponent', () => {
     return fixture.componentInstance as unknown as AccessTestActions;
   }
 
+  function syncRouteSelection(
+    fixture: ComponentFixture<ClubDashboardComponent>,
+    clientId: string | null,
+    subview: 'resumen' | 'visita' | 'historial' | 'acceso' = 'resumen'
+  ): void {
+    const actions = fixture.componentInstance as unknown as RouteTestActions;
+    vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    actions.route = {
+      snapshot: {
+        paramMap: { get: () => clientId },
+        data: { clubSubview: subview },
+        routeConfig: { path: 'club' }
+      }
+    };
+    actions.syncSelectionFromRoute();
+  }
+
   afterEach(() => {
     vi.restoreAllMocks();
     Reflect.deleteProperty(window.navigator, 'clipboard');
@@ -541,6 +567,36 @@ describe('ClubDashboardComponent', () => {
 
     click(fixture, '[data-client-id="client-beatriz"]');
     expect(text(fixture)).toContain('2 sellos acumulados');
+  });
+
+  it('retries a failed deep-linked detail by its opaque selected ID', async () => {
+    const detailError = new AdminClubApiError('network', 'No fue posible cargar el detalle.');
+    let detailAttempts = 0;
+    await configure({
+      detailResponse: () => {
+        detailAttempts += 1;
+        return detailAttempts === 1
+          ? throwError(() => detailError)
+          : of({ client: ana, balance: balance(ana.clientId, 3, 850) });
+      }
+    });
+    const fixture = render();
+    const actions = fixture.componentInstance as unknown as RouteTestActions;
+
+    actions.beginClientSelectionById('opaque-deep-link-client');
+    fixture.detectChanges();
+
+    expect(actions.selectedClientId()).toBe('opaque-deep-link-client');
+    expect(actions.selectedClient()).toBeNull();
+    expect(text(fixture)).toContain(detailError.message);
+    expect(fixture.nativeElement.querySelector('[data-testid="detail-error"] button')).toBeTruthy();
+
+    click(fixture, '[data-testid="detail-error"] button');
+
+    expect(getClient).toHaveBeenNthCalledWith(1, 'opaque-deep-link-client');
+    expect(getClient).toHaveBeenNthCalledWith(2, 'opaque-deep-link-client');
+    expect(actions.selectedClient()).toEqual(ana);
+    expect(actions.selectedBalance()).toEqual(balance(ana.clientId, 3, 850));
   });
 
   it('prevents a stale detail response from replacing the latest selection', async () => {
@@ -902,6 +958,49 @@ describe('ClubDashboardComponent', () => {
     pendingMutation.complete();
     fixture.detectChanges();
     expect(text(fixture)).toContain('Acceso de Ana López');
+  });
+
+  it('keeps the mutation client when navigation targets the directory before an invitation completes', async () => {
+    const pendingMutation = new Subject<AdminClubAccessMutationResponse>();
+    await configure({ invitationResponse: () => pendingMutation });
+    const fixture = render();
+    const actions = fixture.componentInstance as unknown as RouteTestActions;
+
+    click(fixture, '[data-client-id="client-ana"]');
+    actions.generateAccessInvitation();
+    syncRouteSelection(fixture, null);
+
+    expect(actions.selectedClientId()).toBe(ana.clientId);
+    expect(actions.accessMutationLoading()).toBe(true);
+    pendingMutation.next(accessMutation());
+    pendingMutation.complete();
+    fixture.detectChanges();
+
+    expect(actions.oneTimeInvitation()).not.toBeNull();
+    expect(text(fixture)).toContain('Acceso de Ana López');
+  });
+
+  it('keeps the mutation client on Back navigation so a reset response is not discarded', async () => {
+    const pendingMutation = new Subject<AdminClubAccessMutationResponse>();
+    await configure({
+      accessResponse: () => of({ access: activeAccess }),
+      resetResponse: () => pendingMutation
+    });
+    const fixture = render();
+    const actions = fixture.componentInstance as unknown as RouteTestActions;
+
+    click(fixture, '[data-client-id="client-ana"]');
+    actions.requestAccessReset();
+    actions.confirmAccessReset();
+    syncRouteSelection(fixture, null);
+
+    expect(actions.selectedClientId()).toBe(ana.clientId);
+    pendingMutation.next(accessMutation(invitedAccess));
+    pendingMutation.complete();
+    fixture.detectChanges();
+
+    expect(actions.oneTimeInvitation()).not.toBeNull();
+    expect(actions.selectedAccess()).toEqual(invitedAccess);
   });
 
   it('clears a one-time invitation when deliberately selecting another client', async () => {

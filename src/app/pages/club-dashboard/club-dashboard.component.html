@@ -190,11 +190,9 @@
         } @else if (detailError(); as error) {
           <div class="error-state" data-testid="detail-error" role="alert">
             <p>{{ error }}</p>
-            @if (selectedClient(); as client) {
-              <button mat-stroked-button type="button" (click)="selectClient(client)">
-                Intentar de nuevo
-              </button>
-            }
+            <button mat-stroked-button type="button" (click)="retrySelectedClientDetail()">
+              Intentar de nuevo
+            </button>
           </div>
         } @else if (selectedDetail(); as detail) {
           <div class="client-detail__profile">
