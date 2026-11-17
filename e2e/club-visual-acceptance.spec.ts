@@ -20,6 +20,17 @@ async function expectNoHorizontalOverflow(page: Page): Promise<void> {
   expect(widths.document).toBeLessThanOrEqual(widths.viewport);
 }
 
+async function focusWithKeyboard(page: Page, target: ReturnType<Page['locator']>): Promise<void> {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    if (await target.evaluate((element) => element === document.activeElement)) {
+      return;
+    }
+    await page.keyboard.press('Shift+Tab');
+  }
+
+  await expect(target).toBeFocused();
+}
+
 test.beforeEach(async ({ page }) => {
   await installConfiguredClubFixture(page);
 });
@@ -50,6 +61,23 @@ test('configured Club keeps directory, selected context, route semantics, and vi
   await expectNoHorizontalOverflow(page);
 });
 
+test('preserves route-announcement focus without drawing an interactive focus ring', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(routes.visita);
+
+  const heading = page.getByRole('heading', { level: 2, name: 'Registrar visita' });
+  await expect(heading).toBeFocused();
+  await expect(heading).toHaveCSS('outline-style', 'none');
+
+  const visitLink = page
+    .getByTestId('club-workspace-nav')
+    .getByRole('link', { name: 'Visita' });
+  await focusWithKeyboard(page, visitLink);
+  await expect(visitLink).toBeFocused();
+  await expect(visitLink).toHaveCSS('outline-style', 'solid');
+  await expect(visitLink).toHaveCSS('outline-width', '3px');
+});
+
 test('captures the configured visual acceptance matrix', async ({ page }) => {
   const viewports = [
     { label: '390x844', width: 390, height: 844 },
@@ -72,9 +100,6 @@ test('captures the configured visual acceptance matrix', async ({ page }) => {
       await expectNoHorizontalOverflow(page);
       await page.waitForTimeout(750);
       await page.evaluate(() => {
-        if (document.activeElement instanceof HTMLElement) {
-          document.activeElement.blur();
-        }
         window.scrollTo(0, 0);
       });
       await page.screenshot({
