@@ -84,8 +84,8 @@ describe('Club infrastructure', () => {
       template.findResources('AWS::ApiGatewayV2::Authorizer')
     ).find(([, resource]) => resource.Properties.AuthorizerType === 'JWT')!;
 
-    expect(functions).toHaveLength(14);
-    expect(routes).toHaveLength(18);
+    expect(functions).toHaveLength(15);
+    expect(routes).toHaveLength(19);
     const accessFunctions = functions.filter((lambdaFunction) =>
       lambdaFunction.Properties.Description ===
         'Manages Club member access for authenticated administrators'
@@ -271,14 +271,21 @@ describe('Club infrastructure', () => {
     const selfSummaryFunction = functions.find((resource) =>
       resource.Properties.Description === 'Reads authenticated Bella Mujer Club member self summary'
     );
+    const historyFunction = functions.find((resource) =>
+      resource.Properties.Description === 'Reads authenticated Bella Mujer Club member history'
+    );
     expect(authorizerFunction).toBeDefined();
     expect(probeFunction).toBeDefined();
     expect(selfSummaryFunction).toBeDefined();
+    expect(historyFunction).toBeDefined();
     expect(authorizerFunction!.Properties.Environment.Variables).toEqual({
       CLUB_ACCESS_TABLE_NAME: { Ref: accessLogicalId }
     });
     expect(probeFunction!.Properties.Environment).toBeUndefined();
     expect(selfSummaryFunction!.Properties.Environment.Variables).toEqual({
+      CLUB_TABLE_NAME: { Ref: clubLogicalId }
+    });
+    expect(historyFunction!.Properties.Environment.Variables).toEqual({
       CLUB_TABLE_NAME: { Ref: clubLogicalId }
     });
 
@@ -297,9 +304,15 @@ describe('Club infrastructure', () => {
     }]);
     const probeStatements = statementsFor(probeFunction!);
     const selfSummaryStatements = statementsFor(selfSummaryFunction!);
+    const historyStatements = statementsFor(historyFunction!);
     expect(probeStatements).toEqual([]);
     expect(selfSummaryStatements).toEqual([{
       Action: 'dynamodb:GetItem',
+      Effect: 'Allow',
+      Resource: [{ 'Fn::GetAtt': [clubLogicalId, 'Arn'] }]
+    }]);
+    expect(historyStatements).toEqual([{
+      Action: ['dynamodb:GetItem', 'dynamodb:Query'],
       Effect: 'Allow',
       Resource: [{ 'Fn::GetAtt': [clubLogicalId, 'Arn'] }]
     }]);
@@ -345,6 +358,11 @@ describe('Club infrastructure', () => {
       AuthorizerId: { Ref: memberAuthorizerLogicalId }
     });
     expect(routesByKey['GET /club/me'].AuthorizationScopes).toBeUndefined();
+    expect(routesByKey['GET /club/me/history']).toMatchObject({
+      AuthorizationType: 'CUSTOM',
+      AuthorizerId: { Ref: memberAuthorizerLogicalId }
+    });
+    expect(routesByKey['GET /club/me/history'].AuthorizationScopes).toBeUndefined();
     for (const routeKey of [
       'POST /club/access/enroll', 'POST /club/access/login', 'POST /club/access/logout'
     ]) expect(routesByKey[routeKey]).toMatchObject({ AuthorizationType: 'NONE' });
