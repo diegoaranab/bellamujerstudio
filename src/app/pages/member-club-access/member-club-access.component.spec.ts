@@ -319,6 +319,7 @@ describe('MemberClubAccessComponent', () => {
     expect(element.querySelector('[data-testid="member-club-home"]')).toBeTruthy();
     expect(element.textContent).toContain('Hola, Mariana Prueba');
     expect(element.textContent).toContain('3 sellos');
+    expect(element.textContent).not.toContain('Sesión válida hasta');
     expect(element.textContent).not.toContain('3 de 4');
     for (const destination of ['Historial', 'Mi QR', 'Promociones', 'Recompensas']) {
       expect(element.textContent).not.toContain(destination);
@@ -337,6 +338,23 @@ describe('MemberClubAccessComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain(expectedCopy);
+  });
+
+  it('bounds decorative earned-stamp marks while keeping the full count authoritative', async () => {
+    await configure({ access: ACCESS_A }, 'club');
+    api.getSelfSummary.mockReturnValue(of(memberSummary(125)));
+    TestBed.inject(MemberClubSessionService).establish(sessionResponse().session);
+    const fixture = TestBed.createComponent(MemberClubAccessComponent);
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+    const stampMarks = element.querySelector('[data-testid="member-earned-stamps"]')!;
+
+    expect(element.textContent).toContain('125 sellos acumulados');
+    expect(stampMarks.getAttribute('aria-hidden')).toBe('true');
+    expect(stampMarks.querySelectorAll('.member-progress__seal')).toHaveLength(8);
+    expect(
+      stampMarks.querySelector('[data-testid="member-earned-stamps-overflow"]')?.textContent
+    ).toContain('+117');
   });
 
   it('renders a stable summary loading state and prevents concurrent requests', async () => {

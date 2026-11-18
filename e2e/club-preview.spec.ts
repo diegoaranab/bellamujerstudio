@@ -205,7 +205,12 @@ test('authenticated member home renders only the mocked name and real stamp coun
 
   await expect(page.getByTestId('member-club-home')).toContainText('Hola, Mariana Prueba');
   await expect(page.getByTestId('member-club-home')).toContainText('3 sellos');
+  await expect(page.getByRole('heading', { level: 1, name: 'Mi Club' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 2, name: 'Tus sellos' })).toBeVisible();
+  await expect(page.getByTestId('member-earned-stamps')).toHaveAttribute('aria-hidden', 'true');
+  await expect(page.getByTestId('member-earned-stamps').locator('.member-progress__seal')).toHaveCount(3);
   await expect(page.getByTestId('member-club-home')).not.toContainText(/3 de 4|recompensa|historial|mi qr/i);
+  await expect(page.getByTestId('member-club-home')).not.toContainText('Sesión válida hasta');
   await expect(page.getByTestId('member-logout')).toBeVisible();
   await expect(page.evaluate(() => [localStorage.length, sessionStorage.length])).resolves.toEqual([0, 0]);
 });
@@ -219,6 +224,8 @@ test('member home recovers from a transient summary failure without losing its m
   await page.getByTestId('member-login-submit').click();
 
   await expect(page.getByTestId('member-home-load-error')).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Mi Club' })).toBeVisible();
+  await expect(page.getByText('Tu sesión sigue activa.')).toBeVisible();
   await page.getByTestId('member-home-retry').focus();
   await expect(page.getByTestId('member-home-retry')).toBeFocused();
   await page.getByTestId('member-home-retry').click();
@@ -241,5 +248,8 @@ test('mobile authenticated member home has no horizontal overflow', async ({ pag
   await page.setViewportSize({ width: 390, height: 844 });
   await installMemberClubFixture(page);
   await signIntoMemberClub(page);
+  await expectNoHorizontalOverflow(page);
+  await page.addStyleTag({ content: 'html { font-size: 200%; }' });
+  await expect(page.getByTestId('member-logout')).toBeVisible();
   await expectNoHorizontalOverflow(page);
 });

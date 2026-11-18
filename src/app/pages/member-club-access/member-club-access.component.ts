@@ -1,4 +1,3 @@
-import { DatePipe } from '@angular/common';
 import {
   Component,
   DestroyRef,
@@ -50,7 +49,6 @@ const matchingPinsValidator: ValidatorFn = (
 @Component({
   selector: 'app-member-club-access',
   imports: [
-    DatePipe,
     ReactiveFormsModule,
     MatButtonModule,
     MatCardModule,
@@ -87,6 +85,13 @@ export class MemberClubAccessComponent implements OnInit {
   protected readonly isLoadingSummary = signal(false);
   protected readonly hasSummaryLoadError = signal(false);
   protected readonly memberSummary = signal<MemberClubSelfSummary | null>(null);
+  protected readonly earnedStampMarkers = computed(() => {
+    const stampCount = this.memberSummary()?.loyalty.stampCount ?? 0;
+    return Array.from({ length: Math.min(stampCount, 8) });
+  });
+  protected readonly earnedStampOverflow = computed(() =>
+    Math.max((this.memberSummary()?.loyalty.stampCount ?? 0) - 8, 0)
+  );
   protected readonly errorMessage = signal('');
   protected readonly loginRetryAfterSeconds = signal(0);
   protected readonly hasUsableLink = computed(() => this.accessHandle().length > 0);
