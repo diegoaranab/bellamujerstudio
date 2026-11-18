@@ -22,16 +22,21 @@
   box-shadow: 0 20px 60px rgb(75 16 38 / 12%);
 }
 
-.brand-mark {
-  width: 52px;
-  height: 52px;
+.official-logo {
+  position: relative;
+  width: min(100%, 210px);
+  aspect-ratio: 1106 / 917;
   margin-bottom: 1.25rem;
-  border-radius: 16px;
-  display: grid;
-  place-items: center;
-  color: #ffffff;
-  background: var(--mat-sys-primary, #8a1e3f);
-  font-weight: 700;
+  overflow: hidden;
+}
+
+.official-logo img {
+  position: absolute;
+  top: -30%;
+  left: -20.34%;
+  width: 141.32%;
+  max-width: none;
+  height: auto;
 }
 
 mat-card-header {
