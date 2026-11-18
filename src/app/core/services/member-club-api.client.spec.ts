@@ -93,6 +93,68 @@ describe('MemberClubApiClient', () => {
     await expect(logoutPromise).resolves.toBeNull();
   });
 
+  it.each([0, 1, 7])('reads a valid member self-summary with %s stamps', async (stampCount) => {
+    const client = configure();
+    const promise = firstValueFrom(client.getSelfSummary(SESSION));
+    const request = http.expectOne('https://api.example.test/club/me');
+
+    expect(request.request.method).toBe('GET');
+    expect(request.request.headers.get('Authorization')).toBe(`Bearer ${SESSION}`);
+    expect(request.request.urlWithParams).not.toContain(SESSION);
+    request.flush({
+      profile: { name: ' Mariana Prueba ' },
+      loyalty: { stampCount },
+      ignoredServerField: 'not projected'
+    });
+
+    await expect(promise).resolves.toEqual({
+      profile: { name: 'Mariana Prueba' },
+      loyalty: { stampCount }
+    });
+  });
+
+  it.each([
+    [{ profile: { name: '' }, loyalty: { stampCount: 0 } }],
+    [{ profile: { name: '   ' }, loyalty: { stampCount: 0 } }],
+    [{ profile: { name: 'Mariana' }, loyalty: { stampCount: -1 } }],
+    [{ profile: { name: 'Mariana' }, loyalty: { stampCount: 1.5 } }],
+    [{ profile: { name: 'Mariana' }, loyalty: { stampCount: Number.MAX_SAFE_INTEGER + 1 } }]
+  ])('rejects malformed member self-summary data safely', async (body) => {
+    const client = configure();
+    const promise = firstValueFrom(client.getSelfSummary(SESSION));
+    http.expectOne('https://api.example.test/club/me').flush(body);
+
+    await expect(promise).rejects.toMatchObject({
+      kind: 'server',
+      message: 'No fue posible procesar la solicitud del Club. Intenta de nuevo.'
+    });
+  });
+
+  it('normalizes member self-summary authentication and network failures safely', async () => {
+    const client = configure();
+    const authentication = firstValueFrom(client.getSelfSummary(SESSION));
+    http.expectOne('https://api.example.test/club/me').flush(
+      { error: 'untrusted detail' },
+      { status: 401, statusText: 'Unauthorized' }
+    );
+    await expect(authentication).rejects.toMatchObject({ kind: 'authentication' });
+
+    const network = firstValueFrom(client.getSelfSummary(SESSION));
+    http.expectOne('https://api.example.test/club/me').error(new ProgressEvent('offline'));
+    await expect(network).rejects.toMatchObject({
+      kind: 'network',
+      message: 'No se pudo conectar con el servidor. Revisa tu conexión e intenta de nuevo.'
+    });
+  });
+
+  it('rejects an invalid local session token before requesting member self-summary', async () => {
+    const client = configure();
+    await expect(firstValueFrom(client.getSelfSummary('not-a-token'))).rejects.toMatchObject({
+      kind: 'authentication'
+    });
+    http.expectNone('https://api.example.test/club/me');
+  });
+
   it.each([
     [
       'CLUB_ACCESS_INVITATION_INVALID',

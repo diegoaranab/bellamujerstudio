@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { installMemberClubFixture, memberClubFixture } from './support/club-fixture';
 
 const MEMBER_ACCESS = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
 const MEMBER_INVITATION = 'AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE';
@@ -12,6 +13,13 @@ async function expectNoHorizontalOverflow(page: Page): Promise<void> {
 
   expect(widths.body).toBeLessThanOrEqual(widths.viewport);
   expect(widths.document).toBeLessThanOrEqual(widths.viewport);
+}
+
+async function signIntoMemberClub(page: Page): Promise<void> {
+  await page.goto(`/#/club?access=${memberClubFixture.access}`);
+  await page.getByTestId('member-login-pin').fill('482731');
+  await page.getByTestId('member-login-submit').click();
+  await expect(page.getByTestId('member-club-home')).toBeVisible();
 }
 
 test('desktop Club administration renders its safe local configuration state', async ({ page }) => {
@@ -189,4 +197,49 @@ test('member invalid forms focus the field that needs correction without request
   await page.getByTestId('member-login-submit').click();
   await expect(page.getByTestId('member-login-pin')).toBeFocused();
   await expect(page.getByText('Ingresa exactamente seis dígitos.')).toBeVisible();
+});
+
+test('authenticated member home renders only the mocked name and real stamp count', async ({ page }) => {
+  await installMemberClubFixture(page);
+  await signIntoMemberClub(page);
+
+  await expect(page.getByTestId('member-club-home')).toContainText('Hola, Mariana Prueba');
+  await expect(page.getByTestId('member-club-home')).toContainText('3 sellos');
+  await expect(page.getByTestId('member-club-home')).not.toContainText(/3 de 4|recompensa|historial|mi qr/i);
+  await expect(page.getByTestId('member-logout')).toBeVisible();
+  await expect(page.evaluate(() => [localStorage.length, sessionStorage.length])).resolves.toEqual([0, 0]);
+});
+
+test('member home recovers from a transient summary failure without losing its memory-only session', async ({
+  page
+}) => {
+  await installMemberClubFixture(page, { failFirstSummary: 'server' });
+  await page.goto(`/#/club?access=${memberClubFixture.access}`);
+  await page.getByTestId('member-login-pin').fill('482731');
+  await page.getByTestId('member-login-submit').click();
+
+  await expect(page.getByTestId('member-home-load-error')).toBeVisible();
+  await page.getByTestId('member-home-retry').focus();
+  await expect(page.getByTestId('member-home-retry')).toBeFocused();
+  await page.getByTestId('member-home-retry').click();
+  await expect(page.getByTestId('member-club-home')).toBeVisible();
+});
+
+test('member authentication failure and logout return to login', async ({ page }) => {
+  await installMemberClubFixture(page, { failFirstSummary: 'authentication' });
+  await page.goto(`/#/club?access=${memberClubFixture.access}`);
+  await page.getByTestId('member-login-pin').fill('482731');
+  await page.getByTestId('member-login-submit').click();
+  await expect(page.getByTestId('member-login')).toBeVisible();
+
+  await signIntoMemberClub(page);
+  await page.getByTestId('member-logout').click();
+  await expect(page.getByTestId('member-login')).toBeVisible();
+});
+
+test('mobile authenticated member home has no horizontal overflow', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await installMemberClubFixture(page);
+  await signIntoMemberClub(page);
+  await expectNoHorizontalOverflow(page);
 });

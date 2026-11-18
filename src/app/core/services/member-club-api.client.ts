@@ -18,6 +18,15 @@ export interface MemberClubSessionProbeResponse {
   authenticated: true;
 }
 
+export interface MemberClubSelfSummary {
+  profile: {
+    name: string;
+  };
+  loyalty: {
+    stampCount: number;
+  };
+}
+
 export type MemberClubApiErrorKind =
   | 'configuration'
   | 'validation'
@@ -90,6 +99,20 @@ export class MemberClubApiClient {
         map((response) => {
           if (!this.isAuthenticatedProbe(response)) throw this.safeServerError();
           return response;
+        })
+      )
+    );
+  }
+
+  getSelfSummary(sessionToken: string): Observable<MemberClubSelfSummary> {
+    return this.withSessionToken(sessionToken, (headers) =>
+      this.http.get<unknown>(`${this.baseUrl}/club/me`, { headers }).pipe(
+        map((response) => {
+          if (!this.isSelfSummary(response)) throw this.safeServerError();
+          return {
+            profile: { name: response.profile.name.trim() },
+            loyalty: { stampCount: response.loyalty.stampCount }
+          };
         })
       )
     );
@@ -236,6 +259,27 @@ export class MemberClubApiClient {
       typeof value === 'object' &&
       'authenticated' in value &&
       value.authenticated === true
+    );
+  }
+
+  private isSelfSummary(value: unknown): value is MemberClubSelfSummary {
+    if (!value || typeof value !== 'object' || !('profile' in value) || !('loyalty' in value)) {
+      return false;
+    }
+    const profile = value.profile;
+    const loyalty = value.loyalty;
+    return (
+      !!profile &&
+      typeof profile === 'object' &&
+      'name' in profile &&
+      typeof profile.name === 'string' &&
+      profile.name.trim().length > 0 &&
+      !!loyalty &&
+      typeof loyalty === 'object' &&
+      'stampCount' in loyalty &&
+      typeof loyalty.stampCount === 'number' &&
+      Number.isSafeInteger(loyalty.stampCount) &&
+      loyalty.stampCount >= 0
     );
   }
 

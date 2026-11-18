@@ -3,12 +3,13 @@ import { TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
-import { BehaviorSubject, of, throwError } from 'rxjs';
+import { BehaviorSubject, Subject, of, throwError } from 'rxjs';
 
 import { routes } from '../../app.routes';
 import {
   MemberClubApiClient,
   MemberClubApiError,
+  MemberClubSelfSummary,
   MemberClubSessionResponse
 } from '../../core/services/member-club-api.client';
 import { MemberClubSessionService } from '../../core/services/member-club-session.service';
@@ -29,7 +30,7 @@ describe('MemberClubAccessComponent', () => {
     enroll: ReturnType<typeof vi.fn>;
     login: ReturnType<typeof vi.fn>;
     logout: ReturnType<typeof vi.fn>;
-    checkSession: ReturnType<typeof vi.fn>;
+    getSelfSummary: ReturnType<typeof vi.fn>;
   };
   let navigate: ReturnType<typeof vi.fn>;
   let queryParams: BehaviorSubject<ReturnType<typeof convertToParamMap>>;
@@ -39,7 +40,7 @@ describe('MemberClubAccessComponent', () => {
       enroll: vi.fn(),
       login: vi.fn(),
       logout: vi.fn(),
-      checkSession: vi.fn()
+      getSelfSummary: vi.fn().mockReturnValue(of(memberSummary()))
     };
     navigate = vi.fn().mockResolvedValue(true);
     queryParams = new BehaviorSubject(convertToParamMap(query));
@@ -68,6 +69,10 @@ describe('MemberClubAccessComponent', () => {
 
   function sessionResponse(): MemberClubSessionResponse {
     return { session: { token: SESSION_TOKEN, expiresAtISO: futureISO() } };
+  }
+
+  function memberSummary(stampCount = 3): MemberClubSelfSummary {
+    return { profile: { name: 'Mariana Prueba' }, loyalty: { stampCount } };
   }
 
   function setInput(element: HTMLInputElement, value: string): void {
@@ -117,7 +122,7 @@ describe('MemberClubAccessComponent', () => {
       enroll: vi.fn().mockReturnValue(of(sessionResponse())),
       login: vi.fn(),
       logout: vi.fn(),
-      checkSession: vi.fn()
+      getSelfSummary: vi.fn().mockReturnValue(of(memberSummary()))
     };
     await TestBed.configureTestingModule({
       imports: [MemberClubAccessComponent],
@@ -303,18 +308,54 @@ describe('MemberClubAccessComponent', () => {
     expect(recovery.getAttribute('rel')).toBe('noopener noreferrer');
   });
 
-  it('uses truthful current-tab session copy without a future Club destination', async () => {
+  it('loads the real member home without inventing a reward destination', async () => {
     await configure({ access: ACCESS_A }, 'club');
-    api.checkSession.mockReturnValue(of({ authenticated: true }));
     TestBed.inject(MemberClubSessionService).establish(sessionResponse().session);
     const fixture = TestBed.createComponent(MemberClubAccessComponent);
     fixture.detectChanges();
     const element = fixture.nativeElement as HTMLElement;
 
-    expect(element.textContent).toContain('Tu acceso al Club está verificado en esta pestaña.');
-    expect(element.textContent).toContain('se pierde al recargarla o cerrarla');
-    expect(element.textContent).not.toContain('Ya puedes continuar con tu experiencia');
-    expect(element.textContent).not.toContain('Ir a Mi Club');
+    expect(api.getSelfSummary).toHaveBeenCalledWith(SESSION_TOKEN);
+    expect(element.querySelector('[data-testid="member-club-home"]')).toBeTruthy();
+    expect(element.textContent).toContain('Hola, Mariana Prueba');
+    expect(element.textContent).toContain('3 sellos');
+    expect(element.textContent).not.toContain('3 de 4');
+    for (const destination of ['Historial', 'Mi QR', 'Promociones', 'Recompensas']) {
+      expect(element.textContent).not.toContain(destination);
+    }
+  });
+
+  it.each([
+    [0, '0 sellos'],
+    [1, '1 sello'],
+    [8, '8 sellos']
+  ])('renders the real singular/plural stamp count: %s', async (stampCount, expectedCopy) => {
+    await configure({ access: ACCESS_A }, 'club');
+    api.getSelfSummary.mockReturnValue(of(memberSummary(stampCount)));
+    TestBed.inject(MemberClubSessionService).establish(sessionResponse().session);
+    const fixture = TestBed.createComponent(MemberClubAccessComponent);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain(expectedCopy);
+  });
+
+  it('renders a stable summary loading state and prevents concurrent requests', async () => {
+    await configure({ access: ACCESS_A }, 'club');
+    const pending = new Subject<MemberClubSelfSummary>();
+    api.getSelfSummary.mockReturnValue(pending);
+    TestBed.inject(MemberClubSessionService).establish(sessionResponse().session);
+    const fixture = TestBed.createComponent(MemberClubAccessComponent);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('[data-testid="member-home-loading"]')).toBeTruthy();
+    queryParams.next(convertToParamMap({ access: ACCESS_A }));
+    fixture.detectChanges();
+    expect(api.getSelfSummary).toHaveBeenCalledOnce();
+
+    pending.next(memberSummary());
+    pending.complete();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[data-testid="member-club-home"]')).toBeTruthy();
   });
 
   it('reveals and conceals the login NIP without changing its value or authentication affordances', async () => {
@@ -439,9 +480,9 @@ describe('MemberClubAccessComponent', () => {
     expect(api.login).not.toHaveBeenCalled();
   });
 
-  it('clears a session after an authentication-denied probe', async () => {
+  it('clears a session after an authentication-denied self-summary request', async () => {
     await configure({ access: ACCESS_A }, 'club');
-    api.checkSession.mockReturnValue(
+    api.getSelfSummary.mockReturnValue(
       throwError(() => new MemberClubApiError('authentication', 'safe'))
     );
     TestBed.inject(MemberClubSessionService).establish(sessionResponse().session);
@@ -453,33 +494,32 @@ describe('MemberClubAccessComponent', () => {
   });
 
   it.each(['network', 'server'] as const)(
-    'retains the session after a %s probe failure and retries only explicitly',
+    'retains the session after a %s self-summary failure and retries only explicitly',
     async (kind) => {
       await configure({ access: ACCESS_A }, 'club');
-      api.checkSession
+      api.getSelfSummary
         .mockReturnValueOnce(throwError(() => new MemberClubApiError(kind, 'detail')))
-        .mockReturnValueOnce(of({ authenticated: true }));
+        .mockReturnValueOnce(of(memberSummary()));
       TestBed.inject(MemberClubSessionService).establish(sessionResponse().session);
       const fixture = TestBed.createComponent(MemberClubAccessComponent);
       fixture.detectChanges();
 
       expect(TestBed.inject(MemberClubSessionService).token()).toBe(SESSION_TOKEN);
-      expect(api.checkSession).toHaveBeenCalledOnce();
+      expect(api.getSelfSummary).toHaveBeenCalledOnce();
       const retry = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>(
-        '[data-testid="member-session-verification-error"] button'
+        '[data-testid="member-home-retry"]'
       )!;
       expect(retry.textContent).toContain('Intentar de nuevo');
 
       retry.click();
       fixture.detectChanges();
-      expect(api.checkSession).toHaveBeenCalledTimes(2);
-      expect(api.checkSession).toHaveBeenLastCalledWith(SESSION_TOKEN);
+      expect(api.getSelfSummary).toHaveBeenCalledTimes(2);
+      expect(api.getSelfSummary).toHaveBeenLastCalledWith(SESSION_TOKEN);
     }
   );
 
   it('clears the session after successful logout', async () => {
     await configure({ access: ACCESS_A }, 'club');
-    api.checkSession.mockReturnValue(of({ authenticated: true }));
     api.logout.mockReturnValue(of(undefined));
     TestBed.inject(MemberClubSessionService).establish(sessionResponse().session);
     const fixture = TestBed.createComponent(MemberClubAccessComponent);
@@ -509,8 +549,9 @@ describe('MemberClubAccessComponent', () => {
 
     setInput(loginInput, '482731');
     submit(element);
+    queryParams.next(convertToParamMap({ access: ACCESS_A }));
     fixture.detectChanges();
-    expect(element.querySelector('[data-testid="member-session-active"]')).toBeTruthy();
+    expect(element.querySelector('[data-testid="member-club-home"]')).toBeTruthy();
 
     element.querySelector<HTMLButtonElement>('[data-testid="member-logout"]')!.click();
     fixture.detectChanges();
@@ -528,7 +569,6 @@ describe('MemberClubAccessComponent', () => {
     'retains the session after a %s logout failure and permits explicit retry',
     async (kind) => {
       await configure({ access: ACCESS_A }, 'club');
-      api.checkSession.mockReturnValue(of({ authenticated: true }));
       api.logout.mockReturnValue(
         throwError(() => new MemberClubApiError(kind, 'private detail'))
       );

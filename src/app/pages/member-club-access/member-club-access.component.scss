@@ -1,10 +1,7 @@
 :host {
   display: block;
   min-height: 100vh;
-  background:
-    radial-gradient(circle at top left, rgb(248 208 215 / 78%), transparent 42%),
-    radial-gradient(circle at bottom right, rgb(192 149 121 / 18%), transparent 38%),
-    var(--bm-surface-canvas);
+  background: var(--bm-surface-canvas);
 }
 
 .member-access-page {
@@ -24,6 +21,16 @@
   box-shadow: var(--bm-elevation-raised);
 }
 
+.member-access-card--member {
+  width: min(100%, 760px);
+  padding: clamp(2rem, 6vw, 4.5rem);
+}
+
+.member-access-card--member .brand-identity {
+  width: 124px;
+  margin-bottom: var(--bm-space-8);
+}
+
 .brand-identity {
   position: relative;
   width: min(100%, 224px);
@@ -41,18 +48,16 @@
   height: auto;
 }
 
-mat-card-header {
+.member-header {
   display: block;
   padding: 0;
 }
 
 .eyebrow {
-  margin-bottom: 0.35rem;
+  margin: 0 0 0.35rem;
   color: var(--bm-text-link);
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  font-size: 0.9rem;
+  font-weight: 600;
 }
 
 h1[mat-card-title] {
@@ -62,10 +67,11 @@ h1[mat-card-title] {
   line-height: 1.1;
 }
 
-[mat-card-subtitle] {
+.member-header-subtitle {
   display: block;
   margin-top: 0.45rem;
   color: var(--bm-text-muted);
+  font-size: 1rem;
 }
 
 mat-card-content {
@@ -145,6 +151,129 @@ form > button,
   color: var(--bm-success-indicator);
 }
 
+.member-home {
+  min-height: 330px;
+  display: grid;
+  align-content: center;
+  padding-block: var(--bm-space-6);
+}
+
+.member-home__greeting {
+  max-width: 24ch;
+  margin: 0 0 var(--bm-space-6);
+  color: var(--bm-text-secondary);
+  font-family: var(--bm-font-expressive);
+  font-size: clamp(1.6rem, 4vw, 2.35rem);
+  line-height: 1.14;
+}
+
+.member-home__count-region {
+  display: grid;
+  width: fit-content;
+  border-top: 1px solid var(--bm-brand-accent-material);
+  border-bottom: 1px solid var(--bm-border-standard);
+  padding: var(--bm-space-4) 0 var(--bm-space-3);
+  color: var(--bm-brand-strong);
+}
+
+.member-home__count {
+  font-family: var(--bm-font-expressive);
+  font-size: clamp(5.5rem, 18vw, 9rem);
+  font-weight: 600;
+  line-height: 0.82;
+  font-variant-numeric: tabular-nums;
+}
+
+.member-home__label {
+  margin-top: var(--bm-space-3);
+  color: var(--bm-text-secondary);
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.member-home__supporting-copy {
+  margin: var(--bm-space-4) 0 0;
+  color: var(--bm-text-muted);
+  line-height: 1.55;
+}
+
+.member-home__session-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--bm-space-4);
+  margin-top: var(--bm-space-12);
+  border-top: 1px solid var(--bm-border-subtle);
+  padding-top: var(--bm-space-4);
+}
+
+.member-home__session-actions button,
+.member-home--recovery button {
+  min-height: 44px;
+}
+
+.member-home--recovery {
+  max-width: 34rem;
+}
+
+.member-home--recovery > mat-icon {
+  color: var(--bm-info-indicator);
+  font-size: 2rem;
+  width: 2rem;
+  height: 2rem;
+}
+
+.member-home--recovery h2 {
+  margin: var(--bm-space-3) 0 0;
+  font-size: 1.75rem;
+}
+
+.member-home--recovery p {
+  margin: var(--bm-space-2) 0 0;
+  color: var(--bm-text-secondary);
+}
+
+.member-home--recovery button {
+  width: fit-content;
+  margin-top: var(--bm-space-6);
+}
+
+.member-home--loading {
+  gap: var(--bm-space-6);
+}
+
+.member-home__loading-label {
+  margin: 0;
+  color: var(--bm-text-secondary);
+}
+
+.member-home__placeholder {
+  background: var(--bm-surface-subtle);
+  border-radius: var(--bm-radius-control);
+}
+
+.member-home__placeholder--greeting {
+  width: min(15rem, 70%);
+  height: 2rem;
+}
+
+.member-home__placeholder--count {
+  width: min(12rem, 58%);
+  height: 7rem;
+  border-top: 1px solid var(--bm-brand-accent-material);
+  border-bottom: 1px solid var(--bm-border-standard);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
 .access-state > :is(button, a) {
   margin-top: 1.5rem;
 }
@@ -193,6 +322,23 @@ footer mat-icon {
     border: 0;
     border-radius: 0;
     padding: 1.5rem;
+  }
+
+  .member-access-card--member {
+    padding: 1.5rem;
+  }
+
+  .member-home {
+    min-height: 0;
+    padding-block: var(--bm-space-6);
+  }
+
+  .member-home__session-actions {
+    align-items: stretch;
+  }
+
+  .member-home__session-actions button {
+    width: 100%;
   }
 }
 

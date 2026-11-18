@@ -1,5 +1,9 @@
 <main class="member-access-page" data-testid="member-club-access">
-  <mat-card class="member-access-card" appearance="outlined">
+  <mat-card
+    class="member-access-card"
+    [class.member-access-card--member]="session.hasSession()"
+    appearance="outlined"
+  >
     <div class="brand-identity">
       <img
         src="brand/bella-mujer-logo-master.png"
@@ -9,11 +13,13 @@
         data-testid="member-access-official-logo"
       />
     </div>
-    <mat-card-header>
-      <p class="eyebrow">Programa de fidelidad</p>
-      <h1 mat-card-title>Bella Mujer Club</h1>
-      <mat-card-subtitle>Tu acceso personal al Club</mat-card-subtitle>
-    </mat-card-header>
+    <div class="member-header">
+      <p class="eyebrow">{{ session.hasSession() ? 'Bella Mujer Studio' : 'Programa de fidelidad' }}</p>
+      <h1 mat-card-title>{{ session.hasSession() ? 'Mi Club' : 'Bella Mujer Club' }}</h1>
+      @if (!session.hasSession()) {
+        <p class="member-header-subtitle">Tu acceso personal al Club</p>
+      }
+    </div>
 
     <mat-card-content>
       @if (errorMessage()) {
@@ -55,18 +61,19 @@
             Pedir nuevo enlace por WhatsApp
           </a>
         </section>
-      } @else if (isCheckingSession()) {
-        <section class="access-state" role="status" data-testid="member-session-checking">
-          <mat-icon class="spin" aria-hidden="true">progress_activity</mat-icon>
-          <h2>Validando tu sesión</h2>
-          <p>Espera un momento.</p>
+      } @else if (isLoadingSummary()) {
+        <section class="member-home member-home--loading" role="status" data-testid="member-home-loading">
+          <p class="member-home__loading-label">Cargando tu Club</p>
+          <div class="member-home__placeholder member-home__placeholder--greeting"></div>
+          <div class="member-home__placeholder member-home__placeholder--count"></div>
+          <span class="sr-only">Cargando la información de tu Club.</span>
         </section>
-      } @else if (hasSessionVerificationError() && session.hasSession()) {
-        <section class="access-state" data-testid="member-session-verification-error">
+      } @else if (hasSummaryLoadError() && session.hasSession()) {
+        <section class="member-home member-home--recovery" data-testid="member-home-load-error">
           <mat-icon aria-hidden="true">sync_problem</mat-icon>
-          <h2>No pudimos verificar tu sesión</h2>
-          <p>Tu sesión permanece en este dispositivo mientras vuelves a intentarlo.</p>
-          <button mat-stroked-button type="button" (click)="retrySessionProbe()">
+          <h2>No pudimos cargar tu Club.</h2>
+          <p>Tu sesión sigue activa. Intenta nuevamente.</p>
+          <button mat-stroked-button type="button" (click)="retrySummary()" data-testid="member-home-retry">
             <mat-icon>refresh</mat-icon>
             Intentar de nuevo
           </button>
@@ -145,24 +152,31 @@
             </button>
           </form>
         </section>
-      } @else if (session.hasSession()) {
-        <section class="access-state access-state--success" data-testid="member-session-active">
-          <mat-icon aria-hidden="true">verified</mat-icon>
-          <h2>Tu sesión está activa</h2>
-          <p>Tu acceso al Club está verificado en esta pestaña.</p>
-          @if (session.expiresAtISO(); as expiresAtISO) {
-            <p class="session-expiry">Válida hasta {{ expiresAtISO | date: 'short' }}.</p>
-          }
-          <button
-            mat-stroked-button
-            type="button"
-            [disabled]="isSubmitting()"
-            (click)="logout()"
-            data-testid="member-logout"
-          >
-            <mat-icon>logout</mat-icon>
-            {{ isSubmitting() ? 'Cerrando sesión…' : 'Cerrar sesión' }}
-          </button>
+      } @else if (memberSummary(); as summary) {
+        <section class="member-home" data-testid="member-club-home">
+          <p class="member-home__greeting">Hola, {{ summary.profile.name }}</p>
+          <div class="member-home__count-region" aria-label="Sellos actuales">
+            <span class="member-home__count">{{ summary.loyalty.stampCount }}</span>
+            <span class="member-home__label">
+              {{ summary.loyalty.stampCount === 1 ? 'sello' : 'sellos' }}
+            </span>
+          </div>
+          <p class="member-home__supporting-copy">Tus sellos actuales en Bella Mujer Club.</p>
+          <div class="member-home__session-actions">
+            @if (session.expiresAtISO(); as expiresAtISO) {
+              <p class="session-expiry">Sesión válida hasta {{ expiresAtISO | date: 'short' }}.</p>
+            }
+            <button
+              mat-stroked-button
+              type="button"
+              [disabled]="isSubmitting()"
+              (click)="logout()"
+              data-testid="member-logout"
+            >
+              <mat-icon>logout</mat-icon>
+              {{ isSubmitting() ? 'Cerrando sesión…' : 'Cerrar sesión' }}
+            </button>
+          </div>
         </section>
       } @else {
         <section data-testid="member-login">
@@ -219,9 +233,11 @@
       }
     </mat-card-content>
 
+    @if (!session.hasSession()) {
     <footer>
       <mat-icon aria-hidden="true">shield</mat-icon>
       <p>Tu sesión permanece sólo en esta pestaña y se pierde al recargarla o cerrarla.</p>
     </footer>
+    }
   </mat-card>
 </main>

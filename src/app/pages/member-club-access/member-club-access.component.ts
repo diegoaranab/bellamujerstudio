@@ -31,6 +31,7 @@ import { Subscription } from 'rxjs';
 import {
   MemberClubApiClient,
   MemberClubApiError,
+  MemberClubSelfSummary,
   MemberClubSessionResponse
 } from '../../core/services/member-club-api.client';
 import { buildBellaMujerWhatsAppUrl } from '../../core/constants/contact.constants';
@@ -79,8 +80,9 @@ export class MemberClubAccessComponent implements OnInit {
   protected readonly hasInvalidActivation = signal(false);
   protected readonly needsPrivateLink = signal(false);
   protected readonly isSubmitting = signal(false);
-  protected readonly isCheckingSession = signal(false);
-  protected readonly hasSessionVerificationError = signal(false);
+  protected readonly isLoadingSummary = signal(false);
+  protected readonly hasSummaryLoadError = signal(false);
+  protected readonly memberSummary = signal<MemberClubSelfSummary | null>(null);
   protected readonly errorMessage = signal('');
   protected readonly loginRetryAfterSeconds = signal(0);
   protected readonly hasUsableLink = computed(() => this.accessHandle().length > 0);
@@ -160,8 +162,8 @@ export class MemberClubAccessComponent implements OnInit {
     });
   }
 
-  protected retrySessionProbe(): void {
-    this.probeSession();
+  protected retrySummary(): void {
+    this.loadSummary();
   }
 
   protected logout(): void {
@@ -202,6 +204,14 @@ export class MemberClubAccessComponent implements OnInit {
       this.pendingActivationScrubAccess = undefined;
       return;
     }
+    if (
+      !this.activationRoute &&
+      hasValidAccess &&
+      access === this.accessHandle() &&
+      this.isLoadingSummary()
+    ) {
+      return;
+    }
 
     this.pendingActivationScrubAccess = undefined;
     this.activeRequest?.unsubscribe();
@@ -212,8 +222,9 @@ export class MemberClubAccessComponent implements OnInit {
     this.hasInvalidActivation.set(false);
     this.needsPrivateLink.set(false);
     this.isSubmitting.set(false);
-    this.isCheckingSession.set(false);
-    this.hasSessionVerificationError.set(false);
+    this.isLoadingSummary.set(false);
+    this.hasSummaryLoadError.set(false);
+    this.memberSummary.set(null);
     this.errorMessage.set('');
     this.enrollmentForm.reset();
     this.loginForm.reset();
@@ -247,7 +258,7 @@ export class MemberClubAccessComponent implements OnInit {
       this.hasInvalidActivation.set(true);
       return;
     }
-    this.probeSession();
+    this.loadSummary();
   }
 
   private scrubActivationInvitation(access: string | null): void {
@@ -267,33 +278,40 @@ export class MemberClubAccessComponent implements OnInit {
     });
   }
 
-  private probeSession(): void {
+  private loadSummary(): void {
     const token = this.session.token();
     if (!token) {
-      this.isCheckingSession.set(false);
-      this.hasSessionVerificationError.set(false);
+      this.isLoadingSummary.set(false);
+      this.hasSummaryLoadError.set(false);
+      this.memberSummary.set(null);
       return;
     }
     if (this.session.isExpired()) {
       this.session.clear();
-      this.isCheckingSession.set(false);
+      this.memberSummary.set(null);
+      this.isLoadingSummary.set(false);
       return;
     }
+    if (this.isLoadingSummary()) return;
 
     this.errorMessage.set('');
-    this.hasSessionVerificationError.set(false);
-    this.isCheckingSession.set(true);
-    this.activeRequest = this.api.checkSession(token).subscribe({
-      next: () => this.isCheckingSession.set(false),
+    this.hasSummaryLoadError.set(false);
+    this.memberSummary.set(null);
+    this.isLoadingSummary.set(true);
+    this.activeRequest = this.api.getSelfSummary(token).subscribe({
+      next: (summary) => {
+        this.memberSummary.set(summary);
+        this.isLoadingSummary.set(false);
+      },
       error: (error: unknown) => {
-        this.isCheckingSession.set(false);
+        this.isLoadingSummary.set(false);
         if (error instanceof MemberClubApiError && error.kind === 'authentication') {
           this.session.clear();
+          this.memberSummary.set(null);
           this.errorMessage.set('Tu sesión del Club ya no está activa. Ingresa nuevamente.');
           return;
         }
-        this.hasSessionVerificationError.set(true);
-        this.errorMessage.set('No pudimos verificar tu sesión.');
+        this.hasSummaryLoadError.set(true);
       }
     });
   }
@@ -319,6 +337,7 @@ export class MemberClubAccessComponent implements OnInit {
     this.enrollmentForm.reset();
     this.loginForm.reset();
     this.isSubmitting.set(false);
+    this.loadSummary();
     void this.router.navigate(['/club'], {
       queryParams: { access: accessHandle },
       replaceUrl: true
@@ -328,6 +347,9 @@ export class MemberClubAccessComponent implements OnInit {
   private finishLogout(): void {
     this.concealNip();
     this.session.clear();
+    this.memberSummary.set(null);
+    this.hasSummaryLoadError.set(false);
+    this.isLoadingSummary.set(false);
     this.isSubmitting.set(false);
   }
 

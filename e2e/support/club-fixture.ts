@@ -3,6 +3,11 @@ import type { Page, Route } from '@playwright/test';
 const FIXTURE_API_PATH = '/__club_fixture__';
 const CLIENT_ID = 'clienta-ejemplo-a';
 const FIXTURE_TOKEN = 'playwright-club-fixture-token';
+export const memberClubFixture = {
+  access: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+  session: 'BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc',
+  summary: { profile: { name: 'Mariana Prueba' }, loyalty: { stampCount: 3 } }
+} as const;
 
 export const configuredClubClient = {
   studioId: 'studio-fixture',
@@ -174,5 +179,58 @@ export async function installConfiguredClubFixture(page: Page): Promise<void> {
     }
 
     await json(route, { message: `Unexpected Club fixture request: ${method} ${path}` }, 404);
+  });
+}
+
+export async function installMemberClubFixture(
+  page: Page,
+  options: { failFirstSummary?: 'authentication' | 'server' } = {}
+): Promise<void> {
+  await page.route('**/*.js', async (route) => {
+    const response = await route.fetch();
+    const body = await response.text();
+    if (!body.includes('bellaMujerApiBaseUrl: ""')) {
+      await route.fulfill({ response });
+      return;
+    }
+    await route.fulfill({
+      response,
+      body: body.replace(
+        'bellaMujerApiBaseUrl: ""',
+        `bellaMujerApiBaseUrl: "${FIXTURE_API_PATH}"`
+      )
+    });
+  });
+
+  let summaryAttempts = 0;
+  await page.route(`**${FIXTURE_API_PATH}/club/**`, async (route) => {
+    const path = new URL(route.request().url()).pathname.slice(FIXTURE_API_PATH.length);
+    if (path === '/club/access/login' && route.request().method() === 'POST') {
+      await json(route, {
+        session: {
+          token: memberClubFixture.session,
+          expiresAtISO: new Date(Date.now() + 60 * 60 * 1000).toISOString()
+        }
+      });
+      return;
+    }
+    if (path === '/club/me' && route.request().method() === 'GET') {
+      summaryAttempts += 1;
+      if (summaryAttempts === 1 && options.failFirstSummary === 'authentication') {
+        await json(route, { error: 'CLUB_ACCESS_AUTHENTICATION_FAILED' }, 401);
+        return;
+      }
+      if (summaryAttempts === 1 && options.failFirstSummary === 'server') {
+        await json(route, { error: 'private detail' }, 500);
+        return;
+      }
+      await json(route, memberClubFixture.summary);
+      return;
+    }
+    if (path === '/club/access/logout' && route.request().method() === 'POST') {
+      await route.fulfill({ status: 204 });
+      return;
+    }
+    await json(route, { error: `Unexpected member fixture request: ${path}` }, 404);
   });
 }
