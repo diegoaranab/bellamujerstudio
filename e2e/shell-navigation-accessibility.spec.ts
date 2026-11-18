@@ -31,6 +31,39 @@ async function expectNoHorizontalOverflow(page: Page): Promise<void> {
   expect(hasOverflow).toBe(false);
 }
 
+async function expectFocusedElementHasNoOutline(page: Page): Promise<void> {
+  const outline = await page.evaluate(() => {
+    const focused = document.activeElement;
+    if (!(focused instanceof HTMLElement)) return null;
+
+    const styles = getComputedStyle(focused);
+    return {
+      style: styles.outlineStyle,
+      width: styles.outlineWidth
+    };
+  });
+
+  expect(outline).not.toBeNull();
+  expect(outline?.style === 'none' || outline?.width === '0px').toBe(true);
+}
+
+async function expectFocusedElementHasVisibleOutline(page: Page): Promise<void> {
+  const outline = await page.evaluate(() => {
+    const focused = document.activeElement;
+    if (!(focused instanceof HTMLElement)) return null;
+
+    const styles = getComputedStyle(focused);
+    return {
+      style: styles.outlineStyle,
+      width: styles.outlineWidth
+    };
+  });
+
+  expect(outline).not.toBeNull();
+  expect(outline?.style).not.toBe('none');
+  expect(outline?.width).not.toBe('0px');
+}
+
 test('public skip control preserves the hash route and focuses its main region', async ({ page }) => {
   await page.goto('/#/servicios');
   const skip = page.getByTestId('public-skip-link');
@@ -42,6 +75,7 @@ test('public skip control preserves the hash route and focuses its main region',
 
   await expect(page).toHaveURL(/#\/servicios$/);
   await expect(page.getByRole('main')).toBeFocused();
+  await expectFocusedElementHasNoOutline(page);
 });
 
 test('public route changes focus the new heading without changing history navigation', async ({ page }) => {
@@ -50,6 +84,7 @@ test('public route changes focus the new heading without changing history naviga
 
   await page.getByTestId('public-nav-services-link').click();
   await expect(page.getByRole('heading', { level: 1, name: /servicios de belleza/i })).toBeFocused();
+  await expectFocusedElementHasNoOutline(page);
 
   await page.goBack();
   await expect(page.getByRole('heading', { level: 1, name: /belleza cuidada/i })).toBeFocused();
@@ -72,13 +107,22 @@ test('desktop admin sidebar exposes one current page and its skip control focuse
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/#\/admin\/inicio$/);
   await expect(page.getByRole('main')).toBeFocused();
+  await expectFocusedElementHasNoOutline(page);
 
   await sidebar.getByRole('link', { name: 'Tarjetas regalo' }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'Tarjetas regalo' })).toBeFocused();
+  await expectFocusedElementHasNoOutline(page);
   await expect(sidebar.getByRole('link', { name: 'Tarjetas regalo' })).toHaveAttribute(
     'aria-current',
     'page'
   );
+});
+
+test('keyboard focus remains visibly indicated on an interactive public control', async ({ page }) => {
+  await page.goto('/#/');
+  await page.keyboard.press('Tab');
+  await expect(page.getByTestId('public-skip-link')).toBeFocused();
+  await expectFocusedElementHasVisibleOutline(page);
 });
 
 test('mobile fixed shell controls do not cover keyboard-focused content', async ({ page }) => {
