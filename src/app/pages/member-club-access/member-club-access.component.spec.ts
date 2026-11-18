@@ -71,6 +71,10 @@ describe('MemberClubAccessComponent', () => {
     return { session: { token: SESSION_TOKEN, expiresAtISO: futureISO() } };
   }
 
+  function sessionResponseFor(token: string): MemberClubSessionResponse {
+    return { session: { token, expiresAtISO: futureISO() } };
+  }
+
   function memberSummary(stampCount = 3): MemberClubSelfSummary {
     return { profile: { name: 'Mariana Prueba' }, loyalty: { stampCount } };
   }
@@ -644,6 +648,49 @@ describe('MemberClubAccessComponent', () => {
 
     expect(api.logout).toHaveBeenCalledWith(SESSION_TOKEN);
     expect(TestBed.inject(MemberClubSessionService).token()).toBeNull();
+  });
+
+  it('does not let a stale successful logout clear a replacement session', async () => {
+    await configure({ access: ACCESS_A }, 'club');
+    const pendingLogout = new Subject<void>();
+    api.logout.mockReturnValue(pendingLogout);
+    api.getSelfSummary.mockReturnValueOnce(of(memberSummary(3))).mockReturnValueOnce(of(memberSummary(8)));
+    const session = TestBed.inject(MemberClubSessionService);
+    session.establish(sessionResponse().session);
+    const fixture = TestBed.createComponent(MemberClubAccessComponent);
+    fixture.detectChanges();
+
+    (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('[data-testid="member-logout"]')!.click();
+    session.clear();
+    session.establish(sessionResponseFor(ACCESS_B).session);
+    fixture.detectChanges();
+    pendingLogout.next();
+    fixture.detectChanges();
+
+    expect(session.token()).toBe(ACCESS_B);
+    expect(fixture.nativeElement.textContent).toContain('8 sellos');
+  });
+
+  it('ignores a stale authentication-error logout callback', async () => {
+    await configure({ access: ACCESS_A }, 'club');
+    const pendingLogout = new Subject<void>();
+    api.logout.mockReturnValue(pendingLogout);
+    api.getSelfSummary.mockReturnValueOnce(of(memberSummary(3))).mockReturnValueOnce(of(memberSummary(8)));
+    const session = TestBed.inject(MemberClubSessionService);
+    session.establish(sessionResponse().session);
+    const fixture = TestBed.createComponent(MemberClubAccessComponent);
+    fixture.detectChanges();
+
+    (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('[data-testid="member-logout"]')!.click();
+    session.clear();
+    session.establish(sessionResponseFor(ACCESS_B).session);
+    fixture.detectChanges();
+    pendingLogout.error(new MemberClubApiError('authentication', 'stale'));
+    fixture.detectChanges();
+
+    expect(session.token()).toBe(ACCESS_B);
+    expect(fixture.nativeElement.textContent).toContain('8 sellos');
+    expect(fixture.nativeElement.textContent).not.toContain('Tu sesión del Club ya no está activa. Ingresa nuevamente.');
   });
 
   it('conceals the login NIP after a successful session and logout transition', async () => {

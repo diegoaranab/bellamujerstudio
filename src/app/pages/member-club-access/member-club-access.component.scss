@@ -100,7 +100,7 @@ form > button, .access-state > :is(button, a) { min-height: 48px; }
 
 footer { display: flex; gap: 0.5rem; border-top: 1px solid var(--bm-border-subtle); padding-top: 1rem; color: var(--bm-text-muted); }
 
-@media (max-width: 700px) {
+@media (max-width: 760px) {
   .member-home { min-height: 0; grid-template: 'recognition' auto 'progress' auto 'utility' auto / minmax(0, 1fr); gap: var(--bm-space-6); }
   .member-progress { min-height: 310px; padding: var(--bm-space-8) var(--bm-space-6); }
 }

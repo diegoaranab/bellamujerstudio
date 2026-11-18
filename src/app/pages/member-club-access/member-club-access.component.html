@@ -186,7 +186,11 @@
             </p>
             <p class="member-home__welcome">Qué gusto verte.</p>
           </div>
-          <div class="member-progress" aria-labelledby="member-stamp-heading member-stamp-total">
+          <div
+            class="member-progress"
+            aria-labelledby="member-stamp-heading member-stamp-total"
+            data-testid="member-progress"
+          >
             <h2 id="member-stamp-heading">Tus sellos</h2>
             <span class="member-progress__count" aria-hidden="true">{{ summary.loyalty.stampCount }}</span>
             <p id="member-stamp-total" class="member-progress__total">

@@ -253,3 +253,59 @@ test('mobile authenticated member home has no horizontal overflow', async ({ pag
   await expect(page.getByTestId('member-logout')).toBeVisible();
   await expectNoHorizontalOverflow(page);
 });
+
+test('authenticated member home stays contained at 720px with enlarged text', async ({ page }) => {
+  await page.setViewportSize({ width: 720, height: 900 });
+  await installMemberClubFixture(page);
+  await signIntoMemberClub(page);
+  await page.addStyleTag({ content: 'html { font-size: 200%; }' });
+
+  await expect(page.getByTestId('member-club-home')).toBeVisible();
+  await expect(page.getByRole('heading', { level: 2, name: 'Tus sellos' })).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+
+  const progress = page.getByTestId('member-progress');
+  await expect(progress).toBeVisible();
+  const bounds = await progress.boundingBox();
+  expect(bounds).not.toBeNull();
+  expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(720);
+  await expect(page.getByTestId('member-logout')).toBeVisible();
+});
+
+test('captures the final Phase 6B member visual evidence', async ({ page }) => {
+  const evidenceDir = 'test-results/phase6b/screenshots';
+  const views = [
+    { name: 'authenticated-390.png', width: 390, height: 844 },
+    { name: 'authenticated-390-text-200.png', width: 390, height: 900, textScale: true },
+    { name: 'authenticated-720-text-200.png', width: 720, height: 900, textScale: true },
+    { name: 'authenticated-820.png', width: 820, height: 1180 },
+    { name: 'authenticated-1440.png', width: 1440, height: 900 }
+  ] as const;
+
+  for (const view of views) {
+    const viewPage = await page.context().newPage();
+    await viewPage.setViewportSize({ width: view.width, height: view.height });
+    await installMemberClubFixture(viewPage);
+    await signIntoMemberClub(viewPage);
+    if (view.textScale) await viewPage.addStyleTag({ content: 'html { font-size: 200%; }' });
+    await expectNoHorizontalOverflow(viewPage);
+    await viewPage.screenshot({ path: `${evidenceDir}/${view.name}`, animations: 'disabled' });
+    await viewPage.close();
+  }
+
+  const errorPage = await page.context().newPage();
+  await errorPage.setViewportSize({ width: 390, height: 844 });
+  await installMemberClubFixture(errorPage, { failFirstSummary: 'server' });
+  await errorPage.goto(`/#/club?access=${memberClubFixture.access}`);
+  await errorPage.getByTestId('member-login-pin').fill('482731');
+  await errorPage.getByTestId('member-login-submit').click();
+  await expect(errorPage.getByTestId('member-home-load-error')).toBeVisible();
+  await errorPage.getByTestId('member-home-retry').click();
+  await expect(errorPage.getByTestId('member-club-home')).toBeVisible();
+  await expectNoHorizontalOverflow(errorPage);
+  await errorPage.screenshot({
+    path: `${evidenceDir}/transient-error-retry-390.png`,
+    animations: 'disabled'
+  });
+  await errorPage.close();
+});

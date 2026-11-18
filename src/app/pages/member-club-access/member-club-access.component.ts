@@ -188,8 +188,12 @@ export class MemberClubAccessComponent implements OnInit {
     this.errorMessage.set('');
     this.isSubmitting.set(true);
     this.activeRequest = this.api.logout(token).subscribe({
-      next: () => this.finishLogout(),
+      next: () => {
+        if (!this.isCurrentLogout(token)) return;
+        this.finishLogout();
+      },
       error: (error: unknown) => {
+        if (!this.isCurrentLogout(token)) return;
         if (error instanceof MemberClubApiError && error.kind === 'authentication') {
           this.finishLogout();
           this.errorMessage.set('Tu sesión del Club ya no está activa. Ingresa nuevamente.');
@@ -384,6 +388,10 @@ export class MemberClubAccessComponent implements OnInit {
 
   private isCurrentSummaryRequest(token: string): boolean {
     return this.summaryRequestToken === token && this.session.token() === token;
+  }
+
+  private isCurrentLogout(token: string): boolean {
+    return this.session.token() === token;
   }
 
   private clearSummaryState(): void {
