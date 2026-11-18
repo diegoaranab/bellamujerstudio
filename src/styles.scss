@@ -43,10 +43,9 @@ main[data-navigation-focus-main] {
   scroll-margin-top: 6rem;
 }
 
-.route-focus-target:focus-visible,
-main[data-navigation-focus-main]:focus-visible {
-  outline: 3px solid var(--bm-focus-ring);
-  outline-offset: 4px;
+.route-focus-target:focus,
+main[data-navigation-focus-main]:focus {
+  outline: none;
 }
 
 :is(.bm-inverse, .bm-on-brand) :focus-visible {
