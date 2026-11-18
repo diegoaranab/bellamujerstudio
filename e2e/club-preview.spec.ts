@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { installMemberClubFixture, memberClubFixture } from './support/club-fixture';
 
 const MEMBER_ACCESS = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
 const MEMBER_INVITATION = 'AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE';
@@ -12,6 +13,13 @@ async function expectNoHorizontalOverflow(page: Page): Promise<void> {
 
   expect(widths.body).toBeLessThanOrEqual(widths.viewport);
   expect(widths.document).toBeLessThanOrEqual(widths.viewport);
+}
+
+async function signIntoMemberClub(page: Page): Promise<void> {
+  await page.goto(`/#/club?access=${memberClubFixture.access}`);
+  await page.getByTestId('member-login-pin').fill('482731');
+  await page.getByTestId('member-login-submit').click();
+  await expect(page.getByTestId('member-club-home')).toBeVisible();
 }
 
 test('desktop Club administration renders its safe local configuration state', async ({ page }) => {
@@ -189,4 +197,115 @@ test('member invalid forms focus the field that needs correction without request
   await page.getByTestId('member-login-submit').click();
   await expect(page.getByTestId('member-login-pin')).toBeFocused();
   await expect(page.getByText('Ingresa exactamente seis dígitos.')).toBeVisible();
+});
+
+test('authenticated member home renders only the mocked name and real stamp count', async ({ page }) => {
+  await installMemberClubFixture(page);
+  await signIntoMemberClub(page);
+
+  await expect(page.getByTestId('member-club-home')).toContainText('Hola, Mariana Prueba');
+  await expect(page.getByTestId('member-club-home')).toContainText('3 sellos');
+  await expect(page.getByRole('heading', { level: 1, name: 'Mi Club' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 2, name: 'Tus sellos' })).toBeVisible();
+  await expect(page.getByTestId('member-earned-stamps')).toHaveAttribute('aria-hidden', 'true');
+  await expect(page.getByTestId('member-earned-stamps').locator('.member-progress__seal')).toHaveCount(3);
+  await expect(page.getByTestId('member-club-home')).not.toContainText(/3 de 4|recompensa|historial|mi qr/i);
+  await expect(page.getByTestId('member-club-home')).not.toContainText('Sesión válida hasta');
+  await expect(page.getByTestId('member-logout')).toBeVisible();
+  await expect(page.evaluate(() => [localStorage.length, sessionStorage.length])).resolves.toEqual([0, 0]);
+});
+
+test('member home recovers from a transient summary failure without losing its memory-only session', async ({
+  page
+}) => {
+  await installMemberClubFixture(page, { failFirstSummary: 'server' });
+  await page.goto(`/#/club?access=${memberClubFixture.access}`);
+  await page.getByTestId('member-login-pin').fill('482731');
+  await page.getByTestId('member-login-submit').click();
+
+  await expect(page.getByTestId('member-home-load-error')).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Mi Club' })).toBeVisible();
+  await expect(page.getByText('Tu sesión sigue activa.')).toBeVisible();
+  await page.getByTestId('member-home-retry').focus();
+  await expect(page.getByTestId('member-home-retry')).toBeFocused();
+  await page.getByTestId('member-home-retry').click();
+  await expect(page.getByTestId('member-club-home')).toBeVisible();
+});
+
+test('member authentication failure and logout return to login', async ({ page }) => {
+  await installMemberClubFixture(page, { failFirstSummary: 'authentication' });
+  await page.goto(`/#/club?access=${memberClubFixture.access}`);
+  await page.getByTestId('member-login-pin').fill('482731');
+  await page.getByTestId('member-login-submit').click();
+  await expect(page.getByTestId('member-login')).toBeVisible();
+
+  await signIntoMemberClub(page);
+  await page.getByTestId('member-logout').click();
+  await expect(page.getByTestId('member-login')).toBeVisible();
+});
+
+test('mobile authenticated member home has no horizontal overflow', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await installMemberClubFixture(page);
+  await signIntoMemberClub(page);
+  await expectNoHorizontalOverflow(page);
+  await page.addStyleTag({ content: 'html { font-size: 200%; }' });
+  await expect(page.getByTestId('member-logout')).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+});
+
+test('authenticated member home stays contained at 720px with enlarged text', async ({ page }) => {
+  await page.setViewportSize({ width: 720, height: 900 });
+  await installMemberClubFixture(page);
+  await signIntoMemberClub(page);
+  await page.addStyleTag({ content: 'html { font-size: 200%; }' });
+
+  await expect(page.getByTestId('member-club-home')).toBeVisible();
+  await expect(page.getByRole('heading', { level: 2, name: 'Tus sellos' })).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+
+  const progress = page.getByTestId('member-progress');
+  await expect(progress).toBeVisible();
+  const bounds = await progress.boundingBox();
+  expect(bounds).not.toBeNull();
+  expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(720);
+  await expect(page.getByTestId('member-logout')).toBeVisible();
+});
+
+test('captures the final Phase 6B member visual evidence', async ({ page }) => {
+  const evidenceDir = 'test-results/phase6b/screenshots';
+  const views = [
+    { name: 'authenticated-390.png', width: 390, height: 844 },
+    { name: 'authenticated-390-text-200.png', width: 390, height: 900, textScale: true },
+    { name: 'authenticated-720-text-200.png', width: 720, height: 900, textScale: true },
+    { name: 'authenticated-820.png', width: 820, height: 1180 },
+    { name: 'authenticated-1440.png', width: 1440, height: 900 }
+  ] as const;
+
+  for (const view of views) {
+    const viewPage = await page.context().newPage();
+    await viewPage.setViewportSize({ width: view.width, height: view.height });
+    await installMemberClubFixture(viewPage);
+    await signIntoMemberClub(viewPage);
+    if (view.textScale) await viewPage.addStyleTag({ content: 'html { font-size: 200%; }' });
+    await expectNoHorizontalOverflow(viewPage);
+    await viewPage.screenshot({ path: `${evidenceDir}/${view.name}`, animations: 'disabled' });
+    await viewPage.close();
+  }
+
+  const errorPage = await page.context().newPage();
+  await errorPage.setViewportSize({ width: 390, height: 844 });
+  await installMemberClubFixture(errorPage, { failFirstSummary: 'server' });
+  await errorPage.goto(`/#/club?access=${memberClubFixture.access}`);
+  await errorPage.getByTestId('member-login-pin').fill('482731');
+  await errorPage.getByTestId('member-login-submit').click();
+  await expect(errorPage.getByTestId('member-home-load-error')).toBeVisible();
+  await errorPage.getByTestId('member-home-retry').click();
+  await expect(errorPage.getByTestId('member-club-home')).toBeVisible();
+  await expectNoHorizontalOverflow(errorPage);
+  await errorPage.screenshot({
+    path: `${evidenceDir}/transient-error-retry-390.png`,
+    animations: 'disabled'
+  });
+  await errorPage.close();
 });

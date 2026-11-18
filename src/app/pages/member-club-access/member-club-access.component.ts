@@ -1,4 +1,3 @@
-import { DatePipe } from '@angular/common';
 import {
   Component,
   DestroyRef,
@@ -7,6 +6,7 @@ import {
   OnInit,
   afterNextRender,
   computed,
+  effect,
   inject,
   signal
 } from '@angular/core';
@@ -31,6 +31,7 @@ import { Subscription } from 'rxjs';
 import {
   MemberClubApiClient,
   MemberClubApiError,
+  MemberClubSelfSummary,
   MemberClubSessionResponse
 } from '../../core/services/member-club-api.client';
 import { buildBellaMujerWhatsAppUrl } from '../../core/constants/contact.constants';
@@ -48,7 +49,6 @@ const matchingPinsValidator: ValidatorFn = (
 @Component({
   selector: 'app-member-club-access',
   imports: [
-    DatePipe,
     ReactiveFormsModule,
     MatButtonModule,
     MatCardModule,
@@ -72,6 +72,9 @@ export class MemberClubAccessComponent implements OnInit {
   private invitationToken: string | null = null;
   private pendingActivationScrubAccess: string | null | undefined;
   private activeRequest: Subscription | null = null;
+  private summaryRequest: Subscription | null = null;
+  private summaryRequestToken: string | null = null;
+  private observedSessionToken: string | null | undefined = undefined;
   private throttleTimer: ReturnType<typeof setInterval> | null = null;
 
   protected readonly accessHandle = signal('');
@@ -79,8 +82,16 @@ export class MemberClubAccessComponent implements OnInit {
   protected readonly hasInvalidActivation = signal(false);
   protected readonly needsPrivateLink = signal(false);
   protected readonly isSubmitting = signal(false);
-  protected readonly isCheckingSession = signal(false);
-  protected readonly hasSessionVerificationError = signal(false);
+  protected readonly isLoadingSummary = signal(false);
+  protected readonly hasSummaryLoadError = signal(false);
+  protected readonly memberSummary = signal<MemberClubSelfSummary | null>(null);
+  protected readonly earnedStampMarkers = computed(() => {
+    const stampCount = this.memberSummary()?.loyalty.stampCount ?? 0;
+    return Array.from({ length: Math.min(stampCount, 8) });
+  });
+  protected readonly earnedStampOverflow = computed(() =>
+    Math.max((this.memberSummary()?.loyalty.stampCount ?? 0) - 8, 0)
+  );
   protected readonly errorMessage = signal('');
   protected readonly loginRetryAfterSeconds = signal(0);
   protected readonly hasUsableLink = computed(() => this.accessHandle().length > 0);
@@ -111,8 +122,13 @@ export class MemberClubAccessComponent implements OnInit {
   });
 
   constructor() {
+    effect(
+      () => this.handleSessionTransition(this.session.token()),
+      { injector: this.injector }
+    );
     this.destroyRef.onDestroy(() => {
       this.activeRequest?.unsubscribe();
+      this.summaryRequest?.unsubscribe();
       this.resetLoginThrottle();
     });
   }
@@ -160,8 +176,8 @@ export class MemberClubAccessComponent implements OnInit {
     });
   }
 
-  protected retrySessionProbe(): void {
-    this.probeSession();
+  protected retrySummary(): void {
+    this.loadSummary();
   }
 
   protected logout(): void {
@@ -172,8 +188,12 @@ export class MemberClubAccessComponent implements OnInit {
     this.errorMessage.set('');
     this.isSubmitting.set(true);
     this.activeRequest = this.api.logout(token).subscribe({
-      next: () => this.finishLogout(),
+      next: () => {
+        if (!this.isCurrentLogout(token)) return;
+        this.finishLogout();
+      },
       error: (error: unknown) => {
+        if (!this.isCurrentLogout(token)) return;
         if (error instanceof MemberClubApiError && error.kind === 'authentication') {
           this.finishLogout();
           this.errorMessage.set('Tu sesión del Club ya no está activa. Ingresa nuevamente.');
@@ -202,18 +222,28 @@ export class MemberClubAccessComponent implements OnInit {
       this.pendingActivationScrubAccess = undefined;
       return;
     }
+    if (!this.activationRoute && params.has('invite')) {
+      void this.scrubInvitation('/club', hasValidAccess ? access : null);
+    }
+    if (
+      !this.activationRoute &&
+      hasValidAccess &&
+      access === this.accessHandle() &&
+      this.isLoadingSummary()
+    ) {
+      return;
+    }
 
     this.pendingActivationScrubAccess = undefined;
     this.activeRequest?.unsubscribe();
     this.activeRequest = null;
+    this.clearSummaryState();
     this.resetLoginThrottle();
     this.invitationToken = null;
     this.isEnrollment.set(false);
     this.hasInvalidActivation.set(false);
     this.needsPrivateLink.set(false);
     this.isSubmitting.set(false);
-    this.isCheckingSession.set(false);
-    this.hasSessionVerificationError.set(false);
     this.errorMessage.set('');
     this.enrollmentForm.reset();
     this.loginForm.reset();
@@ -242,12 +272,11 @@ export class MemberClubAccessComponent implements OnInit {
       return;
     }
 
-    if (params.has('invite')) this.scrubInvitation('/club', hasValidAccess ? access : null);
     if (!hasValidAccess) {
       this.hasInvalidActivation.set(true);
       return;
     }
-    this.probeSession();
+    this.loadSummary();
   }
 
   private scrubActivationInvitation(access: string | null): void {
@@ -267,33 +296,41 @@ export class MemberClubAccessComponent implements OnInit {
     });
   }
 
-  private probeSession(): void {
+  private loadSummary(): void {
     const token = this.session.token();
     if (!token) {
-      this.isCheckingSession.set(false);
-      this.hasSessionVerificationError.set(false);
+      this.clearSummaryState();
       return;
     }
     if (this.session.isExpired()) {
       this.session.clear();
-      this.isCheckingSession.set(false);
       return;
     }
+    if (this.isLoadingSummary()) return;
 
     this.errorMessage.set('');
-    this.hasSessionVerificationError.set(false);
-    this.isCheckingSession.set(true);
-    this.activeRequest = this.api.checkSession(token).subscribe({
-      next: () => this.isCheckingSession.set(false),
+    this.hasSummaryLoadError.set(false);
+    this.memberSummary.set(null);
+    this.isLoadingSummary.set(true);
+    this.summaryRequestToken = token;
+    this.summaryRequest = this.api.getSelfSummary(token).subscribe({
+      next: (summary) => {
+        if (!this.isCurrentSummaryRequest(token)) return;
+        this.memberSummary.set(summary);
+        this.isLoadingSummary.set(false);
+        this.summaryRequest = null;
+      },
       error: (error: unknown) => {
-        this.isCheckingSession.set(false);
+        if (!this.isCurrentSummaryRequest(token)) return;
+        this.isLoadingSummary.set(false);
+        this.summaryRequest = null;
         if (error instanceof MemberClubApiError && error.kind === 'authentication') {
           this.session.clear();
+          this.memberSummary.set(null);
           this.errorMessage.set('Tu sesión del Club ya no está activa. Ingresa nuevamente.');
           return;
         }
-        this.hasSessionVerificationError.set(true);
-        this.errorMessage.set('No pudimos verificar tu sesión.');
+        this.hasSummaryLoadError.set(true);
       }
     });
   }
@@ -319,6 +356,7 @@ export class MemberClubAccessComponent implements OnInit {
     this.enrollmentForm.reset();
     this.loginForm.reset();
     this.isSubmitting.set(false);
+    this.loadSummary();
     void this.router.navigate(['/club'], {
       queryParams: { access: accessHandle },
       replaceUrl: true
@@ -329,6 +367,40 @@ export class MemberClubAccessComponent implements OnInit {
     this.concealNip();
     this.session.clear();
     this.isSubmitting.set(false);
+  }
+
+  private handleSessionTransition(token: string | null): void {
+    const previousToken = this.observedSessionToken;
+    if (previousToken === token) return;
+    this.observedSessionToken = token;
+
+    if (!token) {
+      this.clearSummaryState();
+      this.isSubmitting.set(false);
+      return;
+    }
+
+    if (previousToken && previousToken !== token) {
+      this.clearSummaryState();
+      if (this.hasUsableLink() && !this.activationRoute) this.loadSummary();
+    }
+  }
+
+  private isCurrentSummaryRequest(token: string): boolean {
+    return this.summaryRequestToken === token && this.session.token() === token;
+  }
+
+  private isCurrentLogout(token: string): boolean {
+    return this.session.token() === token;
+  }
+
+  private clearSummaryState(): void {
+    this.summaryRequest?.unsubscribe();
+    this.summaryRequest = null;
+    this.summaryRequestToken = null;
+    this.memberSummary.set(null);
+    this.isLoadingSummary.set(false);
+    this.hasSummaryLoadError.set(false);
   }
 
   private concealNip(): void {
