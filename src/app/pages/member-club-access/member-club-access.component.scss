@@ -25,28 +25,20 @@
 }
 
 .brand-identity {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  align-items: center;
-  gap: var(--bm-space-2);
+  position: relative;
+  width: min(100%, 224px);
+  aspect-ratio: 1106 / 917;
   margin-bottom: var(--bm-space-6);
-  color: var(--bm-text-secondary);
-  font-size: 0.78rem;
-  font-weight: 600;
+  overflow: hidden;
 }
 
-.brand-mark {
-  width: 32px;
-  height: 32px;
-  display: grid;
-  place-items: center;
-  border: 1px solid var(--bm-border-standard);
-  border-radius: 50%;
-  color: var(--bm-on-brand-soft);
-  background: var(--bm-surface-subtle);
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
+.brand-identity img {
+  position: absolute;
+  top: -30%;
+  left: -20.34%;
+  width: 141.32%;
+  max-width: none;
+  height: auto;
 }
 
 mat-card-header {

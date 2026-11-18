@@ -253,19 +253,26 @@ loaded font files; synthetic 700/800 weights are not accepted.
 
 ## 8. Identity and `BM` mark treatment
 
-**LOCKED — `BM` is a utility monogram, not an approved Bella Mujer logo.**
+**OFFICIAL LOGO ADOPTED — 2026-11-17.**
 
-Until an official identity asset is approved:
+The identity status has changed since this direction was first approved. The user-supplied
+`public/brand/bella-mujer-logo-master.png` is now the approved Bella Mujer Studio identity master.
 
-- pair the monogram with the visible name `Bella Mujer Studio` where identity or trust matters;
-- use it as a compact avatar, app tile, or utility fallback, not as a decorative seal;
-- do not enlarge it into a hero, stamp it repeatedly, or derive a loyalty mark from its current tile;
-- keep accessible names on links/controls independent from the letters in the tile; and
-- let real-work photography and plain brand copy carry public/member recognition.
+**LOCKED — official identity usage:**
 
-Phase 6 is not blocked by a final logo. Stamp progress can launch with neutral, accessible achieved and
-pending forms plus a textual count. Replacing those forms with an official mark is a separate approved
-asset project. No final logo, stamp illustration, or pseudo-official mark may be generated inside Phase 5F3.
+- preserve the master artwork, original proportions, transparency, and color;
+- prefer the full official logo where identity and trust have enough physical space for the complete
+  lockup to remain legible;
+- permit `BM` only as a compact utility fallback where the full lockup becomes illegible or would
+  materially inflate operational navigation chrome;
+- pair a retained `BM` utility treatment with visible `Bella Mujer Studio` copy where identity matters,
+  and never represent `BM` as the official logo;
+- do not derive a loyalty stamp, decorative seal, pseudo-mark, or other unofficial identity from the
+  official logo or the utility monogram; and
+- keep favicon and tiny app-icon work separate unless an approved compact official mark exists.
+
+Phase 6 remains outside this identity-asset slice. Stamp progress may use neutral, accessible achieved
+and pending forms plus a textual count, but it must not turn the official logo into a loyalty stamp.
 
 ## 9. Accessibility baseline
 

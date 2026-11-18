@@ -83,6 +83,20 @@ describe('MemberClubAccessComponent', () => {
     expect(routes.some((route) => route.path === 'club' && route.loadComponent)).toBe(true);
   });
 
+  it('renders the approved official logo with a stable relative asset path and accessible name', async () => {
+    await configure({});
+    const fixture = TestBed.createComponent(MemberClubAccessComponent);
+    fixture.detectChanges();
+
+    const logo = fixture.nativeElement.querySelector(
+      '[data-testid="member-access-official-logo"]'
+    ) as HTMLImageElement | null;
+    expect(logo?.getAttribute('src')).toBe('brand/bella-mujer-logo-master.png');
+    expect(logo?.getAttribute('alt')).toBe('Bella Mujer Studio');
+    expect(logo?.getAttribute('width')).toBe('1563');
+    expect(logo?.getAttribute('height')).toBe('1563');
+  });
+
   it('captures a canonical invitation and immediately scrubs it from the activation route', async () => {
     await configure({ access: ACCESS_A, invite: INVITE_A });
     const fixture = TestBed.createComponent(MemberClubAccessComponent);
