@@ -84,8 +84,8 @@ describe('Club infrastructure', () => {
       template.findResources('AWS::ApiGatewayV2::Authorizer')
     ).find(([, resource]) => resource.Properties.AuthorizerType === 'JWT')!;
 
-    expect(functions).toHaveLength(13);
-    expect(routes).toHaveLength(17);
+    expect(functions).toHaveLength(14);
+    expect(routes).toHaveLength(18);
     const accessFunctions = functions.filter((lambdaFunction) =>
       lambdaFunction.Properties.Description ===
         'Manages Club member access for authenticated administrators'
@@ -268,12 +268,19 @@ describe('Club infrastructure', () => {
       resource.Properties.Description ===
         'Confirms authenticated Bella Mujer Club member sessions'
     );
+    const selfSummaryFunction = functions.find((resource) =>
+      resource.Properties.Description === 'Reads authenticated Bella Mujer Club member self summary'
+    );
     expect(authorizerFunction).toBeDefined();
     expect(probeFunction).toBeDefined();
+    expect(selfSummaryFunction).toBeDefined();
     expect(authorizerFunction!.Properties.Environment.Variables).toEqual({
       CLUB_ACCESS_TABLE_NAME: { Ref: accessLogicalId }
     });
     expect(probeFunction!.Properties.Environment).toBeUndefined();
+    expect(selfSummaryFunction!.Properties.Environment.Variables).toEqual({
+      CLUB_TABLE_NAME: { Ref: clubLogicalId }
+    });
 
     const policies = Object.values(template.findResources('AWS::IAM::Policy'));
     const statementsFor = (lambdaFunction: NonNullable<typeof authorizerFunction>) => {
@@ -289,7 +296,13 @@ describe('Club infrastructure', () => {
       Resource: [{ 'Fn::GetAtt': [accessLogicalId, 'Arn'] }]
     }]);
     const probeStatements = statementsFor(probeFunction!);
+    const selfSummaryStatements = statementsFor(selfSummaryFunction!);
     expect(probeStatements).toEqual([]);
+    expect(selfSummaryStatements).toEqual([{
+      Action: 'dynamodb:GetItem',
+      Effect: 'Allow',
+      Resource: [{ 'Fn::GetAtt': [clubLogicalId, 'Arn'] }]
+    }]);
     const serializedAuthorizationBoundary = JSON.stringify({
       authorizerStatements,
       probeStatements,
@@ -327,6 +340,11 @@ describe('Club infrastructure', () => {
       AuthorizationType: 'CUSTOM',
       AuthorizerId: { Ref: memberAuthorizerLogicalId }
     });
+    expect(routesByKey['GET /club/me']).toMatchObject({
+      AuthorizationType: 'CUSTOM',
+      AuthorizerId: { Ref: memberAuthorizerLogicalId }
+    });
+    expect(routesByKey['GET /club/me'].AuthorizationScopes).toBeUndefined();
     for (const routeKey of [
       'POST /club/access/enroll', 'POST /club/access/login', 'POST /club/access/logout'
     ]) expect(routesByKey[routeKey]).toMatchObject({ AuthorizationType: 'NONE' });

@@ -462,6 +462,27 @@ export class BellaMujerApiStack extends cdk.Stack {
       }
     );
 
+    const memberSelfSummaryFunction = new nodejs.NodejsFunction(
+      this,
+      'MemberClubSelfSummaryFunction',
+      {
+        ...sharedLambdaProps,
+        entry: 'src/handlers/member-club-self-summary.ts',
+        handler: 'handler',
+        description: 'Reads authenticated Bella Mujer Club member self summary',
+        logGroup: new logs.LogGroup(this, 'MemberClubSelfSummaryFunctionLogGroup', {
+          logGroupName: `/aws/lambda/${cdk.Stack.of(this).stackName}-member-club-self-summary`,
+          retention: logs.RetentionDays.TWO_WEEKS,
+          removalPolicy: cdk.RemovalPolicy.DESTROY
+        }),
+        environment: {
+          CLUB_TABLE_NAME: clubTable.tableName
+        }
+      }
+    );
+
+    clubTable.grant(memberSelfSummaryFunction, 'dynamodb:GetItem');
+
     const api = new apigwv2.HttpApi(this, 'BellaMujerHttpApi', {
       apiName: 'bella-mujer-api',
       corsPreflight: {
@@ -558,6 +579,16 @@ export class BellaMujerApiStack extends cdk.Stack {
       integration: new integrations.HttpLambdaIntegration(
         'MemberClubSessionIntegration',
         memberSessionFunction
+      ),
+      authorizer: memberAuthorizer
+    });
+
+    api.addRoutes({
+      path: '/club/me',
+      methods: [apigwv2.HttpMethod.GET],
+      integration: new integrations.HttpLambdaIntegration(
+        'MemberClubSelfSummaryIntegration',
+        memberSelfSummaryFunction
       ),
       authorizer: memberAuthorizer
     });
