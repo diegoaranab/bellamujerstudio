@@ -7,6 +7,7 @@ import {
   OnInit,
   afterNextRender,
   computed,
+  effect,
   inject,
   signal
 } from '@angular/core';
@@ -73,6 +74,9 @@ export class MemberClubAccessComponent implements OnInit {
   private invitationToken: string | null = null;
   private pendingActivationScrubAccess: string | null | undefined;
   private activeRequest: Subscription | null = null;
+  private summaryRequest: Subscription | null = null;
+  private summaryRequestToken: string | null = null;
+  private observedSessionToken: string | null | undefined = undefined;
   private throttleTimer: ReturnType<typeof setInterval> | null = null;
 
   protected readonly accessHandle = signal('');
@@ -113,8 +117,13 @@ export class MemberClubAccessComponent implements OnInit {
   });
 
   constructor() {
+    effect(
+      () => this.handleSessionTransition(this.session.token()),
+      { injector: this.injector }
+    );
     this.destroyRef.onDestroy(() => {
       this.activeRequest?.unsubscribe();
+      this.summaryRequest?.unsubscribe();
       this.resetLoginThrottle();
     });
   }
@@ -204,6 +213,9 @@ export class MemberClubAccessComponent implements OnInit {
       this.pendingActivationScrubAccess = undefined;
       return;
     }
+    if (!this.activationRoute && params.has('invite')) {
+      void this.scrubInvitation('/club', hasValidAccess ? access : null);
+    }
     if (
       !this.activationRoute &&
       hasValidAccess &&
@@ -216,15 +228,13 @@ export class MemberClubAccessComponent implements OnInit {
     this.pendingActivationScrubAccess = undefined;
     this.activeRequest?.unsubscribe();
     this.activeRequest = null;
+    this.clearSummaryState();
     this.resetLoginThrottle();
     this.invitationToken = null;
     this.isEnrollment.set(false);
     this.hasInvalidActivation.set(false);
     this.needsPrivateLink.set(false);
     this.isSubmitting.set(false);
-    this.isLoadingSummary.set(false);
-    this.hasSummaryLoadError.set(false);
-    this.memberSummary.set(null);
     this.errorMessage.set('');
     this.enrollmentForm.reset();
     this.loginForm.reset();
@@ -253,7 +263,6 @@ export class MemberClubAccessComponent implements OnInit {
       return;
     }
 
-    if (params.has('invite')) this.scrubInvitation('/club', hasValidAccess ? access : null);
     if (!hasValidAccess) {
       this.hasInvalidActivation.set(true);
       return;
@@ -281,15 +290,11 @@ export class MemberClubAccessComponent implements OnInit {
   private loadSummary(): void {
     const token = this.session.token();
     if (!token) {
-      this.isLoadingSummary.set(false);
-      this.hasSummaryLoadError.set(false);
-      this.memberSummary.set(null);
+      this.clearSummaryState();
       return;
     }
     if (this.session.isExpired()) {
       this.session.clear();
-      this.memberSummary.set(null);
-      this.isLoadingSummary.set(false);
       return;
     }
     if (this.isLoadingSummary()) return;
@@ -298,13 +303,18 @@ export class MemberClubAccessComponent implements OnInit {
     this.hasSummaryLoadError.set(false);
     this.memberSummary.set(null);
     this.isLoadingSummary.set(true);
-    this.activeRequest = this.api.getSelfSummary(token).subscribe({
+    this.summaryRequestToken = token;
+    this.summaryRequest = this.api.getSelfSummary(token).subscribe({
       next: (summary) => {
+        if (!this.isCurrentSummaryRequest(token)) return;
         this.memberSummary.set(summary);
         this.isLoadingSummary.set(false);
+        this.summaryRequest = null;
       },
       error: (error: unknown) => {
+        if (!this.isCurrentSummaryRequest(token)) return;
         this.isLoadingSummary.set(false);
+        this.summaryRequest = null;
         if (error instanceof MemberClubApiError && error.kind === 'authentication') {
           this.session.clear();
           this.memberSummary.set(null);
@@ -347,10 +357,37 @@ export class MemberClubAccessComponent implements OnInit {
   private finishLogout(): void {
     this.concealNip();
     this.session.clear();
-    this.memberSummary.set(null);
-    this.hasSummaryLoadError.set(false);
-    this.isLoadingSummary.set(false);
     this.isSubmitting.set(false);
+  }
+
+  private handleSessionTransition(token: string | null): void {
+    const previousToken = this.observedSessionToken;
+    if (previousToken === token) return;
+    this.observedSessionToken = token;
+
+    if (!token) {
+      this.clearSummaryState();
+      this.isSubmitting.set(false);
+      return;
+    }
+
+    if (previousToken && previousToken !== token) {
+      this.clearSummaryState();
+      if (this.hasUsableLink() && !this.activationRoute) this.loadSummary();
+    }
+  }
+
+  private isCurrentSummaryRequest(token: string): boolean {
+    return this.summaryRequestToken === token && this.session.token() === token;
+  }
+
+  private clearSummaryState(): void {
+    this.summaryRequest?.unsubscribe();
+    this.summaryRequest = null;
+    this.summaryRequestToken = null;
+    this.memberSummary.set(null);
+    this.isLoadingSummary.set(false);
+    this.hasSummaryLoadError.set(false);
   }
 
   private concealNip(): void {

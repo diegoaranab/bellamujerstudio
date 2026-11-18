@@ -358,6 +358,100 @@ describe('MemberClubAccessComponent', () => {
     expect(fixture.nativeElement.querySelector('[data-testid="member-club-home"]')).toBeTruthy();
   });
 
+  it('scrubs an invitation immediately while an identical member summary is loading', async () => {
+    await configure({ access: ACCESS_A }, 'club');
+    const pending = new Subject<MemberClubSelfSummary>();
+    api.getSelfSummary.mockReturnValue(pending);
+    TestBed.inject(MemberClubSessionService).establish(sessionResponse().session);
+    const fixture = TestBed.createComponent(MemberClubAccessComponent);
+    fixture.detectChanges();
+
+    expect(api.getSelfSummary).toHaveBeenCalledOnce();
+    queryParams.next(convertToParamMap({ access: ACCESS_A, invite: INVITE_A }));
+    fixture.detectChanges();
+
+    expect(navigate).toHaveBeenCalledWith(['/club'], {
+      queryParams: { access: ACCESS_A },
+      replaceUrl: true
+    });
+    expect(api.getSelfSummary).toHaveBeenCalledOnce();
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain(INVITE_A);
+    expect(localStorage.length).toBe(0);
+    expect(sessionStorage.length).toBe(0);
+  });
+
+  it('clears loaded member data when the member session expires', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2030-01-01T00:00:00.000Z'));
+    await configure({ access: ACCESS_A }, 'club');
+    TestBed.inject(MemberClubSessionService).establish({
+      token: SESSION_TOKEN,
+      expiresAtISO: futureISO(1000)
+    });
+    const fixture = TestBed.createComponent(MemberClubAccessComponent);
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+
+    expect(element.querySelector('[data-testid="member-club-home"]')).toBeTruthy();
+    expect(element.textContent).toContain('Mariana Prueba');
+    expect(element.textContent).toContain('3 sellos');
+
+    vi.advanceTimersByTime(1000);
+    fixture.detectChanges();
+
+    expect(TestBed.inject(MemberClubSessionService).token()).toBeNull();
+    expect(element.querySelector('[data-testid="member-club-home"]')).toBeFalsy();
+    expect(element.textContent).not.toContain('Mariana Prueba');
+    expect(element.textContent).not.toContain('3 sellos');
+    expect(element.querySelector('[data-testid="member-login"]')).toBeTruthy();
+  });
+
+  it('discards an in-flight member summary when its session expires', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2030-01-01T00:00:00.000Z'));
+    await configure({ access: ACCESS_A }, 'club');
+    const pending = new Subject<MemberClubSelfSummary>();
+    api.getSelfSummary.mockReturnValue(pending);
+    TestBed.inject(MemberClubSessionService).establish({
+      token: SESSION_TOKEN,
+      expiresAtISO: futureISO(1000)
+    });
+    const fixture = TestBed.createComponent(MemberClubAccessComponent);
+    fixture.detectChanges();
+
+    expect(api.getSelfSummary).toHaveBeenCalledOnce();
+    vi.advanceTimersByTime(1000);
+    pending.next(memberSummary());
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.querySelector('[data-testid="member-club-home"]')).toBeFalsy();
+    expect(element.textContent).not.toContain('Mariana Prueba');
+    expect(element.querySelector('[data-testid="member-login"]')).toBeTruthy();
+  });
+
+  it('does not let an old member summary overwrite a newer session', async () => {
+    await configure({ access: ACCESS_A }, 'club');
+    const first = new Subject<MemberClubSelfSummary>();
+    const second = new Subject<MemberClubSelfSummary>();
+    api.getSelfSummary.mockReturnValueOnce(first).mockReturnValueOnce(second);
+    const session = TestBed.inject(MemberClubSessionService);
+    session.establish(sessionResponse().session);
+    const fixture = TestBed.createComponent(MemberClubAccessComponent);
+    fixture.detectChanges();
+
+    session.establish({ token: ACCESS_B, expiresAtISO: futureISO() });
+    fixture.detectChanges();
+    first.next(memberSummary(3));
+    second.next(memberSummary(8));
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    expect(api.getSelfSummary).toHaveBeenCalledTimes(2);
+    expect(element.textContent).toContain('8 sellos');
+    expect(element.textContent).not.toContain('3 sellos');
+  });
+
   it('reveals and conceals the login NIP without changing its value or authentication affordances', async () => {
     await configure({ access: ACCESS_A }, 'club');
     const fixture = TestBed.createComponent(MemberClubAccessComponent);

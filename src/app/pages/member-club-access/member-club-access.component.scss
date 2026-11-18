@@ -3,7 +3,6 @@
   min-height: 100vh;
   background: var(--bm-surface-canvas);
 }
-
 .member-access-page {
   min-height: 100vh;
   box-sizing: border-box;
@@ -48,11 +47,6 @@
   height: auto;
 }
 
-.member-header {
-  display: block;
-  padding: 0;
-}
-
 .eyebrow {
   margin: 0 0 0.35rem;
   color: var(--bm-text-link);
@@ -68,7 +62,6 @@ h1[mat-card-title] {
 }
 
 .member-header-subtitle {
-  display: block;
   margin-top: 0.45rem;
   color: var(--bm-text-muted);
   font-size: 1rem;
@@ -147,10 +140,6 @@ form > button,
   font-size: 48px;
 }
 
-.access-state--success > mat-icon {
-  color: var(--bm-success-indicator);
-}
-
 .member-home {
   min-height: 330px;
   display: grid;
@@ -213,71 +202,14 @@ form > button,
   min-height: 44px;
 }
 
-.member-home--recovery {
-  max-width: 34rem;
-}
-
-.member-home--recovery > mat-icon {
-  color: var(--bm-info-indicator);
-  font-size: 2rem;
-  width: 2rem;
-  height: 2rem;
-}
-
-.member-home--recovery h2 {
-  margin: var(--bm-space-3) 0 0;
-  font-size: 1.75rem;
-}
-
-.member-home--recovery p {
-  margin: var(--bm-space-2) 0 0;
-  color: var(--bm-text-secondary);
-}
-
 .member-home--recovery button {
   width: fit-content;
   margin-top: var(--bm-space-6);
 }
 
-.member-home--loading {
-  gap: var(--bm-space-6);
-}
-
-.member-home__loading-label {
-  margin: 0;
-  color: var(--bm-text-secondary);
-}
-
-.member-home__placeholder {
-  background: var(--bm-surface-subtle);
-  border-radius: var(--bm-radius-control);
-}
-
-.member-home__placeholder--greeting {
-  width: min(15rem, 70%);
-  height: 2rem;
-}
-
-.member-home__placeholder--count {
-  width: min(12rem, 58%);
-  height: 7rem;
-  border-top: 1px solid var(--bm-brand-accent-material);
-  border-bottom: 1px solid var(--bm-border-standard);
-}
-
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-}
-
 .access-state > :is(button, a) {
   margin-top: 1.5rem;
 }
-
 .session-expiry {
   font-size: 0.85rem;
 }
@@ -298,16 +230,6 @@ footer mat-icon {
   height: 18px;
   flex: 0 0 auto;
   font-size: 18px;
-}
-
-.spin {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 @media (max-width: 520px) {
@@ -339,11 +261,5 @@ footer mat-icon {
 
   .member-home__session-actions button {
     width: 100%;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .spin {
-    animation: none;
   }
 }

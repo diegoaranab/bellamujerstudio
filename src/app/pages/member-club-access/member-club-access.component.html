@@ -61,12 +61,9 @@
             Pedir nuevo enlace por WhatsApp
           </a>
         </section>
-      } @else if (isLoadingSummary()) {
+      } @else if (isLoadingSummary() && session.hasSession()) {
         <section class="member-home member-home--loading" role="status" data-testid="member-home-loading">
           <p class="member-home__loading-label">Cargando tu Club</p>
-          <div class="member-home__placeholder member-home__placeholder--greeting"></div>
-          <div class="member-home__placeholder member-home__placeholder--count"></div>
-          <span class="sr-only">Cargando la información de tu Club.</span>
         </section>
       } @else if (hasSummaryLoadError() && session.hasSession()) {
         <section class="member-home member-home--recovery" data-testid="member-home-load-error">
@@ -152,7 +149,7 @@
             </button>
           </form>
         </section>
-      } @else if (memberSummary(); as summary) {
+      } @else if (session.hasSession() && memberSummary(); as summary) {
         <section class="member-home" data-testid="member-club-home">
           <p class="member-home__greeting">Hola, {{ summary.profile.name }}</p>
           <div class="member-home__count-region" aria-label="Sellos actuales">
