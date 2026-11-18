@@ -453,3 +453,81 @@ The audit does **not** recommend a black/gold luxury reset, a pink/lavender cate
 ## Audit closure statement
 
 This document records evidence and candidate direction only. It does not finalize a design system, approve a logo or typeface, implement remediation, change product behavior, deploy code, or begin Phase 5F2/Phase 6.
+
+## Phase 5F4 closure — 2026-11-18
+
+This section is a current-state re-audit. It does not revise the Phase 5F1 historical baseline above:
+**24 findings, 0 Critical, 6 High, 16 Medium, and 2 Low** on 2026-11-13. The implementation
+audited here is `main` at `a5925cac7d50defadffd46aeefe0b258c4c5e5d7`.
+
+### Method and evidence
+
+The closure used current repository and rendered behavior rather than merge history or prior PASS
+claims. It combined:
+
+- source inspection of the current public, administrator, Club, member-access, semantic-token,
+  typography, routing, and focus implementations;
+- the project-scoped `frontend-design` review for visual authorship, hierarchy, composition,
+  generic-template pressure, and coherence across the three Bella Mujer modes;
+- the project-scoped `ui-ux-pro-max` review for accessibility, responsive navigation, form recovery,
+  feedback, focus, authentication controls, and interaction states;
+- deterministic Playwright fixtures containing fictional Club clients and an in-memory mocked member
+  session, with no production credentials, client PII, or mutation;
+- 33 full-page screenshots under `test-results/phase5f4/screenshots/`: eleven required states at
+  `390x844`, `820x1180`, and `1440x900`; and
+- the complete current validation suite: both TypeScript projects, 291 unit tests, production build,
+  and 93 Playwright tests.
+
+All 390px and 820px representative states passed measured body/document horizontal-overflow checks.
+The visual review found a coherent editorial public mode, a denser operational admin/Club mode, and a
+restrained member trust mode. It found no giant Club hero regression, no return to nested equal-card
+composition in the selected-client workspace, and no new generic-AI-design blocker.
+
+### Final finding status matrix
+
+| Finding | Original issue | Current evidence | Current status | Evidence source | Residual risk | Phase 6 impact |
+|---|---|---|---|---|---|---|
+| BM-UX-001 | Failed gift-card submit left focus at the bottom with no linked summary. | Failed submit focuses `Revisa estos datos`; its three links target the invalid fields while inline errors remain. | `CLOSED` | Rendered invalid state at 390/820/1440; `public-accessibility.spec.ts`; gift-card unit tests. | Future fields must join both summary and inline semantics. | None. The shared recovery pattern is safe to extend. |
+| BM-UX-002 | Enabled administrator search and notification controls did nothing. | Neither control exists at mobile or desktop; the toolbar contains only real context/actions. | `CLOSED` | Rendered `/admin/inicio`; `admin-mobile-navigation.spec.ts`. | Future toolbar actions still require real behavior before display. | None. Phase 6 does not inherit fictional controls. |
+| BM-UX-003 | Invalid member links were a recovery dead end. | Invalid and incomplete activation states provide a prewritten WhatsApp recovery action whose message contains no access handle, invitation, NIP, or session token. | `CLOSED` | Rendered member-invalid matrix; member component/spec and `club-preview.spec.ts`. | WhatsApp remains an external/manual recovery channel. | None; secure studio-controlled recovery is explicit. |
+| BM-UX-004 | Session scope was misstated and success promised a destination that did not exist. | Success says access is verified in this tab; footer says refresh/close loses it; the state exposes logout without promising `Mi Club`. | `CLOSED` | Rendered member-active matrix; member template and unit tests. | Phase 6 must add its real destination without weakening session language. | Positive: Phase 6 can add the destination to truthful access state. |
+| BM-UX-005 | Local unconfigured Club showed an overwhelming disabled workspace. | The current local state is concise and collapses unavailable operational panels; production configuration remains the supported path. | `DEFERRED_CONFIRMED` | `club-preview.spec.ts`; current unconfigured template/state inspection. | Diagnostic copy can be refined during later Club resilience work. | None; not material to configured Phase 6 member work. |
+| BM-UX-006 | Selected-client name and phone were concatenated. | Current route-backed workspace separates identity/context; no concatenated value appears in representative rich states. The original low-risk cleanup remains deferred as a regression guard. | `DEFERRED_CONFIRMED` | Rendered selected-client matrix; Club component inspection. | Unseen error/legacy copy could regress without focused coverage. | None. |
+| BM-UX-007 | Home contact secondary CTA had approximately 1.67:1 contrast. | The on-plum secondary action is light text/border with tested default, hover, focus, and 200% zoom behavior. | `CLOSED` | Rendered public-home matrix; `public-contact-contrast.spec.ts`. | Future palette changes must retain role-pair contrast tests. | None. |
+| BM-UX-008 | Shells lacked skip links and route-change focus. | Public/admin skip links focus `main`; real route changes and history navigation focus the destination heading. | `CLOSED` | `shell-navigation-accessibility.spec.ts`; global route-focus tests; source inspection. | New shells/routes must expose a deterministic focus target. | None; Phase 6 has the global focus contract. |
+| BM-UX-009 | Desktop admin current location lacked `aria-current`. | Exactly one matching sidebar destination exposes `aria-current="page"`; mobile `Más` and Club state remain accurate. | `CLOSED` | `shell-navigation-accessibility.spec.ts`; admin unit/E2E tests. | New admin destinations must join the same route matcher. | None. |
+| BM-UX-010 | Fixed public/admin controls could obscure keyboard focus. | 200% zoom and short-height checks keep focused content clear of the sticky WhatsApp action and bottom navigation. Programmatic `main`/heading focus has no blue control-style outline, while keyboard-interactive controls retain a visible 3px outline. | `CLOSED` | `shell-navigation-accessibility.spec.ts`; `global-route-focus-visual.spec.ts`; Club focus test. | Any new fixed Phase 6 chrome needs the same exclusion check. | None if the existing focus/scroll contract is reused. |
+| BM-UX-011 | NIP entry lacked reveal and dependable invalid-submit focus. | Enrollment/login provide named pressed-state reveal controls, numeric input, password autocomplete, paste support, and focus the first invalid field. | `CLOSED` | Rendered enrollment/login matrix; `club-preview.spec.ts`; member unit tests. | The 6-digit NIP remains an intentionally constrained credential with backend compensating controls. | None; accessible-authentication behavior is established. |
+| BM-UX-012 | Gift-card failure used success styling. | Validation and request failures use error roles/tokens/icons; success remains a distinct state. | `CLOSED` | Rendered gift-card-invalid matrix; popup-blocked E2E and component tests. | Future feedback variants must use semantic roles rather than page-local color. | None. |
+| BM-UX-013 | Mobile Club serialized every task into one long stateful page. | Opaque route-backed `Resumen`, `Visita`, `Historial`, and `Acceso` subviews keep selected-client context; mobile/tablet show one task and desktop uses master-detail. | `CLOSED` | Rendered directory/resumen/visita matrix; Club routing, preview, and visual-acceptance tests. | Phase 6 must preserve deep-link/back/state behavior when adding member routes. | Positive: route/context architecture is ready to parent Phase 6. |
+| BM-UX-014 | Five mobile public pills wrapped into a crowded two-row header. | Compact `Menú` plus one-tap WhatsApp replaces wrapping pills, retains all five destinations, manages open/close/Escape/focus return, and survives 200% text. | `CLOSED` | Rendered public matrix; `public-site.spec.ts`; `public-accessibility.spec.ts`. | Longer future labels still require fit checks. | None. |
+| BM-UX-015 | Empty inventory movement column wasted tablet/desktop space. | No material Phase 6 dependency or new severity was found; this isolated inventory adaptation remains explicit backlog. | `DEFERRED_CONFIRMED` | Current route/source review; Phase 5F1 evidence retained. | Inventory scanning remains less efficient when movements are empty. | None for the member Club slice. |
+| BM-UX-016 | Public home/gallery were very long and repetitive on mobile. | The home remains intentionally content-rich and still measures as a long page; primary WhatsApp and service actions remain early and usable. No new blocker emerged. | `DEFERRED_CONFIRMED` | Rendered public-home matrix and current content inspection. | Content curation and lazy-image capture remain a post-Phase-6 optimization. | None; Phase 6 does not expand the public gallery. |
+| BM-UX-017 | Public, general admin, and Club felt like unrelated products. | Shared wine/plum roles, Newsreader/Source Sans 3, state language, focus treatment, and identity rules now support deliberately different editorial, operational, and member compositions. | `CLOSED` | 33-image cross-product review; semantic foundation E2E/source. | Future member progress UI must remain progress-led, not copy admin cards. | Positive: Phase 6 has a coherent visual parent. |
+| BM-UX-018 | Public interior routes repeated one interchangeable formula. | Shared foundations remain and services is clearer decision support, but broader route-specific composition is still content-strategy backlog and did not become a blocker. | `DEFERRED_CONFIRMED` | Rendered services matrix; current public templates. | Some template sameness remains on public interiors. | None for Phase 6. |
+| BM-UX-019 | `BM` behaved like a placeholder logo and member trust lacked official identity. | The approved official full logo is used on administrator login and member access; public header and admin sidebar use the compact `BM` utility mark. This supersedes the former no-approved-mark assumption without changing Phase 5F1 history. | `CLOSED` | Rendered member states; `official-logo.spec.ts`; current logo asset use. | A separate Club stamp/loyalty mark is still optional future artwork. | None; official studio identity is available now. |
+| BM-UX-020 | Club's giant hero and repeated cards delayed operational work. | The Club signature is a compact plum band; directory and selected task appear immediately; desktop master-detail and mobile subviews use rows/dividers/grouped regions instead of nested equal cards. | `CLOSED` | Rendered Club matrix at all breakpoints; `club-visual-acceptance.spec.ts`. | Very large future datasets may need density/virtualization review. | Positive: operational hierarchy no longer competes with Phase 6. |
+| BM-UX-021 | Material, page-local colors, radii, and literals had no reliable authority. | Primitive references feed semantic roles and Material mappings for surfaces, text, actions, states, focus, radii, elevation, spacing, and motion. Representative modes consume them. | `CLOSED` | `_bm-references.scss`, `_bm-semantic-tokens.scss`, `_bm-material-theme.scss`; design-foundation E2E. | Legacy page-local declarations remain migration debt; new Phase 6 code must not add another authority. | Ready if Phase 6 uses the semantic layer. |
+| BM-UX-022 | Synthesized Poppins weights and page-owned type roles weakened consistency. | Newsreader 500/600 and Source Sans 3 400/600/700 are explicitly requested; public/member/admin roles are scoped and tested. | `CLOSED` | `index.html`, `_bm-typography.scss`, Material theme, design-foundation E2E. | Network font loading still needs fallbacks and layout-shift awareness. | Ready; Phase 6 has approved real-weight roles. |
+| BM-UX-023 | Repeated public patterns and a monolithic Club component made state review fragile. | Club orchestration, directory, client context, and task workflows are separated along route/workflow boundaries; semantic shared roles avoid a generic card abstraction. | `CLOSED` | Current Club component structure; 79 Club unit tests; route and visual E2E. | Public repetition remains intentionally bounded and can be extracted only when reuse is proven. | None; the Phase 6 boundary is maintainable. |
+| BM-UX-024 | Phone fields did not optimize mobile telephone keyboards. | No severity increase or Phase 6 dependency was found; semantic telephone input remains explicit form-ergonomics backlog. | `DEFERRED_CONFIRMED` | Current gift-card/Club form inspection; Phase 5F1 evidence retained. | Mobile phone entry is less optimized than it could be. | None for Phase 6 member experience. |
+
+### Closure totals and residual risk
+
+- `FIX_BEFORE_PHASE6`: `CLOSED` — 14/14.
+- `IMPROVE_BEFORE_PHASE6`: `CLOSED` — 4/4.
+- `DEFER`: `DEFERRED_CONFIRMED` — 6/6.
+- New Critical blockers: 0.
+- New High blockers: 0.
+
+The production build passed with existing non-fatal size-budget warnings: the initial bundle is
+47.71 kB over its warning budget and three component stylesheets exceed their warning budgets. These
+are visible engineering/performance debt, but the observed rendered behavior, interaction safety, and
+Phase 6 foundations do not make them audit blockers.
+
+### Phase 6 readiness conclusion
+
+Phase 5F4 is **closed**. The current evidence satisfies the readiness rule: every important finding is
+`CLOSED`, the deferred backlog is explicit and non-blocking, validation is green, and the responsive
+visual evidence is coherent. Phase 6 is therefore
+`READY_PENDING_5F4_PR_REVIEW_AND_MERGE`. Phase 6 was not started by this audit.

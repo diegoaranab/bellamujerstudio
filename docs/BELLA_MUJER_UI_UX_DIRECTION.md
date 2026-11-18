@@ -638,3 +638,20 @@ The following decisions cannot be completed by code or Markdown alone:
    the Club task flow during 5F3-09. Markdown defines the rules but does not replace visual iteration.
 
 Everything else required to begin the ordered Phase 5F3 slices is decided in this document.
+
+## 18. Phase 5F4 closure note — 2026-11-18
+
+Phase 5F3 remediation was completed and re-audited in Phase 5F4 against `main` at
+`a5925cac7d50defadffd46aeefe0b258c4c5e5d7`. All 14 `FIX_BEFORE_PHASE6` findings and all four
+`IMPROVE_BEFORE_PHASE6` findings are closed. The six `DEFER` findings remain an explicit,
+non-blocking backlog; this note does not rewrite their Phase 5F1 history or their approved disposition.
+
+The official Bella Mujer Studio logo is now approved and adopted on spacious trust surfaces. That
+current state supersedes the earlier BM-UX-019 assumption that no official mark was available:
+administrator login and member access use the full official logo, while the public header and
+administrator sidebar retain the compact `BM` utility mark.
+
+The Phase 6 visual parent remains unchanged: **editorial public / task-dense admin / progress-led
+member**. Phase 6 may use the closed semantic, typography, identity, focus, route-context, and
+interaction foundations after the Phase 5F4 closure PR is reviewed and merged; it must not collapse the
+three modes into identical compositions or revive the deferred backlog as hidden scope.
