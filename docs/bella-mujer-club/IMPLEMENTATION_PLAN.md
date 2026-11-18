@@ -233,13 +233,18 @@ remediation; implementation remains in Phase 5F3.
 
 ### 5F3 — Atomic UI/UX remediation
 
-Implement approved findings through small, reviewable PRs rather than one bundled redesign. Each
-slice receives its own Codex model/reasoning recommendation, tests/build validation, exact-HEAD
-Codex review, and merge gate.
+**Completed, deployed remediation production-validated.** The approved findings were implemented
+through small, reviewable PRs rather than one bundled redesign. Each slice received its own validation
+and review gate.
 
 ### 5F4 — UI/UX audit closure
 
-Re-evaluate important screens after remediation and close the audit before beginning Phase 6.
+**Completed on 2026-11-18.** Phase 5F4 re-audited `main` at
+`a5925cac7d50defadffd46aeefe0b258c4c5e5d7`, closed all 14 `FIX_BEFORE_PHASE6` findings and all four
+`IMPROVE_BEFORE_PHASE6` findings, confirmed the six deferred findings as non-blocking backlog, and
+found no new Critical or High blocker. The closure evidence and 24-row status matrix are recorded in
+[BELLA_MUJER_UI_UX_AUDIT.md](../BELLA_MUJER_UI_UX_AUDIT.md). Phase 6 remains separate and was not
+started by this closure slice.
 
 ## Phase 6 — Client Club experience
 
