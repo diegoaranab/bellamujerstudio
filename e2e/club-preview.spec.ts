@@ -209,9 +209,33 @@ test('authenticated member home renders only the mocked name and real stamp coun
   await expect(page.getByRole('heading', { level: 2, name: 'Tus sellos' })).toBeVisible();
   await expect(page.getByTestId('member-earned-stamps')).toHaveAttribute('aria-hidden', 'true');
   await expect(page.getByTestId('member-earned-stamps').locator('.member-progress__seal')).toHaveCount(3);
-  await expect(page.getByTestId('member-club-home')).not.toContainText(/3 de 4|recompensa|historial|mi qr/i);
+  await expect(page.getByTestId('member-history')).toContainText('Actividad reciente');
+  await expect(page.getByTestId('member-history')).toContainText('Sello ganado');
+  await expect(page.getByTestId('member-club-home')).not.toContainText(/3 de 4|recompensa|mi qr/i);
   await expect(page.getByTestId('member-club-home')).not.toContainText('Sesión válida hasta');
   await expect(page.getByTestId('member-logout')).toBeVisible();
+  await expect(page.evaluate(() => [localStorage.length, sessionStorage.length])).resolves.toEqual([0, 0]);
+});
+
+test('member history supports empty, recovery, authentication, and paginated activity states', async ({ page }) => {
+  await installMemberClubFixture(page, { history: 'empty' });
+  await signIntoMemberClub(page);
+  await expect(page.getByTestId('member-history-empty')).toBeVisible();
+  await expect(page.getByTestId('member-progress')).toBeVisible();
+
+  await page.goto('about:blank');
+  await installMemberClubFixture(page, { history: 'server' });
+  await signIntoMemberClub(page);
+  await expect(page.getByTestId('member-history-error')).toBeVisible();
+  await page.getByTestId('member-history-retry').click();
+  await expect(page.getByTestId('member-history-list')).toContainText('Sello ganado');
+
+  await page.goto('about:blank');
+  await installMemberClubFixture(page, { history: 'paginated' });
+  await signIntoMemberClub(page);
+  await page.getByTestId('member-history-load-more').click();
+  await expect(page.getByTestId('member-history-list').locator('li')).toHaveCount(3);
+  await expect(page.getByTestId('member-history-list')).toContainText('Ajuste de sellos');
   await expect(page.evaluate(() => [localStorage.length, sessionStorage.length])).resolves.toEqual([0, 0]);
 });
 
@@ -272,14 +296,14 @@ test('authenticated member home stays contained at 720px with enlarged text', as
   await expect(page.getByTestId('member-logout')).toBeVisible();
 });
 
-test('captures the final Phase 6B member visual evidence', async ({ page }) => {
-  const evidenceDir = 'test-results/phase6b/screenshots';
+test('captures Phase 6C2 member history visual evidence', async ({ page }) => {
+  const evidenceDir = 'test-results/phase6c2/screenshots';
   const views = [
-    { name: 'authenticated-390.png', width: 390, height: 844 },
-    { name: 'authenticated-390-text-200.png', width: 390, height: 900, textScale: true },
-    { name: 'authenticated-720-text-200.png', width: 720, height: 900, textScale: true },
-    { name: 'authenticated-820.png', width: 820, height: 1180 },
-    { name: 'authenticated-1440.png', width: 1440, height: 900 }
+    { name: 'authenticated-history-390.png', width: 390, height: 844 },
+    { name: 'authenticated-history-390-text-200.png', width: 390, height: 900, textScale: true },
+    { name: 'authenticated-history-720-text-200.png', width: 720, height: 900, textScale: true },
+    { name: 'authenticated-history-820.png', width: 820, height: 1180 },
+    { name: 'authenticated-history-1440.png', width: 1440, height: 900 }
   ] as const;
 
   for (const view of views) {
@@ -293,18 +317,21 @@ test('captures the final Phase 6B member visual evidence', async ({ page }) => {
     await viewPage.close();
   }
 
+  const emptyPage = await page.context().newPage();
+  await emptyPage.setViewportSize({ width: 390, height: 844 });
+  await installMemberClubFixture(emptyPage, { history: 'empty' });
+  await signIntoMemberClub(emptyPage);
+  await emptyPage.screenshot({ path: `${evidenceDir}/history-empty-390.png`, animations: 'disabled' });
+  await emptyPage.close();
+
   const errorPage = await page.context().newPage();
   await errorPage.setViewportSize({ width: 390, height: 844 });
-  await installMemberClubFixture(errorPage, { failFirstSummary: 'server' });
-  await errorPage.goto(`/#/club?access=${memberClubFixture.access}`);
-  await errorPage.getByTestId('member-login-pin').fill('482731');
-  await errorPage.getByTestId('member-login-submit').click();
-  await expect(errorPage.getByTestId('member-home-load-error')).toBeVisible();
-  await errorPage.getByTestId('member-home-retry').click();
-  await expect(errorPage.getByTestId('member-club-home')).toBeVisible();
+  await installMemberClubFixture(errorPage, { history: 'server' });
+  await signIntoMemberClub(errorPage);
+  await expect(errorPage.getByTestId('member-history-error')).toBeVisible();
   await expectNoHorizontalOverflow(errorPage);
   await errorPage.screenshot({
-    path: `${evidenceDir}/transient-error-retry-390.png`,
+    path: `${evidenceDir}/history-error-390.png`,
     animations: 'disabled'
   });
   await errorPage.close();

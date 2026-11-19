@@ -1,4 +1,4 @@
-import { HttpClient, HttpErrorResponse, HttpHeaders } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, catchError, map, throwError } from 'rxjs';
 
@@ -25,6 +25,23 @@ export interface MemberClubSelfSummary {
   loyalty: {
     stampCount: number;
   };
+}
+
+export type MemberClubHistoryType =
+  | 'ELIGIBLE_SPEND_ADDED'
+  | 'STAMP_EARNED'
+  | 'ADMIN_ADJUSTMENT';
+
+export interface MemberClubHistoryItem {
+  occurredAtISO: string;
+  type: MemberClubHistoryType;
+  stampDelta: number;
+  stampCountAfter: number;
+}
+
+export interface MemberClubHistoryPage {
+  items: MemberClubHistoryItem[];
+  nextToken?: string;
 }
 
 export type MemberClubApiErrorKind =
@@ -116,6 +133,38 @@ export class MemberClubApiClient {
         })
       )
     );
+  }
+
+  getHistory(
+    sessionToken: string,
+    options: { limit?: number; nextToken?: string } = {}
+  ): Observable<MemberClubHistoryPage> {
+    const limit = options.limit ?? 5;
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 50) {
+      return throwError(() => new MemberClubApiError('validation', 'La solicitud del Club no es válida.'));
+    }
+    if (options.nextToken !== undefined && !this.isHistoryToken(options.nextToken)) {
+      return throwError(() => new MemberClubApiError('validation', 'La solicitud del Club no es válida.'));
+    }
+
+    return this.withSessionToken(sessionToken, (headers) => {
+      let params = new HttpParams().set('limit', String(limit));
+      if (options.nextToken) params = params.set('nextToken', options.nextToken);
+      return this.http.get<unknown>(`${this.baseUrl}/club/me/history`, { headers, params }).pipe(
+        map((response) => {
+          if (!this.isHistoryPage(response)) throw this.safeServerError();
+          return {
+            items: response.items.map((item) => ({
+              occurredAtISO: item.occurredAtISO,
+              type: item.type,
+              stampDelta: item.stampDelta,
+              stampCountAfter: item.stampCountAfter
+            })),
+            ...(response.nextToken ? { nextToken: response.nextToken } : {})
+          };
+        })
+      );
+    });
   }
 
   private requestSession(request: Observable<unknown>): Observable<MemberClubSessionResponse> {
@@ -281,6 +330,40 @@ export class MemberClubApiClient {
       Number.isSafeInteger(loyalty.stampCount) &&
       loyalty.stampCount >= 0
     );
+  }
+
+  private isHistoryPage(value: unknown): value is MemberClubHistoryPage {
+    if (!value || typeof value !== 'object' || !('items' in value) || !Array.isArray(value.items)) {
+      return false;
+    }
+    if ('nextToken' in value && value.nextToken !== undefined && !this.isHistoryToken(value.nextToken)) {
+      return false;
+    }
+    return value.items.every((item) => this.isHistoryItem(item));
+  }
+
+  private isHistoryItem(value: unknown): value is MemberClubHistoryItem {
+    if (!value || typeof value !== 'object') return false;
+    if (!('occurredAtISO' in value) || typeof value.occurredAtISO !== 'string') return false;
+    const occurredAt = Date.parse(value.occurredAtISO);
+    if (!Number.isFinite(occurredAt) || new Date(occurredAt).toISOString() !== value.occurredAtISO) {
+      return false;
+    }
+    return (
+      'type' in value &&
+      (value.type === 'ELIGIBLE_SPEND_ADDED' || value.type === 'STAMP_EARNED' || value.type === 'ADMIN_ADJUSTMENT') &&
+      'stampDelta' in value &&
+      typeof value.stampDelta === 'number' &&
+      Number.isSafeInteger(value.stampDelta) &&
+      'stampCountAfter' in value &&
+      typeof value.stampCountAfter === 'number' &&
+      Number.isSafeInteger(value.stampCountAfter) &&
+      value.stampCountAfter >= 0
+    );
+  }
+
+  private isHistoryToken(value: unknown): value is string {
+    return typeof value === 'string' && value.length > 0 && value.length <= 2048;
   }
 
   private configurationError(): MemberClubApiError {

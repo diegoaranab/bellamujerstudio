@@ -113,6 +113,85 @@ describe('MemberClubApiClient', () => {
     });
   });
 
+  it('reads and safely projects paginated member history with bearer authorization', async () => {
+    const client = configure();
+    const opaqueToken = 'opaque cursor + / = value';
+    const promise = firstValueFrom(client.getHistory(SESSION, { limit: 5, nextToken: opaqueToken }));
+    const request = http.expectOne((candidate) => candidate.url === 'https://api.example.test/club/me/history');
+
+    expect(request.request.method).toBe('GET');
+    expect(request.request.headers.get('Authorization')).toBe(`Bearer ${SESSION}`);
+    expect(request.request.urlWithParams).not.toContain(SESSION);
+    expect(request.request.params.get('limit')).toBe('5');
+    expect(request.request.params.get('nextToken')).toBe(opaqueToken);
+    request.flush({
+      items: [{
+        occurredAtISO: '2026-11-16T18:30:00.000Z',
+        type: 'STAMP_EARNED',
+        stampDelta: 1,
+        stampCountAfter: 3,
+        studioId: 'must-not-be-projected'
+      }],
+      nextToken: 'next-page-token',
+      clientId: 'must-not-be-projected'
+    });
+
+    await expect(promise).resolves.toEqual({
+      items: [{
+        occurredAtISO: '2026-11-16T18:30:00.000Z',
+        type: 'STAMP_EARNED',
+        stampDelta: 1,
+        stampCountAfter: 3
+      }],
+      nextToken: 'next-page-token'
+    });
+  });
+
+  it('rejects malformed member history without exposing a partial response', async () => {
+    const client = configure();
+    const promise = firstValueFrom(client.getHistory(SESSION));
+    const request = http.expectOne((candidate) => candidate.url === 'https://api.example.test/club/me/history');
+    expect(request.request.params.get('limit')).toBe('5');
+    request.flush({ items: [{ type: 'STAMP_EARNED' }] });
+    await expect(promise).rejects.toMatchObject({ kind: 'server' });
+  });
+
+  it.each([
+    { items: [], nextToken: '' },
+    { items: [], nextToken: 'x'.repeat(2049) },
+    { items: [{ occurredAtISO: '2026-02-30T00:00:00.000Z', type: 'STAMP_EARNED', stampDelta: 1, stampCountAfter: 1 }] },
+    { items: [{ occurredAtISO: '2026-11-16T18:30:00.000Z', type: 'UNKNOWN', stampDelta: 1, stampCountAfter: 1 }] },
+    { items: [{ occurredAtISO: '2026-11-16T18:30:00.000Z', type: 'STAMP_EARNED', stampDelta: 0.5, stampCountAfter: 1 }] },
+    { items: [{ occurredAtISO: '2026-11-16T18:30:00.000Z', type: 'STAMP_EARNED', stampDelta: 1, stampCountAfter: -1 }] }
+  ])('rejects invalid history pages', async (body) => {
+    const client = configure();
+    const promise = firstValueFrom(client.getHistory(SESSION));
+    http.expectOne((request) => request.url.endsWith('/club/me/history')).flush(body);
+    await expect(promise).rejects.toMatchObject({ kind: 'server' });
+  });
+
+  it('accepts an empty history page and rejects invalid local credentials without a request', async () => {
+    const client = configure();
+    const promise = firstValueFrom(client.getHistory(SESSION, { limit: 9 }));
+    const request = http.expectOne((candidate) => candidate.url.endsWith('/club/me/history'));
+    expect(request.request.params.get('limit')).toBe('9');
+    request.flush({ items: [] });
+    await expect(promise).resolves.toEqual({ items: [] });
+    await expect(firstValueFrom(client.getHistory('invalid'))).rejects.toMatchObject({ kind: 'authentication' });
+    http.expectNone((candidate) => candidate.url.endsWith('/club/me/history'));
+  });
+
+  it.each([[401, 'authentication'], [403, 'authentication'], [500, 'server'], [0, 'network']])(
+    'normalizes history HTTP %s errors', async (status, kind) => {
+      const client = configure();
+      const promise = firstValueFrom(client.getHistory(SESSION));
+      const request = http.expectOne((candidate) => candidate.url.endsWith('/club/me/history'));
+      if (status === 0) request.error(new ProgressEvent('error'));
+      else request.flush({ message: 'private' }, { status, statusText: 'failure' });
+      await expect(promise).rejects.toMatchObject({ kind });
+    }
+  );
+
   it.each([
     [{ profile: { name: '' }, loyalty: { stampCount: 0 } }],
     [{ profile: { name: '   ' }, loyalty: { stampCount: 0 } }],
