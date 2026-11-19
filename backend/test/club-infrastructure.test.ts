@@ -326,7 +326,20 @@ describe('Club infrastructure', () => {
       Effect: 'Allow',
       Resource: [{ 'Fn::GetAtt': [clubLogicalId, 'Arn'] }]
     }, {
-      Action: ['secretsmanager:GetSecretValue', 'secretsmanager:DescribeSecret'], Effect: 'Allow',
+      Action: 'secretsmanager:GetSecretValue', Effect: 'Allow',
+      Resource: { Ref: historyCursorSecretLogicalId }
+    }]);
+    const serializedHistoryStatements = JSON.stringify(historyStatements);
+    expect(serializedHistoryStatements).toContain('secretsmanager:GetSecretValue');
+    expect(serializedHistoryStatements).not.toContain('secretsmanager:DescribeSecret');
+    for (const forbidden of [
+      'secretsmanager:PutSecretValue', 'secretsmanager:UpdateSecret',
+      'secretsmanager:DeleteSecret'
+    ]) expect(serializedHistoryStatements).not.toContain(forbidden);
+    expect(historyStatements.filter((statement) =>
+      JSON.stringify(statement.Action).includes('secretsmanager:')
+    )).toEqual([{
+      Action: 'secretsmanager:GetSecretValue', Effect: 'Allow',
       Resource: { Ref: historyCursorSecretLogicalId }
     }]);
     const serializedAuthorizationBoundary = JSON.stringify({
