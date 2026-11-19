@@ -53,14 +53,15 @@ describe('BellaMujerApiStack', () => {
         ]
       }
     });
-    template.resourcePropertiesCountIs('AWS::Lambda::Function', {}, 15);
+    template.resourcePropertiesCountIs('AWS::Lambda::Function', {}, 16);
 
     for (const lambdaFunction of Object.values(template.findResources('AWS::Lambda::Function'))) {
       if ([
         'Authorizes Bella Mujer Club member sessions',
         'Confirms authenticated Bella Mujer Club member sessions',
         'Reads authenticated Bella Mujer Club member self summary',
-        'Reads authenticated Bella Mujer Club member history'
+        'Reads authenticated Bella Mujer Club member history',
+        'Returns the authenticated Bella Mujer Club member QR identifier'
       ].includes(lambdaFunction.Properties.Description)) {
         continue;
       }
@@ -180,14 +181,14 @@ describe('BellaMujerApiStack', () => {
   });
 
   it('bounds Lambda log retention to two weeks', () => {
-    template.resourcePropertiesCountIs('AWS::Logs::LogGroup', { RetentionInDays: 14 }, 15);
+    template.resourcePropertiesCountIs('AWS::Logs::LogGroup', { RetentionInDays: 14 }, 16);
   });
 
   it('uses the existing Cognito pool and SPA client for a JWT authorizer', () => {
     template.resourceCountIs('AWS::Cognito::UserPool', 1);
     template.resourceCountIs('AWS::Cognito::UserPoolClient', 1);
     template.resourceCountIs('AWS::ApiGatewayV2::Authorizer', 2);
-    template.resourcePropertiesCountIs('AWS::Lambda::Function', {}, 15);
+    template.resourcePropertiesCountIs('AWS::Lambda::Function', {}, 16);
 
     const [[userPoolLogicalId]] = Object.entries(
       template.findResources('AWS::Cognito::UserPool')
@@ -213,7 +214,7 @@ describe('BellaMujerApiStack', () => {
   });
 
   it('keeps public/member/admin authorization boundaries separate', () => {
-    template.resourceCountIs('AWS::ApiGatewayV2::Route', 19);
+    template.resourceCountIs('AWS::ApiGatewayV2::Route', 20);
 
     const routes = Object.values(template.findResources('AWS::ApiGatewayV2::Route'));
     const routesByKey = Object.fromEntries(
@@ -246,6 +247,7 @@ describe('BellaMujerApiStack', () => {
       'GET /club/access/session',
       'GET /club/me',
       'GET /club/me/history',
+      'GET /club/me/qr',
       'GET /health',
       'PATCH /admin/gift-cards/{id}',
       'POST /admin/club/clients',
@@ -285,6 +287,11 @@ describe('BellaMujerApiStack', () => {
       AuthorizerId: { Ref: memberAuthorizerLogicalId }
     });
     expect(routesByKey['GET /club/me/history'].AuthorizationScopes).toBeUndefined();
+    expect(routesByKey['GET /club/me/qr']).toMatchObject({
+      AuthorizationType: 'CUSTOM',
+      AuthorizerId: { Ref: memberAuthorizerLogicalId }
+    });
+    expect(routesByKey['GET /club/me/qr'].AuthorizationScopes).toBeUndefined();
     expect(routesByKey['GET /admin/health']).toMatchObject({
       AuthorizationType: 'JWT',
       AuthorizerId: { Ref: adminAuthorizerLogicalId },
@@ -408,6 +415,14 @@ describe('BellaMujerApiStack', () => {
           )
           : []
       ).filter((action: string) => action.startsWith('dynamodb:')).sort();
+    const allActionsForRole = (roleLogicalId: string): string[] =>
+      Object.values(template.findResources('AWS::IAM::Policy')).flatMap((policy) =>
+        policy.Properties.Roles.some((role: { Ref?: string }) => role.Ref === roleLogicalId)
+          ? policy.Properties.PolicyDocument.Statement.flatMap(
+            (statement: { Action?: string | string[] }) => statement.Action ?? []
+          )
+          : []
+      );
 
     expect(actionsForRole(roleForDescription('Creates public pending gift-card requests'))).toEqual([
       'dynamodb:GetItem',
@@ -436,6 +451,15 @@ describe('BellaMujerApiStack', () => {
     ))).toEqual([
       'dynamodb:DeleteItem', 'dynamodb:GetItem', 'dynamodb:GetItem', 'dynamodb:PutItem'
     ]);
+
+    const qrFunction = lambdaFunctions.find((resource) =>
+      resource.Properties.Description === 'Returns the authenticated Bella Mujer Club member QR identifier'
+    );
+    expect(qrFunction).toBeDefined();
+    expect(qrFunction!.Properties.Environment?.Variables?.CLUB_TABLE_NAME).toBeUndefined();
+    expect(qrFunction!.Properties.Environment?.Variables?.CLUB_ACCESS_TABLE_NAME).toBeUndefined();
+    expect(qrFunction!.Properties.Environment?.Variables?.CLUB_HISTORY_CURSOR_SECRET_ARN).toBeUndefined();
+    expect(allActionsForRole(qrFunction!.Properties.Role['Fn::GetAtt'][0])).toEqual([]);
     expect(actionsForRole(roleForDescription(
       'Enrolls and authenticates Bella Mujer Club members'
     ))).toEqual(['dynamodb:GetItem', 'dynamodb:PutItem']);

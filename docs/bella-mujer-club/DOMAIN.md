@@ -185,6 +185,8 @@ The `$500` is not discarded. It remains eligible on future visits, with the one-
 
 **CONFIRMED** — QR scanning alone creates no visit and no loyalty ledger entry. The administrator deliberately confirms/registers the visit, after which server logic determines eligibility and records auditable movements.
 
+**SELECTED IN PHASE 6D1** — Member QR identification uses the existing cryptographically random UUID `ClubClient.clientId` as its non-secret opaque identifier. The value contains no PII, and there is no separate QR identity store or mapping. Possession of this identifier grants no authorization; administrative client data remains behind administrator authentication. Member sessions, access handles, invitation tokens, and PIN values or metadata are never QR payloads. Scanning never creates a visit or awards loyalty.
+
 **IMPLEMENTED IN PHASE 3** — The visit API uses the normalized UUID idempotency key as the immutable `visitId`. The Visit stores an opaque SHA-256 fingerprint of normalized business content. Conditional creation and transactional writes prevent duplicate Visit/Ledger mutations, while fingerprint comparison distinguishes safe replay from conflict.
 
 The API client supplies eligible spend, but never computes or supplies stamps, carry, balance version, or ledger movements. The server-controlled `studioId`, authenticated administrator actor, loyalty calculation, and resulting audit entries remain authoritative.
