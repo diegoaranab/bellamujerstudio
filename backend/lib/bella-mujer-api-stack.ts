@@ -514,7 +514,10 @@ export class BellaMujerApiStack extends cdk.Stack {
     );
 
     clubTable.grant(memberHistoryFunction, 'dynamodb:GetItem', 'dynamodb:Query');
-    memberClubHistoryCursorSecret.grantRead(memberHistoryFunction);
+    memberHistoryFunction.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['secretsmanager:GetSecretValue'],
+      resources: [memberClubHistoryCursorSecret.secretArn]
+    }));
 
     const api = new apigwv2.HttpApi(this, 'BellaMujerHttpApi', {
       apiName: 'bella-mujer-api',
