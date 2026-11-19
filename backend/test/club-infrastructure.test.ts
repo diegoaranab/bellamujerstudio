@@ -172,8 +172,10 @@ describe('Club infrastructure', () => {
     const accessLogicalId = template.findOutputs('ClubAccessTableName')
       .ClubAccessTableName.Value.Ref as string;
     const secrets = template.findResources('AWS::SecretsManager::Secret');
-    expect(Object.keys(secrets)).toHaveLength(1);
-    const [[secretLogicalId, secret]] = Object.entries(secrets);
+    expect(Object.keys(secrets)).toHaveLength(2);
+    const [secretLogicalId, secret] = Object.entries(secrets).find(([, value]) =>
+      value.Properties.Description === 'Bella Mujer Club PIN HMAC pepper'
+    )!;
     expect(secret).toMatchObject({
       DeletionPolicy: 'Retain', UpdateReplacePolicy: 'Retain',
       Properties: {
@@ -231,7 +233,9 @@ describe('Club infrastructure', () => {
     const secretReaders = functions.filter((lambdaFunction) =>
       JSON.stringify(statementsFor(lambdaFunction)).includes('secretsmanager:GetSecretValue')
     );
-    expect(secretReaders).toEqual([credential]);
+    expect(secretReaders).toEqual(expect.arrayContaining([credential]));
+    expect(secretReaders).toHaveLength(2);
+    expect(JSON.stringify(template.toJSON().Outputs ?? {})).not.toContain('MemberClubHistoryCursorSecret');
 
     const stage = Object.values(template.findResources('AWS::ApiGatewayV2::Stage'))[0];
     expect(stage.Properties.RouteSettings).toEqual({
@@ -274,6 +278,10 @@ describe('Club infrastructure', () => {
     const historyFunction = functions.find((resource) =>
       resource.Properties.Description === 'Reads authenticated Bella Mujer Club member history'
     );
+    const secrets = template.findResources('AWS::SecretsManager::Secret');
+    const historyCursorSecretLogicalId = Object.entries(secrets).find(([, value]) =>
+      value.Properties.Description === 'Bella Mujer Club member history cursor encryption key'
+    )![0];
     expect(authorizerFunction).toBeDefined();
     expect(probeFunction).toBeDefined();
     expect(selfSummaryFunction).toBeDefined();
@@ -286,7 +294,9 @@ describe('Club infrastructure', () => {
       CLUB_TABLE_NAME: { Ref: clubLogicalId }
     });
     expect(historyFunction!.Properties.Environment.Variables).toEqual({
-      CLUB_TABLE_NAME: { Ref: clubLogicalId }
+      CLUB_TABLE_NAME: { Ref: clubLogicalId },
+      CLUB_HISTORY_CURSOR_SECRET_ARN: { Ref: expect.any(String) },
+      CLUB_HISTORY_CURSOR_VERSION: 'v1'
     });
 
     const policies = Object.values(template.findResources('AWS::IAM::Policy'));
@@ -315,6 +325,9 @@ describe('Club infrastructure', () => {
       Action: ['dynamodb:GetItem', 'dynamodb:Query'],
       Effect: 'Allow',
       Resource: [{ 'Fn::GetAtt': [clubLogicalId, 'Arn'] }]
+    }, {
+      Action: ['secretsmanager:GetSecretValue', 'secretsmanager:DescribeSecret'], Effect: 'Allow',
+      Resource: { Ref: historyCursorSecretLogicalId }
     }]);
     const serializedAuthorizationBoundary = JSON.stringify({
       authorizerStatements,

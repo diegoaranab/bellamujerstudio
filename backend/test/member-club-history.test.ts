@@ -7,6 +7,7 @@ import {
   DEFAULT_MEMBER_CLUB_HISTORY_LIMIT,
   MemberClubHistoryPersistence
 } from '../src/handlers/member-club-history';
+import { EncryptedMemberHistoryCursorCodec } from '../src/club/member-history-cursor';
 
 const client: ClubClient = {
   studioId: 'bella-mujer', clientId: 'client-01', name: 'Ana Privada', phone: '+525500000000',
@@ -41,7 +42,10 @@ const setup = () => {
   return {
     getClient,
     listLedgerEntries,
-    handler: createMemberClubHistoryHandler({ persistence: { getClient, listLedgerEntries } })
+    handler: createMemberClubHistoryHandler({
+      persistence: { getClient, listLedgerEntries },
+      cursorCodec: new EncryptedMemberHistoryCursorCodec({ getSecret: async () => 'test-only-cursor-secret' })
+    })
   };
 };
 
@@ -91,12 +95,27 @@ describe('member Club history', () => {
     listLedgerEntries.mockResolvedValueOnce({ items: [entry], lastEvaluatedKey: key });
     const first = JSON.parse((await handler(event())).body ?? '{}');
     expect(first.nextToken).toEqual(expect.any(String));
+    expect(JSON.stringify(first)).not.toContain('bella-mujer');
+    expect(JSON.stringify(first)).not.toContain('client-01');
+    expect(JSON.stringify(first)).not.toContain('internal-entry-id');
+    expect(JSON.stringify(first)).not.toContain('LEDGER');
     expect(first.nextToken).not.toContain('Ana');
     expect(first.nextToken).not.toContain('5255');
     expect((await handler(event(undefined, { nextToken: first.nextToken }))).statusCode).toBe(200);
     expect(listLedgerEntries).toHaveBeenLastCalledWith(
       'bella-mujer', 'client-01', DEFAULT_MEMBER_CLUB_HISTORY_LIMIT, key
     );
+  });
+
+  it('rejects an encrypted token under a different authenticated member context', async () => {
+    const { handler, listLedgerEntries } = setup();
+    listLedgerEntries.mockResolvedValueOnce({ items: [entry], lastEvaluatedKey: key });
+    const first = JSON.parse((await handler(event())).body ?? '{}');
+    const response = await handler(event({ studioId: 'bella-mujer', clientId: 'client-02' }, {
+      nextToken: first.nextToken
+    }));
+    expect(response.statusCode).toBe(400);
+    expect(listLedgerEntries).toHaveBeenCalledTimes(1);
   });
 
   it.each([
@@ -127,7 +146,8 @@ describe('member Club history', () => {
     const { listLedgerEntries } = setup();
     listLedgerEntries.mockRejectedValue(persistenceError);
     const isolated = createMemberClubHistoryHandler({
-      persistence: { getClient: vi.fn().mockResolvedValue(client), listLedgerEntries }
+      persistence: { getClient: vi.fn().mockResolvedValue(client), listLedgerEntries },
+      cursorCodec: new EncryptedMemberHistoryCursorCodec({ getSecret: async () => 'test-only-cursor-secret' })
     });
     const log = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const response = await isolated(event());

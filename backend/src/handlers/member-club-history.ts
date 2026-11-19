@@ -7,6 +7,11 @@ import {
   DynamoClubPersistence
 } from '../club/club-persistence';
 import { extractMemberAuthorizerContext } from '../club-access/member-authorizer-context';
+import {
+  EncryptedMemberHistoryCursorCodec,
+  MemberHistoryCursorCodec
+} from '../club/member-history-cursor';
+import { createRuntimeMemberHistoryCursorSecretProvider } from '../club/member-history-cursor-secret';
 
 export const DEFAULT_MEMBER_CLUB_HISTORY_LIMIT = 20;
 export const MAX_MEMBER_CLUB_HISTORY_LIMIT = 50;
@@ -30,6 +35,7 @@ export interface MemberClubHistoryPersistence {
 
 export interface MemberClubHistoryDependencies {
   persistence: MemberClubHistoryPersistence;
+  cursorCodec: MemberHistoryCursorCodec;
 }
 
 const jsonResponse = (statusCode: number, body: object): APIGatewayProxyStructuredResultV2 => ({
@@ -42,45 +48,6 @@ const failureResponse = (): APIGatewayProxyStructuredResultV2 => jsonResponse(50
   error: 'SERVER_ERROR',
   message: 'No pudimos cargar tu historial de Bella Mujer Club. Intenta de nuevo en unos minutos.'
 });
-
-const partition = (studioId: string, clientId: string): string =>
-  `STUDIO#${studioId}#CLIENT#${clientId}`;
-
-const validKey = (
-  value: unknown,
-  studioId: string,
-  clientId: string
-): value is ClubLedgerContinuationKey => {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
-  const record = value as Record<string, unknown>;
-  if (Object.keys(record).sort().join(',') !== 'pk,sk') return false;
-  const pk = record.pk as Record<string, unknown> | undefined;
-  const sk = record.sk as Record<string, unknown> | undefined;
-  if (!pk || !sk || Object.keys(pk).join(',') !== 'S' || Object.keys(sk).join(',') !== 'S') {
-    return false;
-  }
-  return pk.S === partition(studioId, clientId) && typeof sk.S === 'string' &&
-    sk.S.startsWith('LEDGER#') && sk.S.length > 'LEDGER#'.length &&
-    Buffer.byteLength(sk.S, 'utf8') <= 1024;
-};
-
-const decodeToken = (
-  token: string,
-  studioId: string,
-  clientId: string
-): ClubLedgerContinuationKey => {
-  if (!/^[A-Za-z0-9_-]+$/.test(token)) throw new Error('Malformed token');
-  const decoded = Buffer.from(token, 'base64url');
-  if (decoded.length > 4096 || decoded.toString('base64url') !== token) throw new Error('Malformed token');
-  const parsed: unknown = JSON.parse(decoded.toString('utf8'));
-  if (!validKey(parsed, studioId, clientId)) throw new Error('Invalid token');
-  return parsed;
-};
-
-const encodeToken = (key: ClubLedgerContinuationKey, studioId: string, clientId: string): string => {
-  if (!validKey(key, studioId, clientId)) throw new Error('Unsafe continuation key');
-  return Buffer.from(JSON.stringify(key), 'utf8').toString('base64url');
-};
 
 const parseLimit = (raw: string | undefined): number => {
   if (raw === undefined) return DEFAULT_MEMBER_CLUB_HISTORY_LIMIT;
@@ -112,7 +79,7 @@ const logFailure = (operation: string, event: APIGatewayProxyEventV2, error?: un
   });
 };
 
-export const createMemberClubHistoryHandler = ({ persistence }: MemberClubHistoryDependencies) =>
+export const createMemberClubHistoryHandler = ({ persistence, cursorCodec }: MemberClubHistoryDependencies) =>
   async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyStructuredResultV2> => {
     let studioId: string;
     let clientId: string;
@@ -128,7 +95,7 @@ export const createMemberClubHistoryHandler = ({ persistence }: MemberClubHistor
     try {
       limit = parseLimit(event.queryStringParameters?.limit);
       const token = event.queryStringParameters?.nextToken;
-      startKey = token === undefined ? undefined : decodeToken(token, studioId, clientId);
+      startKey = token === undefined ? undefined : await cursorCodec.decode(token, studioId, clientId);
     } catch {
       return jsonResponse(400, {
         error: 'VALIDATION_ERROR',
@@ -146,7 +113,7 @@ export const createMemberClubHistoryHandler = ({ persistence }: MemberClubHistor
       return jsonResponse(200, {
         items: page.items.map(project),
         ...(page.lastEvaluatedKey
-          ? { nextToken: encodeToken(page.lastEvaluatedKey, studioId, clientId) }
+          ? { nextToken: await cursorCodec.encode(page.lastEvaluatedKey, studioId, clientId) }
           : {})
       });
     } catch (error) {
@@ -156,7 +123,10 @@ export const createMemberClubHistoryHandler = ({ persistence }: MemberClubHistor
   };
 
 const tableName = process.env.CLUB_TABLE_NAME;
+const cursorSecretArn = process.env.CLUB_HISTORY_CURSOR_SECRET_ARN;
+const cursorVersion = process.env.CLUB_HISTORY_CURSOR_VERSION ?? 'v1';
 if (!tableName) console.warn('CLUB_TABLE_NAME is not configured.');
+if (!cursorSecretArn) console.warn('CLUB_HISTORY_CURSOR_SECRET_ARN is not configured.');
 const unavailable = async (): Promise<never> => {
   throw new Error('Club member history is not configured');
 };
@@ -164,4 +134,16 @@ const persistence: MemberClubHistoryPersistence = tableName
   ? new DynamoClubPersistence(new DynamoDBClient({}), tableName)
   : { getClient: unavailable, listLedgerEntries: unavailable };
 
-export const handler = createMemberClubHistoryHandler({ persistence });
+const cursorCodec = cursorSecretArn
+  ? new EncryptedMemberHistoryCursorCodec(
+    createRuntimeMemberHistoryCursorSecretProvider(cursorSecretArn), cursorVersion
+  )
+  : undefined;
+
+export const handler = createMemberClubHistoryHandler({
+  persistence,
+  cursorCodec: cursorCodec ?? {
+    encode: async () => { throw new Error('Member history cursor is not configured'); },
+    decode: async () => { throw new Error('Member history cursor is not configured'); }
+  }
+});
