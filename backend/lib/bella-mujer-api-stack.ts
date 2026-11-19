@@ -77,6 +77,15 @@ export class BellaMujerApiStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.RETAIN
     });
 
+    const memberClubHistoryCursorSecret = new secretsmanager.Secret(this, 'MemberClubHistoryCursorSecret', {
+      description: 'Bella Mujer Club member history cursor encryption key',
+      generateSecretString: {
+        passwordLength: 64,
+        excludePunctuation: true
+      },
+      removalPolicy: cdk.RemovalPolicy.RETAIN
+    });
+
     const adminUserPool = new cognito.UserPool(this, 'AdminUserPool', {
       userPoolName: 'bella-mujer-admin',
       selfSignUpEnabled: false,
@@ -483,6 +492,30 @@ export class BellaMujerApiStack extends cdk.Stack {
 
     clubTable.grant(memberSelfSummaryFunction, 'dynamodb:GetItem');
 
+    const memberHistoryFunction = new nodejs.NodejsFunction(
+      this,
+      'MemberClubHistoryFunction',
+      {
+        ...sharedLambdaProps,
+        entry: 'src/handlers/member-club-history.ts',
+        handler: 'handler',
+        description: 'Reads authenticated Bella Mujer Club member history',
+        logGroup: new logs.LogGroup(this, 'MemberClubHistoryFunctionLogGroup', {
+          logGroupName: `/aws/lambda/${cdk.Stack.of(this).stackName}-member-club-history`,
+          retention: logs.RetentionDays.TWO_WEEKS,
+          removalPolicy: cdk.RemovalPolicy.DESTROY
+        }),
+        environment: {
+          CLUB_TABLE_NAME: clubTable.tableName,
+          CLUB_HISTORY_CURSOR_SECRET_ARN: memberClubHistoryCursorSecret.secretArn,
+          CLUB_HISTORY_CURSOR_VERSION: 'v1'
+        }
+      }
+    );
+
+    clubTable.grant(memberHistoryFunction, 'dynamodb:GetItem', 'dynamodb:Query');
+    memberClubHistoryCursorSecret.grantRead(memberHistoryFunction);
+
     const api = new apigwv2.HttpApi(this, 'BellaMujerHttpApi', {
       apiName: 'bella-mujer-api',
       corsPreflight: {
@@ -589,6 +622,16 @@ export class BellaMujerApiStack extends cdk.Stack {
       integration: new integrations.HttpLambdaIntegration(
         'MemberClubSelfSummaryIntegration',
         memberSelfSummaryFunction
+      ),
+      authorizer: memberAuthorizer
+    });
+
+    api.addRoutes({
+      path: '/club/me/history',
+      methods: [apigwv2.HttpMethod.GET],
+      integration: new integrations.HttpLambdaIntegration(
+        'MemberClubHistoryIntegration',
+        memberHistoryFunction
       ),
       authorizer: memberAuthorizer
     });
