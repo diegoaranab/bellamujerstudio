@@ -38,6 +38,7 @@ import {
 import { buildBellaMujerWhatsAppUrl } from '../../core/constants/contact.constants';
 import { isCanonicalMemberClubCredential } from '../../core/services/member-club-credential';
 import { MemberClubSessionService } from '../../core/services/member-club-session.service';
+import { MemberClubHistoryComponent } from './member-club-history.component';
 
 const matchingPinsValidator: ValidatorFn = (
   control: AbstractControl
@@ -55,7 +56,8 @@ const matchingPinsValidator: ValidatorFn = (
     MatCardModule,
     MatFormFieldModule,
     MatIconModule,
-    MatInputModule
+    MatInputModule,
+    MemberClubHistoryComponent
   ],
   templateUrl: './member-club-access.component.html',
   styleUrl: './member-club-access.component.scss'
@@ -487,28 +489,6 @@ export class MemberClubAccessComponent implements OnInit {
     this.isLoadingMoreHistory.set(false);
     this.hasHistoryLoadError.set(false);
     this.hasHistoryPaginationError.set(false);
-  }
-
-  protected historyLabel(item: MemberClubHistoryItem): string {
-    switch (item.type) {
-      case 'STAMP_EARNED': return 'Sello ganado';
-      case 'ADMIN_ADJUSTMENT': return 'Ajuste de sellos';
-      default: return 'Actividad registrada';
-    }
-  }
-
-  protected stampDeltaLabel(delta: number): string | null {
-    if (delta === 0) return null;
-    return `${delta > 0 ? '+' : ''}${delta} ${Math.abs(delta) === 1 ? 'sello' : 'sellos'}`;
-  }
-
-  protected stampCountLabel(count: number): string {
-    return `Ahora tienes ${count} ${count === 1 ? 'sello.' : 'sellos.'}`;
-  }
-
-  protected historyDate(occurredAtISO: string): string {
-    return new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
-      .format(new Date(occurredAtISO)).replace('.', '');
   }
 
   private concealNip(): void {
