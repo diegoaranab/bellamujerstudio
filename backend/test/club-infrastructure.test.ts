@@ -84,8 +84,8 @@ describe('Club infrastructure', () => {
       template.findResources('AWS::ApiGatewayV2::Authorizer')
     ).find(([, resource]) => resource.Properties.AuthorizerType === 'JWT')!;
 
-    expect(functions).toHaveLength(15);
-    expect(routes).toHaveLength(19);
+    expect(functions).toHaveLength(16);
+    expect(routes).toHaveLength(20);
     const accessFunctions = functions.filter((lambdaFunction) =>
       lambdaFunction.Properties.Description ===
         'Manages Club member access for authenticated administrators'
@@ -389,6 +389,11 @@ describe('Club infrastructure', () => {
       AuthorizerId: { Ref: memberAuthorizerLogicalId }
     });
     expect(routesByKey['GET /club/me/history'].AuthorizationScopes).toBeUndefined();
+    expect(routesByKey['GET /club/me/qr']).toMatchObject({
+      AuthorizationType: 'CUSTOM',
+      AuthorizerId: { Ref: memberAuthorizerLogicalId }
+    });
+    expect(routesByKey['GET /club/me/qr'].AuthorizationScopes).toBeUndefined();
     for (const routeKey of [
       'POST /club/access/enroll', 'POST /club/access/login', 'POST /club/access/logout'
     ]) expect(routesByKey[routeKey]).toMatchObject({ AuthorizationType: 'NONE' });

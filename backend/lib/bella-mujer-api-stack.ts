@@ -519,6 +519,23 @@ export class BellaMujerApiStack extends cdk.Stack {
       resources: [memberClubHistoryCursorSecret.secretArn]
     }));
 
+    const memberClubQrFunction = new nodejs.NodejsFunction(
+      this,
+      'MemberClubQrFunction',
+      {
+        ...sharedLambdaProps,
+        entry: 'src/handlers/member-club-qr.ts',
+        handler: 'handler',
+        description: 'Returns the authenticated Bella Mujer Club member QR identifier',
+        logGroup: new logs.LogGroup(this, 'MemberClubQrFunctionLogGroup', {
+          logGroupName: `/aws/lambda/${cdk.Stack.of(this).stackName}-member-club-qr`,
+          retention: logs.RetentionDays.TWO_WEEKS,
+          removalPolicy: cdk.RemovalPolicy.DESTROY
+        }),
+        environment: {}
+      }
+    );
+
     const api = new apigwv2.HttpApi(this, 'BellaMujerHttpApi', {
       apiName: 'bella-mujer-api',
       corsPreflight: {
@@ -635,6 +652,16 @@ export class BellaMujerApiStack extends cdk.Stack {
       integration: new integrations.HttpLambdaIntegration(
         'MemberClubHistoryIntegration',
         memberHistoryFunction
+      ),
+      authorizer: memberAuthorizer
+    });
+
+    api.addRoutes({
+      path: '/club/me/qr',
+      methods: [apigwv2.HttpMethod.GET],
+      integration: new integrations.HttpLambdaIntegration(
+        'MemberClubQrIntegration',
+        memberClubQrFunction
       ),
       authorizer: memberAuthorizer
     });
