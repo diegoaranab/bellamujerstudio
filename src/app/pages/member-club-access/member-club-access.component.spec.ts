@@ -31,6 +31,7 @@ describe('MemberClubAccessComponent', () => {
     login: ReturnType<typeof vi.fn>;
     logout: ReturnType<typeof vi.fn>;
     getSelfSummary: ReturnType<typeof vi.fn>;
+    getHistory: ReturnType<typeof vi.fn>;
   };
   let navigate: ReturnType<typeof vi.fn>;
   let queryParams: BehaviorSubject<ReturnType<typeof convertToParamMap>>;
@@ -40,7 +41,8 @@ describe('MemberClubAccessComponent', () => {
       enroll: vi.fn(),
       login: vi.fn(),
       logout: vi.fn(),
-      getSelfSummary: vi.fn().mockReturnValue(of(memberSummary()))
+      getSelfSummary: vi.fn().mockReturnValue(of(memberSummary())),
+      getHistory: vi.fn().mockReturnValue(of({ items: [] }))
     };
     navigate = vi.fn().mockResolvedValue(true);
     queryParams = new BehaviorSubject(convertToParamMap(query));
@@ -126,7 +128,8 @@ describe('MemberClubAccessComponent', () => {
       enroll: vi.fn().mockReturnValue(of(sessionResponse())),
       login: vi.fn(),
       logout: vi.fn(),
-      getSelfSummary: vi.fn().mockReturnValue(of(memberSummary()))
+      getSelfSummary: vi.fn().mockReturnValue(of(memberSummary())),
+      getHistory: vi.fn().mockReturnValue(of({ items: [] }))
     };
     await TestBed.configureTestingModule({
       imports: [MemberClubAccessComponent],
@@ -325,7 +328,7 @@ describe('MemberClubAccessComponent', () => {
     expect(element.textContent).toContain('3 sellos');
     expect(element.textContent).not.toContain('Sesión válida hasta');
     expect(element.textContent).not.toContain('3 de 4');
-    for (const destination of ['Historial', 'Mi QR', 'Promociones', 'Recompensas']) {
+    for (const destination of ['Mi QR', 'Promociones', 'Recompensas']) {
       expect(element.textContent).not.toContain(destination);
     }
   });
@@ -816,4 +819,104 @@ describe('MemberClubAccessComponent', () => {
     fixture.detectChanges();
     expect(input.value).toBe('482731');
   });
+
+  it('loads calm member-safe history after summary and appends a later page once', async () => {
+    await configure({ access: ACCESS_A }, 'club');
+    api.getHistory
+      .mockReturnValueOnce(of({
+        items: [{ occurredAtISO: '2026-11-16T18:30:00.000Z', type: 'STAMP_EARNED', stampDelta: 1, stampCountAfter: 3 }],
+        nextToken: 'opaque-next-page'
+      }))
+      .mockReturnValueOnce(of({
+        items: [{ occurredAtISO: '2026-10-22T17:15:00.000Z', type: 'ADMIN_ADJUSTMENT', stampDelta: -1, stampCountAfter: 2 }]
+      }));
+    TestBed.inject(MemberClubSessionService).establish(sessionResponse().session);
+    const fixture = TestBed.createComponent(MemberClubAccessComponent);
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+
+    expect(api.getHistory).toHaveBeenCalledWith(SESSION_TOKEN, { limit: 5 });
+    expect(element.querySelector('[data-testid="member-history"]')?.textContent).toContain('Sello ganado');
+    expect(element.querySelector('[data-testid="member-history"]')?.textContent).toContain('+1 sello');
+    expect(element.querySelector('[data-testid="member-history"]')?.textContent).toContain('16 nov 2026');
+    const loadMore = element.querySelector<HTMLButtonElement>('[data-testid="member-history-load-more"]')!;
+    loadMore.click();
+    fixture.detectChanges();
+
+    expect(api.getHistory).toHaveBeenLastCalledWith(SESSION_TOKEN, { limit: 5, nextToken: 'opaque-next-page' });
+    expect(element.querySelector('[data-testid="member-history-list"]')?.querySelectorAll('li')).toHaveLength(2);
+    expect(element.textContent).toContain('Ajuste de sellos');
+    expect(element.textContent).toContain('-1 sello');
+  });
+
+  it('keeps progress while exposing a history-only recovery action', async () => {
+    await configure({ access: ACCESS_A }, 'club');
+    api.getHistory.mockReturnValue(throwError(() => new MemberClubApiError('server', 'safe')));
+    TestBed.inject(MemberClubSessionService).establish(sessionResponse().session);
+    const fixture = TestBed.createComponent(MemberClubAccessComponent);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('[data-testid="member-progress"]')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('[data-testid="member-history-error"]')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('[data-testid="member-history-retry"]')).toBeTruthy();
+  });
+  it('renders progress while history is pending and preserves identical movements across pages', async () => {
+    await configure({ access: ACCESS_A }, 'club');
+    const pending = new Subject<any>();
+    const item = { occurredAtISO: '2026-11-16T18:30:00.000Z', type: 'STAMP_EARNED', stampDelta: 1, stampCountAfter: 3 };
+    api.getHistory.mockReturnValueOnce(pending).mockReturnValueOnce(of({ items: [item] }));
+    TestBed.inject(MemberClubSessionService).establish(sessionResponse().session);
+    const fixture = TestBed.createComponent(MemberClubAccessComponent);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[data-testid="member-progress"]')).toBeTruthy();
+    pending.next({ items: [item], nextToken: 'opaque' });
+    fixture.detectChanges();
+    fixture.nativeElement.querySelector('[data-testid="member-history-load-more"]').click();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelectorAll('[data-testid="member-history-list"] li')).toHaveLength(2);
+  });
+
+  it('retains movements on pagination failure and retries without duplicate requests', async () => {
+    await configure({ access: ACCESS_A }, 'club');
+    const pending = new Subject<any>();
+    const item = { occurredAtISO: '2026-11-16T18:30:00.000Z', type: 'STAMP_EARNED', stampDelta: 1, stampCountAfter: 3 };
+    api.getHistory.mockReturnValueOnce(of({ items: [item], nextToken: 'opaque' }))
+      .mockReturnValueOnce(throwError(() => new MemberClubApiError('server', 'safe')))
+      .mockReturnValueOnce(pending);
+    TestBed.inject(MemberClubSessionService).establish(sessionResponse().session);
+    const fixture = TestBed.createComponent(MemberClubAccessComponent);
+    fixture.detectChanges();
+    const button = () => fixture.nativeElement.querySelector('[data-testid="member-history-load-more"]') as HTMLButtonElement;
+    button().click();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelectorAll('[data-testid="member-history-list"] li')).toHaveLength(1);
+    button().click();
+    button().click();
+    expect(api.getHistory).toHaveBeenCalledTimes(3);
+    pending.next({ items: [] });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelectorAll('[data-testid="member-history-list"] li')).toHaveLength(1);
+  });
+
+  it('ignores history from a replaced session and clears history on logout', async () => {
+    await configure({ access: ACCESS_A }, 'club');
+    const oldHistory = new Subject<any>();
+    const item = { occurredAtISO: '2026-11-16T18:30:00.000Z', type: 'STAMP_EARNED', stampDelta: 1, stampCountAfter: 3 };
+    api.getHistory.mockReturnValueOnce(oldHistory).mockReturnValueOnce(of({ items: [item] }));
+    api.logout.mockReturnValue(of({}));
+    const session = TestBed.inject(MemberClubSessionService);
+    session.establish(sessionResponse().session);
+    const fixture = TestBed.createComponent(MemberClubAccessComponent);
+    fixture.detectChanges();
+    session.establish(sessionResponseFor(ACCESS_B).session);
+    fixture.detectChanges();
+    oldHistory.next({ items: [{ ...item, type: 'ADMIN_ADJUSTMENT' }] });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).not.toContain('Ajuste de sellos');
+    expect(fixture.nativeElement.textContent).toContain('Sello ganado');
+    fixture.nativeElement.querySelector('[data-testid="member-logout"]').click();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).not.toContain('Sello ganado');
+  });
+
 });

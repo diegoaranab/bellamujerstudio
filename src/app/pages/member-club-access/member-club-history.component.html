@@ -1,0 +1,59 @@
+<section class="member-history" aria-labelledby="member-history-heading" data-testid="member-history">
+  <div class="member-history__heading">
+    <h2 id="member-history-heading">Actividad reciente</h2>
+  </div>
+  @if (isLoading) {
+    <div class="member-history__loading" role="status" data-testid="member-history-loading">
+      <span class="skeleton-line skeleton-line--long" aria-hidden="true"></span>
+      <span class="skeleton-line skeleton-line--medium" aria-hidden="true"></span>
+      <span>Cargando tu actividad…</span>
+    </div>
+  } @else if (hasLoadError) {
+    <div class="member-history__recovery" data-testid="member-history-error">
+      <p>No pudimos cargar tu actividad. Tu sesión sigue activa.</p>
+      <button mat-button type="button" (click)="retry.emit()" data-testid="member-history-retry">
+        <mat-icon aria-hidden="true">refresh</mat-icon>
+        Intentar de nuevo
+      </button>
+    </div>
+  } @else if (items.length === 0) {
+    <p class="member-history__empty" data-testid="member-history-empty">
+      Aún no hay movimientos en tu Club. Aquí aparecerá tu actividad de sellos.
+    </p>
+  } @else {
+    <ul class="member-history__list" data-testid="member-history-list">
+      @for (item of items; track $index) {
+        <li class="member-history__item">
+          <div class="member-history__copy">
+            <p class="member-history__label">{{ historyLabel(item) }}</p>
+            <p class="member-history__balance">{{ stampCountLabel(item.stampCountAfter) }}</p>
+          </div>
+          <div class="member-history__meta">
+            @if (stampDeltaLabel(item.stampDelta); as delta) {
+              <span class="member-history__delta">{{ delta }}</span>
+            }
+            <time [attr.datetime]="item.occurredAtISO">{{ historyDate(item.occurredAtISO) }}</time>
+          </div>
+        </li>
+      }
+    </ul>
+  }
+  @if (!isLoading && !hasLoadError) {
+    @if (hasPaginationError) {
+      <p class="member-history__pagination-error" role="status">
+        No pudimos cargar más movimientos. Intenta de nuevo.
+      </p>
+    }
+    @if (hasMore) {
+      <button
+        mat-button
+        type="button"
+        [disabled]="isLoadingMore"
+        (click)="loadMore.emit()"
+        data-testid="member-history-load-more"
+      >
+        {{ isLoadingMore ? 'Cargando…' : 'Ver más movimientos' }}
+      </button>
+    }
+  }
+</section>

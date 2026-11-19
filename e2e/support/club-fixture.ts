@@ -6,7 +6,13 @@ const FIXTURE_TOKEN = 'playwright-club-fixture-token';
 export const memberClubFixture = {
   access: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
   session: 'BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc',
-  summary: { profile: { name: 'Mariana Prueba' }, loyalty: { stampCount: 3 } }
+  summary: { profile: { name: 'Mariana Prueba' }, loyalty: { stampCount: 3 } },
+  history: {
+    items: [
+      { occurredAtISO: '2026-11-16T18:30:00.000Z', type: 'STAMP_EARNED', stampDelta: 1, stampCountAfter: 3 },
+      { occurredAtISO: '2026-10-22T17:15:00.000Z', type: 'ELIGIBLE_SPEND_ADDED', stampDelta: 0, stampCountAfter: 2 }
+    ]
+  }
 } as const;
 
 export const configuredClubClient = {
@@ -184,7 +190,10 @@ export async function installConfiguredClubFixture(page: Page): Promise<void> {
 
 export async function installMemberClubFixture(
   page: Page,
-  options: { failFirstSummary?: 'authentication' | 'server' } = {}
+  options: {
+    failFirstSummary?: 'authentication' | 'server';
+    history?: 'empty' | 'authentication' | 'server' | 'paginated' | 'load-more-failure';
+  } = {}
 ): Promise<void> {
   await page.route('**/*.js', async (route) => {
     const response = await route.fetch();
@@ -203,8 +212,10 @@ export async function installMemberClubFixture(
   });
 
   let summaryAttempts = 0;
+  let historyAttempts = 0;
   await page.route(`**${FIXTURE_API_PATH}/club/**`, async (route) => {
-    const path = new URL(route.request().url()).pathname.slice(FIXTURE_API_PATH.length);
+    const url = new URL(route.request().url());
+    const path = url.pathname.slice(FIXTURE_API_PATH.length);
     if (path === '/club/access/login' && route.request().method() === 'POST') {
       await json(route, {
         session: {
@@ -225,6 +236,35 @@ export async function installMemberClubFixture(
         return;
       }
       await json(route, memberClubFixture.summary);
+      return;
+    }
+    if (path === '/club/me/history' && route.request().method() === 'GET') {
+      historyAttempts += 1;
+      if (options.history === 'authentication' && historyAttempts === 1) {
+        await json(route, { error: 'CLUB_ACCESS_AUTHENTICATION_FAILED' }, 401);
+        return;
+      }
+      if (options.history === 'server' && historyAttempts === 1) {
+        await json(route, { error: 'private detail' }, 500);
+        return;
+      }
+      if (options.history === 'empty') {
+        await json(route, { items: [] });
+        return;
+      }
+      if (options.history === 'paginated' || options.history === 'load-more-failure') {
+        if (url.searchParams.get('nextToken') === 'member-fixture-next-page') {
+          if (options.history === 'load-more-failure' && historyAttempts === 2) {
+            await json(route, { error: 'private detail' }, 500);
+            return;
+          }
+          await json(route, { items: [{ occurredAtISO: '2026-09-03T16:00:00.000Z', type: 'ADMIN_ADJUSTMENT', stampDelta: -1, stampCountAfter: 1 }] });
+          return;
+        }
+        await json(route, { ...memberClubFixture.history, nextToken: 'member-fixture-next-page' });
+        return;
+      }
+      await json(route, memberClubFixture.history);
       return;
     }
     if (path === '/club/access/logout' && route.request().method() === 'POST') {

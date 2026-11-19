@@ -214,6 +214,16 @@
               </div>
             }
           </div>
+          <app-member-club-history
+            [items]="memberHistory()"
+            [isLoading]="isLoadingHistory()"
+            [isLoadingMore]="isLoadingMoreHistory()"
+            [hasLoadError]="hasHistoryLoadError()"
+            [hasPaginationError]="hasHistoryPaginationError()"
+            [hasMore]="historyNextToken() !== null"
+            (retry)="retryHistory()"
+            (loadMore)="loadMoreHistory()"
+          />
           <div class="member-home__utility">
             <button
               mat-button

@@ -31,12 +31,14 @@ import { Subscription } from 'rxjs';
 import {
   MemberClubApiClient,
   MemberClubApiError,
+  MemberClubHistoryItem,
   MemberClubSelfSummary,
   MemberClubSessionResponse
 } from '../../core/services/member-club-api.client';
 import { buildBellaMujerWhatsAppUrl } from '../../core/constants/contact.constants';
 import { isCanonicalMemberClubCredential } from '../../core/services/member-club-credential';
 import { MemberClubSessionService } from '../../core/services/member-club-session.service';
+import { MemberClubHistoryComponent } from './member-club-history.component';
 
 const matchingPinsValidator: ValidatorFn = (
   control: AbstractControl
@@ -54,7 +56,8 @@ const matchingPinsValidator: ValidatorFn = (
     MatCardModule,
     MatFormFieldModule,
     MatIconModule,
-    MatInputModule
+    MatInputModule,
+    MemberClubHistoryComponent
   ],
   templateUrl: './member-club-access.component.html',
   styleUrl: './member-club-access.component.scss'
@@ -74,6 +77,8 @@ export class MemberClubAccessComponent implements OnInit {
   private activeRequest: Subscription | null = null;
   private summaryRequest: Subscription | null = null;
   private summaryRequestToken: string | null = null;
+  private historyRequest: Subscription | null = null;
+  private historyRequestToken: string | null = null;
   private observedSessionToken: string | null | undefined = undefined;
   private throttleTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -85,6 +90,12 @@ export class MemberClubAccessComponent implements OnInit {
   protected readonly isLoadingSummary = signal(false);
   protected readonly hasSummaryLoadError = signal(false);
   protected readonly memberSummary = signal<MemberClubSelfSummary | null>(null);
+  protected readonly memberHistory = signal<MemberClubHistoryItem[]>([]);
+  protected readonly historyNextToken = signal<string | null>(null);
+  protected readonly isLoadingHistory = signal(false);
+  protected readonly isLoadingMoreHistory = signal(false);
+  protected readonly hasHistoryLoadError = signal(false);
+  protected readonly hasHistoryPaginationError = signal(false);
   protected readonly earnedStampMarkers = computed(() => {
     const stampCount = this.memberSummary()?.loyalty.stampCount ?? 0;
     return Array.from({ length: Math.min(stampCount, 8) });
@@ -129,6 +140,7 @@ export class MemberClubAccessComponent implements OnInit {
     this.destroyRef.onDestroy(() => {
       this.activeRequest?.unsubscribe();
       this.summaryRequest?.unsubscribe();
+      this.historyRequest?.unsubscribe();
       this.resetLoginThrottle();
     });
   }
@@ -178,6 +190,30 @@ export class MemberClubAccessComponent implements OnInit {
 
   protected retrySummary(): void {
     this.loadSummary();
+  }
+
+  protected retryHistory(): void {
+    this.loadHistory();
+  }
+
+  protected loadMoreHistory(): void {
+    const nextToken = this.historyNextToken();
+    const token = this.session.token();
+    if (!token || !nextToken || this.isLoadingHistory() || this.isLoadingMoreHistory()) return;
+
+    this.hasHistoryPaginationError.set(false);
+    this.isLoadingMoreHistory.set(true);
+    this.historyRequestToken = token;
+    this.historyRequest = this.api.getHistory(token, { limit: 5, nextToken }).subscribe({
+      next: (page) => {
+        if (!this.isCurrentHistoryRequest(token)) return;
+        this.memberHistory.set([...this.memberHistory(), ...page.items]);
+        this.historyNextToken.set(page.nextToken ?? null);
+        this.isLoadingMoreHistory.set(false);
+        this.historyRequest = null;
+      },
+      error: (error: unknown) => this.handleHistoryError(error, token, true)
+    });
   }
 
   protected logout(): void {
@@ -238,6 +274,7 @@ export class MemberClubAccessComponent implements OnInit {
     this.activeRequest?.unsubscribe();
     this.activeRequest = null;
     this.clearSummaryState();
+    this.clearHistoryState();
     this.resetLoginThrottle();
     this.invitationToken = null;
     this.isEnrollment.set(false);
@@ -319,6 +356,7 @@ export class MemberClubAccessComponent implements OnInit {
         this.memberSummary.set(summary);
         this.isLoadingSummary.set(false);
         this.summaryRequest = null;
+        this.loadHistory();
       },
       error: (error: unknown) => {
         if (!this.isCurrentSummaryRequest(token)) return;
@@ -376,12 +414,14 @@ export class MemberClubAccessComponent implements OnInit {
 
     if (!token) {
       this.clearSummaryState();
+      this.clearHistoryState();
       this.isSubmitting.set(false);
       return;
     }
 
     if (previousToken && previousToken !== token) {
       this.clearSummaryState();
+      this.clearHistoryState();
       if (this.hasUsableLink() && !this.activationRoute) this.loadSummary();
     }
   }
@@ -401,6 +441,54 @@ export class MemberClubAccessComponent implements OnInit {
     this.memberSummary.set(null);
     this.isLoadingSummary.set(false);
     this.hasSummaryLoadError.set(false);
+  }
+
+  private loadHistory(): void {
+    const token = this.session.token();
+    if (!token || this.isLoadingHistory() || this.isLoadingMoreHistory()) return;
+    this.clearHistoryState();
+    this.isLoadingHistory.set(true);
+    this.historyRequestToken = token;
+    this.historyRequest = this.api.getHistory(token, { limit: 5 }).subscribe({
+      next: (page) => {
+        if (!this.isCurrentHistoryRequest(token)) return;
+        this.memberHistory.set(page.items);
+        this.historyNextToken.set(page.nextToken ?? null);
+        this.isLoadingHistory.set(false);
+        this.historyRequest = null;
+      },
+      error: (error: unknown) => this.handleHistoryError(error, token, false)
+    });
+  }
+
+  private handleHistoryError(error: unknown, token: string, isPagination: boolean): void {
+    if (!this.isCurrentHistoryRequest(token)) return;
+    this.historyRequest = null;
+    this.isLoadingHistory.set(false);
+    this.isLoadingMoreHistory.set(false);
+    if (error instanceof MemberClubApiError && error.kind === 'authentication') {
+      this.session.clear();
+      this.errorMessage.set('Tu sesión del Club ya no está activa. Ingresa nuevamente.');
+      return;
+    }
+    if (isPagination) this.hasHistoryPaginationError.set(true);
+    else this.hasHistoryLoadError.set(true);
+  }
+
+  private isCurrentHistoryRequest(token: string): boolean {
+    return this.historyRequestToken === token && this.session.token() === token;
+  }
+
+  private clearHistoryState(): void {
+    this.historyRequest?.unsubscribe();
+    this.historyRequest = null;
+    this.historyRequestToken = null;
+    this.memberHistory.set([]);
+    this.historyNextToken.set(null);
+    this.isLoadingHistory.set(false);
+    this.isLoadingMoreHistory.set(false);
+    this.hasHistoryLoadError.set(false);
+    this.hasHistoryPaginationError.set(false);
   }
 
   private concealNip(): void {
