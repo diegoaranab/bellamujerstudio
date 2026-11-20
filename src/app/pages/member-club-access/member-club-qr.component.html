@@ -1,0 +1,32 @@
+<section class="member-qr" aria-labelledby="member-qr-heading" data-testid="member-qr">
+  <div class="member-qr__heading">
+    <h2 id="member-qr-heading">Mi QR</h2>
+    <button #qrToggle mat-button type="button" [attr.aria-expanded]="state() !== 'closed'"
+      [attr.aria-controls]="disclosureId" (click)="state() === 'closed' ? show.emit() : hide.emit()"
+      data-testid="member-qr-toggle">
+      {{ state() === 'closed' ? 'Ver mi QR' : 'Ocultar mi QR' }}
+    </button>
+  </div>
+  <div [id]="disclosureId" class="member-qr__disclosure" [hidden]="state() === 'closed'"
+    [attr.aria-busy]="state() === 'loading'" data-testid="member-qr-disclosure">
+    <div class="member-qr__square">
+      @if (state() === 'open' && image()) {
+        <img [src]="image()!" alt="Código QR para identificar tu cuenta de Bella Mujer Club." data-testid="member-qr-image" />
+      } @else if (state() === 'loading') {
+        <span>Cargando tu QR…</span>
+      }
+    </div>
+    <div class="member-qr__copy">
+      <p>Muéstralo al equipo de Bella Mujer Studio para que identifique tu cuenta.</p>
+      <p>Tu QR no incluye tu nombre ni tu teléfono. Tampoco inicia sesión ni registra una visita.</p>
+      @if (state() === 'error') {
+        <p role="alert">{{ errorMessage() }}</p>
+        <button mat-button type="button" (click)="retryRequest()" data-testid="member-qr-retry">Intentar de nuevo</button>
+      }
+    </div>
+  </div>
+  <p class="visually-hidden" aria-live="polite" aria-atomic="true">
+    @if (state() === 'loading') { Cargando tu QR… }
+    @if (state() === 'open') { Tu QR está listo. }
+  </p>
+</section>

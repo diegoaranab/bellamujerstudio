@@ -27,6 +27,10 @@ export interface MemberClubSelfSummary {
   };
 }
 
+export interface MemberClubQrIdentification {
+  identifier: string;
+}
+
 export type MemberClubHistoryType =
   | 'ELIGIBLE_SPEND_ADDED'
   | 'STAMP_EARNED'
@@ -130,6 +134,17 @@ export class MemberClubApiClient {
             profile: { name: response.profile.name.trim() },
             loyalty: { stampCount: response.loyalty.stampCount }
           };
+        })
+      )
+    );
+  }
+
+  getQr(sessionToken: string): Observable<MemberClubQrIdentification> {
+    return this.withSessionToken(sessionToken, (headers) =>
+      this.http.get<unknown>(`${this.baseUrl}/club/me/qr`, { headers }).pipe(
+        map((response) => {
+          if (!this.isQrResponse(response)) throw this.safeServerError();
+          return { identifier: response.qr.identifier };
         })
       )
     );
@@ -309,6 +324,16 @@ export class MemberClubApiClient {
       'authenticated' in value &&
       value.authenticated === true
     );
+  }
+
+  private isQrResponse(value: unknown): value is { qr: MemberClubQrIdentification } {
+    if (!value || typeof value !== 'object' || Object.keys(value).length !== 1 || !('qr' in value)) {
+      return false;
+    }
+    const qr = value.qr;
+    return !!qr && typeof qr === 'object' && Object.keys(qr).length === 1 &&
+      'identifier' in qr && typeof qr.identifier === 'string' &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(qr.identifier);
   }
 
   private isSelfSummary(value: unknown): value is MemberClubSelfSummary {

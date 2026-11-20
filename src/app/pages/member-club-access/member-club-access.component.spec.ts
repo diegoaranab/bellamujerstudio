@@ -32,6 +32,7 @@ describe('MemberClubAccessComponent', () => {
     logout: ReturnType<typeof vi.fn>;
     getSelfSummary: ReturnType<typeof vi.fn>;
     getHistory: ReturnType<typeof vi.fn>;
+    getQr: ReturnType<typeof vi.fn>;
   };
   let navigate: ReturnType<typeof vi.fn>;
   let queryParams: BehaviorSubject<ReturnType<typeof convertToParamMap>>;
@@ -42,7 +43,8 @@ describe('MemberClubAccessComponent', () => {
       login: vi.fn(),
       logout: vi.fn(),
       getSelfSummary: vi.fn().mockReturnValue(of(memberSummary())),
-      getHistory: vi.fn().mockReturnValue(of({ items: [] }))
+      getHistory: vi.fn().mockReturnValue(of({ items: [] })),
+      getQr: vi.fn()
     };
     navigate = vi.fn().mockResolvedValue(true);
     queryParams = new BehaviorSubject(convertToParamMap(query));
@@ -129,7 +131,8 @@ describe('MemberClubAccessComponent', () => {
       login: vi.fn(),
       logout: vi.fn(),
       getSelfSummary: vi.fn().mockReturnValue(of(memberSummary())),
-      getHistory: vi.fn().mockReturnValue(of({ items: [] }))
+      getHistory: vi.fn().mockReturnValue(of({ items: [] })),
+      getQr: vi.fn()
     };
     await TestBed.configureTestingModule({
       imports: [MemberClubAccessComponent],
@@ -328,9 +331,39 @@ describe('MemberClubAccessComponent', () => {
     expect(element.textContent).toContain('3 sellos');
     expect(element.textContent).not.toContain('Sesión válida hasta');
     expect(element.textContent).not.toContain('3 de 4');
-    for (const destination of ['Mi QR', 'Promociones', 'Recompensas']) {
+    expect(element.textContent).toContain('Mi QR');
+    for (const destination of ['Promociones', 'Recompensas']) {
       expect(element.textContent).not.toContain(destination);
     }
+    expect(api.getQr).not.toHaveBeenCalled();
+  });
+
+  it('loads QR only after reveal, clears it on hide, and requests a fresh one when reopened', async () => {
+    await configure({ access: ACCESS_A }, 'club');
+    const pending = new Subject<{ identifier: string }>();
+    const uuid = '123e4567-e89b-42d3-a456-426614174000';
+    api.getQr.mockReturnValueOnce(pending).mockReturnValueOnce(of({ identifier: uuid }));
+    TestBed.inject(MemberClubSessionService).establish(sessionResponse().session);
+    const fixture = TestBed.createComponent(MemberClubAccessComponent);
+    fixture.detectChanges();
+    expect(api.getQr).not.toHaveBeenCalled();
+
+    const toggle = () => fixture.nativeElement.querySelector('[data-testid="member-qr-toggle"]') as HTMLButtonElement;
+    toggle().click();
+    fixture.detectChanges();
+    expect(api.getQr).toHaveBeenCalledTimes(1);
+    pending.next({ identifier: uuid });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[data-testid="member-qr-image"]')?.getAttribute('src')).toMatch(/^data:image\/gif;base64,/);
+    expect(fixture.nativeElement.textContent).not.toContain(uuid);
+
+    toggle().click();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[data-testid="member-qr-image"]')).toBeNull();
+    toggle().click();
+    fixture.detectChanges();
+    expect(api.getQr).toHaveBeenCalledTimes(2);
+    expect(fixture.nativeElement.querySelector('[data-testid="member-qr-image"]')).toBeTruthy();
   });
 
   it.each([
@@ -651,6 +684,48 @@ describe('MemberClubAccessComponent', () => {
 
     expect(api.logout).toHaveBeenCalledWith(SESSION_TOKEN);
     expect(TestBed.inject(MemberClubSessionService).token()).toBeNull();
+  });
+
+  it('does not start a QR request while logout is pending', async () => {
+    await configure({ access: ACCESS_A }, 'club');
+    const pendingLogout = new Subject<void>();
+    api.logout.mockReturnValue(pendingLogout);
+    api.getQr.mockReturnValue(of({ identifier: '123e4567-e89b-42d3-a456-426614174000' }));
+    const session = TestBed.inject(MemberClubSessionService);
+    session.establish(sessionResponse().session);
+    const fixture = TestBed.createComponent(MemberClubAccessComponent);
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+    const qrToggle = element.querySelector<HTMLButtonElement>('[data-testid="member-qr-toggle"]')!;
+
+    qrToggle.click();
+    fixture.detectChanges();
+    expect(api.getQr).toHaveBeenCalledOnce();
+    expect(element.querySelector('[data-testid="member-qr-image"]')).toBeTruthy();
+
+    element.querySelector<HTMLButtonElement>('[data-testid="member-logout"]')!.click();
+    fixture.detectChanges();
+
+    expect(api.logout).toHaveBeenCalledWith(SESSION_TOKEN);
+    expect(session.token()).toBe(SESSION_TOKEN);
+    expect(qrToggle.textContent).toContain('Ver mi QR');
+    expect(qrToggle.getAttribute('aria-expanded')).toBe('false');
+    expect(element.querySelector('[data-testid="member-qr-image"]')).toBeNull();
+
+    qrToggle.click();
+    fixture.detectChanges();
+
+    expect(api.getQr).toHaveBeenCalledOnce();
+    pendingLogout.error(new MemberClubApiError('network', 'temporary failure'));
+    fixture.detectChanges();
+    expect(session.token()).toBe(SESSION_TOKEN);
+    expect(element.textContent).toContain(
+      'No pudimos confirmar el cierre de sesión. Intenta nuevamente.'
+    );
+
+    qrToggle.click();
+    fixture.detectChanges();
+    expect(api.getQr).toHaveBeenCalledTimes(2);
   });
 
   it('does not let a stale successful logout clear a replacement session', async () => {
