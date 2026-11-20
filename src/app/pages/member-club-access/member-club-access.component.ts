@@ -206,7 +206,7 @@ export class MemberClubAccessComponent implements OnInit {
   }
 
   protected showQr(): void {
-    if (this.qrState() !== 'closed') return;
+    if (this.isSubmitting() || this.qrState() !== 'closed') return;
     const token = this.session.token();
     if (!token) return;
     if (this.clearExpiredQrSession()) return;

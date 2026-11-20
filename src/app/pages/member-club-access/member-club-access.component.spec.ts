@@ -686,6 +686,48 @@ describe('MemberClubAccessComponent', () => {
     expect(TestBed.inject(MemberClubSessionService).token()).toBeNull();
   });
 
+  it('does not start a QR request while logout is pending', async () => {
+    await configure({ access: ACCESS_A }, 'club');
+    const pendingLogout = new Subject<void>();
+    api.logout.mockReturnValue(pendingLogout);
+    api.getQr.mockReturnValue(of({ identifier: '123e4567-e89b-42d3-a456-426614174000' }));
+    const session = TestBed.inject(MemberClubSessionService);
+    session.establish(sessionResponse().session);
+    const fixture = TestBed.createComponent(MemberClubAccessComponent);
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+    const qrToggle = element.querySelector<HTMLButtonElement>('[data-testid="member-qr-toggle"]')!;
+
+    qrToggle.click();
+    fixture.detectChanges();
+    expect(api.getQr).toHaveBeenCalledOnce();
+    expect(element.querySelector('[data-testid="member-qr-image"]')).toBeTruthy();
+
+    element.querySelector<HTMLButtonElement>('[data-testid="member-logout"]')!.click();
+    fixture.detectChanges();
+
+    expect(api.logout).toHaveBeenCalledWith(SESSION_TOKEN);
+    expect(session.token()).toBe(SESSION_TOKEN);
+    expect(qrToggle.textContent).toContain('Ver mi QR');
+    expect(qrToggle.getAttribute('aria-expanded')).toBe('false');
+    expect(element.querySelector('[data-testid="member-qr-image"]')).toBeNull();
+
+    qrToggle.click();
+    fixture.detectChanges();
+
+    expect(api.getQr).toHaveBeenCalledOnce();
+    pendingLogout.error(new MemberClubApiError('network', 'temporary failure'));
+    fixture.detectChanges();
+    expect(session.token()).toBe(SESSION_TOKEN);
+    expect(element.textContent).toContain(
+      'No pudimos confirmar el cierre de sesión. Intenta nuevamente.'
+    );
+
+    qrToggle.click();
+    fixture.detectChanges();
+    expect(api.getQr).toHaveBeenCalledTimes(2);
+  });
+
   it('does not let a stale successful logout clear a replacement session', async () => {
     await configure({ access: ACCESS_A }, 'club');
     const pendingLogout = new Subject<void>();
