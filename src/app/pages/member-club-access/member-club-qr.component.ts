@@ -1,4 +1,4 @@
-import { Component, ElementRef, inject, input, output } from '@angular/core';
+import { Component, ElementRef, EventEmitter, inject, input, Output } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 
 export type MemberClubQrState = 'closed' | 'loading' | 'open' | 'error';
@@ -14,9 +14,9 @@ export class MemberClubQrComponent {
   readonly state = input<MemberClubQrState>('closed');
   readonly image = input<string | null>(null);
   readonly errorMessage = input('No pudimos mostrar tu QR.');
-  readonly show = output<void>();
-  readonly hide = output<void>();
-  readonly retry = output<void>();
+  @Output() readonly show = new EventEmitter<void>();
+  @Output() readonly hide = new EventEmitter<void>();
+  @Output() readonly retry = new EventEmitter<void>();
   private readonly host = inject(ElementRef<HTMLElement>);
   protected readonly disclosureId = 'member-qr-disclosure';
 
