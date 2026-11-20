@@ -300,6 +300,11 @@ The purpose is reconstruction, not code transplantation.
 
 ## Cross-phase quality gates
 
+### Phase 6D status
+
+- Phase 6D1: **MERGED / DEPLOYED / PRODUCTION-VALIDATED**.
+- Phase 6D2: **IMPLEMENTED / REVIEW PENDING**.
+
 Every implementation phase should preserve these confirmed properties:
 
 - administrative operations are authenticated;

@@ -1,5 +1,6 @@
 import {
   Component,
+  DOCUMENT,
   DestroyRef,
   ElementRef,
   Injector,
@@ -32,6 +33,7 @@ import {
   MemberClubApiClient,
   MemberClubApiError,
   MemberClubHistoryItem,
+  MemberClubQrIdentification,
   MemberClubSelfSummary,
   MemberClubSessionResponse
 } from '../../core/services/member-club-api.client';
@@ -39,6 +41,8 @@ import { buildBellaMujerWhatsAppUrl } from '../../core/constants/contact.constan
 import { isCanonicalMemberClubCredential } from '../../core/services/member-club-credential';
 import { MemberClubSessionService } from '../../core/services/member-club-session.service';
 import { MemberClubHistoryComponent } from './member-club-history.component';
+import { MemberClubQrComponent, MemberClubQrState } from './member-club-qr.component';
+import { buildMemberClubAdminQrTarget, generateMemberClubQrDataUrl } from '../../core/services/member-club-qr';
 
 const matchingPinsValidator: ValidatorFn = (
   control: AbstractControl
@@ -57,7 +61,8 @@ const matchingPinsValidator: ValidatorFn = (
     MatFormFieldModule,
     MatIconModule,
     MatInputModule,
-    MemberClubHistoryComponent
+    MemberClubHistoryComponent,
+    MemberClubQrComponent
   ],
   templateUrl: './member-club-access.component.html',
   styleUrl: './member-club-access.component.scss'
@@ -79,6 +84,10 @@ export class MemberClubAccessComponent implements OnInit {
   private summaryRequestToken: string | null = null;
   private historyRequest: Subscription | null = null;
   private historyRequestToken: string | null = null;
+  private qrRequest: Subscription | null = null;
+  private qrRequestToken: string | null = null;
+  private qrAttempt = 0;
+  private readonly document = inject(DOCUMENT);
   private observedSessionToken: string | null | undefined = undefined;
   private throttleTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -88,6 +97,9 @@ export class MemberClubAccessComponent implements OnInit {
   protected readonly needsPrivateLink = signal(false);
   protected readonly isSubmitting = signal(false);
   protected readonly isLoadingSummary = signal(false);
+  protected readonly qrState = signal<MemberClubQrState>('closed');
+  protected readonly qrImage = signal<string | null>(null);
+  protected readonly qrErrorMessage = signal('No pudimos mostrar tu QR.');
   protected readonly hasSummaryLoadError = signal(false);
   protected readonly memberSummary = signal<MemberClubSelfSummary | null>(null);
   protected readonly memberHistory = signal<MemberClubHistoryItem[]>([]);
@@ -141,6 +153,7 @@ export class MemberClubAccessComponent implements OnInit {
       this.activeRequest?.unsubscribe();
       this.summaryRequest?.unsubscribe();
       this.historyRequest?.unsubscribe();
+      this.clearQrState();
       this.resetLoginThrottle();
     });
   }
@@ -192,6 +205,26 @@ export class MemberClubAccessComponent implements OnInit {
     this.loadSummary();
   }
 
+  protected showQr(): void {
+    if (this.qrState() !== 'closed') return;
+    const token = this.session.token();
+    if (!token) return;
+    if (this.clearExpiredQrSession()) return;
+    this.loadQr(token);
+  }
+
+  protected hideQr(): void {
+    this.clearQrState();
+    this.qrState.set('closed');
+  }
+
+  protected retryQr(): void {
+    if (this.qrState() !== 'error') return;
+    const token = this.session.token();
+    if (!token || this.clearExpiredQrSession()) return;
+    this.loadQr(token);
+  }
+
   protected retryHistory(): void {
     this.loadHistory();
   }
@@ -220,6 +253,9 @@ export class MemberClubAccessComponent implements OnInit {
     if (this.isSubmitting()) return;
     const token = this.session.token();
     if (!token) return;
+
+    this.clearQrState();
+    this.qrState.set('closed');
 
     this.errorMessage.set('');
     this.isSubmitting.set(true);
@@ -411,6 +447,8 @@ export class MemberClubAccessComponent implements OnInit {
     const previousToken = this.observedSessionToken;
     if (previousToken === token) return;
     this.observedSessionToken = token;
+    this.clearQrState();
+    this.qrState.set('closed');
 
     if (!token) {
       this.clearSummaryState();
@@ -424,6 +462,71 @@ export class MemberClubAccessComponent implements OnInit {
       this.clearHistoryState();
       if (this.hasUsableLink() && !this.activationRoute) this.loadSummary();
     }
+  }
+
+  private loadQr(token: string): void {
+    if (!token || this.qrState() === 'loading') return;
+    this.qrRequest?.unsubscribe();
+    this.qrImage.set(null);
+    this.qrErrorMessage.set('No pudimos mostrar tu QR.');
+    this.qrState.set('loading');
+    const attempt = ++this.qrAttempt;
+    this.qrRequestToken = token;
+    this.qrRequest = this.api.getQr(token).subscribe({
+      next: (qr: MemberClubQrIdentification) => {
+        if (!this.isCurrentQrRequest(token, attempt)) return;
+        try {
+          const target = buildMemberClubAdminQrTarget(this.document.baseURI, qr.identifier);
+          const dataUrl = generateMemberClubQrDataUrl(target);
+          if (!this.isCurrentQrRequest(token, attempt)) return;
+          this.qrImage.set(dataUrl);
+          this.qrState.set('open');
+          this.qrRequest = null;
+        } catch {
+          this.qrState.set('error');
+          this.qrErrorMessage.set('No pudimos mostrar tu QR.');
+          this.qrRequest = null;
+        }
+      },
+      error: (error: unknown) => {
+        if (!this.isCurrentQrRequest(token, attempt)) return;
+        this.qrRequest = null;
+        if (error instanceof MemberClubApiError && error.kind === 'authentication') {
+          this.clearQrState();
+          this.session.clear();
+          this.errorMessage.set('Tu sesión del Club ya no está activa. Ingresa nuevamente.');
+          afterNextRender(() => (this.hostElement.nativeElement as HTMLElement).querySelector<HTMLElement>('[data-testid="member-login-heading"]')?.focus(), { injector: this.injector });
+          return;
+        }
+        this.qrErrorMessage.set(error instanceof MemberClubApiError && error.kind === 'network'
+          ? 'No pudimos cargar tu QR. Revisa tu conexión.'
+          : 'No pudimos mostrar tu QR.');
+        this.qrState.set('error');
+      }
+    });
+  }
+
+  private isCurrentQrRequest(token: string, attempt: number): boolean {
+    return this.qrRequestToken === token && this.session.token() === token && this.qrAttempt === attempt;
+  }
+
+  private clearQrState(): void {
+    this.qrAttempt += 1;
+    this.qrRequest?.unsubscribe();
+    this.qrRequest = null;
+    this.qrRequestToken = null;
+    this.qrImage.set(null);
+  }
+
+  private clearExpiredQrSession(): boolean {
+    if (!this.session.isExpired()) return false;
+    this.clearQrState();
+    this.qrState.set('closed');
+    this.session.clear();
+    this.errorMessage.set('Tu sesión del Club ya no está activa. Ingresa nuevamente.');
+    afterNextRender(() => (this.hostElement.nativeElement as HTMLElement)
+      .querySelector<HTMLElement>('[data-testid="member-login-heading"]')?.focus(), { injector: this.injector });
+    return true;
   }
 
   private isCurrentSummaryRequest(token: string): boolean {

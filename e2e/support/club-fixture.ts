@@ -6,6 +6,7 @@ const FIXTURE_TOKEN = 'playwright-club-fixture-token';
 export const memberClubFixture = {
   access: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
   session: 'BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc',
+  qrIdentifier: '123e4567-e89b-42d3-a456-426614174000',
   summary: { profile: { name: 'Mariana Prueba' }, loyalty: { stampCount: 3 } },
   history: {
     items: [
@@ -192,6 +193,7 @@ export async function installMemberClubFixture(
   page: Page,
   options: {
     failFirstSummary?: 'authentication' | 'server';
+    qr?: 'server-then-success' | 'authentication';
     history?: 'empty' | 'authentication' | 'server' | 'paginated' | 'load-more-failure';
   } = {}
 ): Promise<void> {
@@ -213,6 +215,7 @@ export async function installMemberClubFixture(
 
   let summaryAttempts = 0;
   let historyAttempts = 0;
+  let qrAttempts = 0;
   await page.route(`**${FIXTURE_API_PATH}/club/**`, async (route) => {
     const url = new URL(route.request().url());
     const path = url.pathname.slice(FIXTURE_API_PATH.length);
@@ -265,6 +268,19 @@ export async function installMemberClubFixture(
         return;
       }
       await json(route, memberClubFixture.history);
+      return;
+    }
+    if (path === '/club/me/qr' && route.request().method() === 'GET') {
+      qrAttempts += 1;
+      if (options.qr === 'authentication') {
+        await json(route, { error: 'private detail' }, 401);
+        return;
+      }
+      if (options.qr === 'server-then-success' && qrAttempts === 1) {
+        await json(route, { error: 'private detail' }, 500);
+        return;
+      }
+      await json(route, { qr: { identifier: memberClubFixture.qrIdentifier } });
       return;
     }
     if (path === '/club/access/logout' && route.request().method() === 'POST') {

@@ -211,7 +211,8 @@ test('authenticated member home renders only the mocked name and real stamp coun
   await expect(page.getByTestId('member-earned-stamps').locator('.member-progress__seal')).toHaveCount(3);
   await expect(page.getByTestId('member-history')).toContainText('Actividad reciente');
   await expect(page.getByTestId('member-history')).toContainText('Sello ganado');
-  await expect(page.getByTestId('member-club-home')).not.toContainText(/3 de 4|recompensa|mi qr/i);
+  await expect(page.getByTestId('member-club-home')).not.toContainText(/3 de 4|recompensa/i);
+  await expect(page.getByTestId('member-qr')).toBeVisible();
   await expect(page.getByTestId('member-club-home')).not.toContainText('Sesión válida hasta');
   await expect(page.getByTestId('member-logout')).toBeVisible();
   await expect(page.evaluate(() => [localStorage.length, sessionStorage.length])).resolves.toEqual([0, 0]);
@@ -334,5 +335,97 @@ test('captures Phase 6C2 member history visual evidence', async ({ page }) => {
     path: `${evidenceDir}/history-error-390.png`,
     animations: 'disabled'
   });
+  await errorPage.close();
+});
+
+test('member QR is user initiated, identification only, and removed when hidden', async ({ page }) => {
+  await installMemberClubFixture(page);
+  await signIntoMemberClub(page);
+  const qrRequests: string[] = [];
+  page.on('request', (request) => {
+    if (request.url().includes('/club/me/qr')) qrRequests.push(request.url());
+  });
+  const section = page.getByTestId('member-qr');
+  await expect(section).toContainText('Mi QR');
+  await expect(section.getByTestId('member-qr-image')).toHaveCount(0);
+  expect(qrRequests).toHaveLength(0);
+  await section.getByTestId('member-qr-toggle').click();
+  await expect(section.getByTestId('member-qr-image')).toBeVisible();
+  await expect(section).toContainText('Tu QR está listo.');
+  await expect(section).toContainText('Muéstralo al equipo de Bella Mujer Studio para que identifique tu cuenta.');
+  await expect(section).toContainText('Tu QR no incluye tu nombre ni tu teléfono. Tampoco inicia sesión ni registra una visita.');
+  await expect(section.getByTestId('member-qr-image')).toHaveAttribute('src', /^data:image\/gif;base64,/);
+  await expect(section).not.toContainText(memberClubFixture.qrIdentifier);
+  await expect(page.locator('body')).not.toContainText('/admin/club/clientas/');
+  await expect(page.evaluate(() => [localStorage.length, sessionStorage.length])).resolves.toEqual([0, 0]);
+  await section.getByTestId('member-qr-toggle').click();
+  await expect(section.getByTestId('member-qr-image')).toHaveCount(0);
+  await section.getByTestId('member-qr-toggle').click();
+  await expect(section.getByTestId('member-qr-image')).toBeVisible();
+  expect(qrRequests).toHaveLength(2);
+});
+
+test('member QR retries safely and clears the session after authentication failure', async ({ page }) => {
+  await installMemberClubFixture(page, { qr: 'server-then-success' });
+  await signIntoMemberClub(page);
+  const section = page.getByTestId('member-qr');
+  const qrStatuses: number[] = [];
+  page.on('response', (response) => {
+    if (response.url().includes('/club/me/qr')) qrStatuses.push(response.status());
+  });
+  await section.getByTestId('member-qr-toggle').click();
+  await expect(section.getByRole('alert')).toHaveText('No pudimos mostrar tu QR.');
+  await section.getByTestId('member-qr-retry').click();
+  await expect.poll(() => qrStatuses.length).toBe(2);
+  expect(qrStatuses).toEqual([500, 200]);
+  await expect(section.getByTestId('member-qr-image')).toBeVisible();
+  await expect(page.getByTestId('member-club-home')).toBeVisible();
+  await page.goto('about:blank');
+
+  await installMemberClubFixture(page, { qr: 'authentication' });
+  await signIntoMemberClub(page);
+  await page.getByTestId('member-qr-toggle').click();
+  await expect(page.getByTestId('member-login')).toBeVisible();
+  await expect(page.getByTestId('member-access-error')).toContainText('Tu sesión del Club ya no está activa. Ingresa nuevamente.');
+  await expect(page.getByTestId('member-qr')).toHaveCount(0);
+});
+
+test('captures Phase 6D2 open QR visual evidence and validates responsive widths', async ({ page }) => {
+  const evidenceDir = 'test-results/phase6d2/screenshots';
+  const views = [
+    { name: 'qr-320.png', width: 320, height: 800 },
+    { name: 'qr-390.png', width: 390, height: 844 },
+    { name: 'qr-390-text-200.png', width: 390, height: 844, textScale: true },
+    { name: 'qr-720-text-200.png', width: 720, height: 900, textScale: true },
+    { name: 'qr-820.png', width: 820, height: 1180 },
+    { name: 'qr-1440.png', width: 1440, height: 900 },
+    { name: 'qr-844-landscape.png', width: 844, height: 390 }
+  ] as const;
+  for (const view of views) {
+    const viewPage = await page.context().newPage();
+    await viewPage.setViewportSize({ width: view.width, height: view.height });
+    await installMemberClubFixture(viewPage);
+    await signIntoMemberClub(viewPage);
+    if (view.textScale) await viewPage.addStyleTag({ content: 'html { font-size: 200%; }' });
+    await viewPage.getByTestId('member-qr-toggle').click();
+    await expect(viewPage.getByTestId('member-qr-image')).toBeVisible();
+    if (view.name === 'qr-720-text-200.png') {
+      const columns = await viewPage.getByTestId('member-qr-disclosure').evaluate((element) =>
+        getComputedStyle(element).gridTemplateColumns.split(' ').length
+      );
+      expect(columns).toBe(1);
+    }
+    await expectNoHorizontalOverflow(viewPage);
+    await viewPage.screenshot({ path: `${evidenceDir}/${view.name}`, animations: 'disabled', fullPage: true });
+    await viewPage.close();
+  }
+
+  const errorPage = await page.context().newPage();
+  await errorPage.setViewportSize({ width: 390, height: 844 });
+  await installMemberClubFixture(errorPage, { qr: 'server-then-success' });
+  await signIntoMemberClub(errorPage);
+  await errorPage.getByTestId('member-qr-toggle').click();
+  await expect(errorPage.getByTestId('member-qr-retry')).toBeVisible();
+  await errorPage.screenshot({ path: `${evidenceDir}/qr-error-390.png`, animations: 'disabled', fullPage: true });
   await errorPage.close();
 });

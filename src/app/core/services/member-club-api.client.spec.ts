@@ -147,6 +147,43 @@ describe('MemberClubApiClient', () => {
     });
   });
 
+  it('reads only the canonical QR UUID using the member bearer session', async () => {
+    const client = configure();
+    const promise = firstValueFrom(client.getQr(SESSION));
+    const request = http.expectOne('https://api.example.test/club/me/qr');
+    expect(request.request.method).toBe('GET');
+    expect(request.request.headers.get('Authorization')).toBe(`Bearer ${SESSION}`);
+    expect(request.request.urlWithParams).not.toContain(SESSION);
+    request.flush({ qr: { identifier: '123e4567-e89b-42d3-a456-426614174000' } });
+    await expect(promise).resolves.toEqual({ identifier: '123e4567-e89b-42d3-a456-426614174000' });
+  });
+
+  it.each([
+    {},
+    { qr: {} },
+    { qr: { identifier: '123E4567-e89b-42d3-a456-426614174000' } },
+    { qr: { identifier: '123e4567-e89b-12d3-a456-426614174000' } },
+    { qr: { identifier: 'bad' } },
+    { qr: { identifier: '123e4567-e89b-42d3-a456-426614174000', extra: true } },
+    { qr: { identifier: '123e4567-e89b-42d3-a456-426614174000' }, extra: true }
+  ])('rejects malformed QR response safely', async (body) => {
+    const client = configure();
+    const promise = firstValueFrom(client.getQr(SESSION));
+    http.expectOne('https://api.example.test/club/me/qr').flush(body);
+    await expect(promise).rejects.toMatchObject({ kind: 'server' });
+  });
+
+  it.each([[401, 'authentication'], [403, 'authentication'], [500, 'server'], [0, 'network']] as const)(
+    'normalizes QR HTTP %s errors without backend detail', async (status, kind) => {
+      const client = configure();
+      const promise = firstValueFrom(client.getQr(SESSION));
+      const request = http.expectOne('https://api.example.test/club/me/qr');
+      if (status === 0) request.error(new ProgressEvent('error'));
+      else request.flush({ message: 'private detail' }, { status, statusText: 'failure' });
+      await expect(promise).rejects.toMatchObject({ kind });
+    }
+  );
+
   it('rejects malformed member history without exposing a partial response', async () => {
     const client = configure();
     const promise = firstValueFrom(client.getHistory(SESSION));

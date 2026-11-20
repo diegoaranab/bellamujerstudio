@@ -1,4 +1,4 @@
-<main class="member-access-page" data-testid="member-club-access">
+<main class="member-access-page" [class.member-access-page--authenticated]="session.hasSession()" data-testid="member-club-access">
   <mat-card
     class="member-access-card"
     [class.member-access-card--member]="session.hasSession()"
@@ -214,6 +214,8 @@
               </div>
             }
           </div>
+          <app-member-club-qr [state]="qrState()" [image]="qrImage()" [errorMessage]="qrErrorMessage()"
+            (show)="showQr()" (hide)="hideQr()" (retry)="retryQr()" />
           <app-member-club-history
             [items]="memberHistory()"
             [isLoading]="isLoadingHistory()"
@@ -240,7 +242,7 @@
       } @else {
         <section data-testid="member-login">
           <div class="intro-copy">
-            <h2>Bienvenida de nuevo</h2>
+            <h2 id="member-login-heading" tabindex="-1" data-testid="member-login-heading">Bienvenida de nuevo</h2>
             <p>Ingresa el NIP de seis dígitos que elegiste al activar tu cuenta.</p>
           </div>
           @if (loginRetryAfterSeconds() > 0) {

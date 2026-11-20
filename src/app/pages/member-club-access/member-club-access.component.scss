@@ -43,7 +43,7 @@
 
 .member-access-card--member .brand-identity { width: 88px; margin: 0; }
 .member-access-card--member .member-header { display: flex; align-items: center; }
-.member-access-card--member mat-card-content { grid-column: 1 / -1; padding-top: var(--bm-space-8); }
+.member-access-card--member mat-card-content { grid-column: 1 / -1; padding-top: var(--bm-space-4); }
 
 .eyebrow { margin: 0 0 0.35rem; color: var(--bm-text-link); }
 h1[mat-card-title] { font: 600 clamp(2rem, 9vw, 2.6rem)/1.1 var(--bm-font-expressive); }
@@ -68,10 +68,11 @@ form > button, .access-state > :is(button, a) { min-height: 48px; }
 
 .member-home {
   display: grid;
-  grid-template: 'recognition progress' auto 'history progress' 1fr 'utility utility' auto / minmax(220px, 0.72fr) minmax(360px, 1.28fr);
+  grid-template: 'recognition progress' auto 'qr qr' auto 'history history' auto 'utility utility' auto / minmax(0, 0.36fr) minmax(0, 0.64fr);
   gap: var(--bm-space-6) clamp(2rem, 7vw, 5rem);
 }
-.member-home__recognition { grid-area: recognition; align-self: center; }
+.member-access-page--authenticated { align-items: start; }
+.member-home__recognition { grid-area: recognition; align-self: start; }
 .member-home__greeting { margin: 0; font: 500 clamp(1.75rem, 5vw, 3.25rem)/1.04 var(--bm-font-expressive); }
 .member-home__greeting span { display: block; color: var(--bm-brand-primary); }
 
@@ -86,11 +87,10 @@ form > button, .access-state > :is(button, a) { min-height: 48px; }
   color: var(--bm-text-inverse);
   background: var(--bm-surface-inverse);
 }
-.member-progress h2 { margin: 0; color: inherit; }
 .member-progress__count { margin-top: var(--bm-space-6); font: 600 clamp(5.5rem, 16vw, 8rem)/0.72 var(--bm-font-expressive); }
 .member-progress__seals { display: flex; flex-wrap: wrap; gap: var(--bm-space-2); margin-top: var(--bm-space-8); }
 .member-progress__seal, .member-progress__overflow { width: 44px; height: 44px; display: grid; place-items: center; border: 1px solid; border-radius: 50%; }
-.member-home__utility { grid-area: utility; align-self: end; }
+.member-home__utility { grid-area: utility; }
 .member-home__utility button { min-height: 44px; color: var(--bm-text-secondary); }
 
 .member-progress--recovery button { width: fit-content; min-height: 44px; color: var(--bm-brand-strong); background: var(--bm-surface); }
@@ -101,7 +101,7 @@ form > button, .access-state > :is(button, a) { min-height: 48px; }
 footer { display: flex; gap: 0.5rem; border-top: 1px solid var(--bm-border-subtle); padding-top: 1rem; color: var(--bm-text-muted); }
 
 @media (max-width: 760px) {
-  .member-home { min-height: 0; grid-template: 'recognition' auto 'progress' auto 'history' auto 'utility' auto / minmax(0, 1fr); gap: var(--bm-space-6); }
+  .member-home { grid-template: 'recognition' auto 'progress' auto 'qr' auto 'history' auto 'utility' auto / minmax(0, 1fr); gap: var(--bm-space-6); }
   .member-progress { min-height: 310px; padding: var(--bm-space-8) var(--bm-space-6); }
 }
 
