@@ -102,7 +102,7 @@ Home can surface:
 - recent activity; and
 - a recommendation.
 
-The page should avoid payment-processing detail, internal profitability, or other administrator-oriented information.
+The page should avoid payment-processing detail, internal profitability, or other administrator-oriented information. Phase 6E shows at most one studio-wide active promotion after recent history, omits the section when none exists, and keeps promotion loading and failure independent of core Club actions. There is no CTA without a real destination. See [PROMOTIONS_ARCHITECTURE.md](./PROMOTIONS_ARCHITECTURE.md) for the selected interaction and accessibility details.
 
 ### Stamp progress
 

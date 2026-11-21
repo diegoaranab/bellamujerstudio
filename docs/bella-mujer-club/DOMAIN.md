@@ -105,7 +105,7 @@ startsAt
 endsAt
 ```
 
-The promotion capability is **CONFIRMED**; its content, schedule, and detailed rules are **CONFIGURABLE**.
+The promotion capability is **CONFIRMED**; its content, schedule, and detailed rules are **CONFIGURABLE**. Phase 6E0 selects studio-wide member visibility, stable opaque IDs, and a bounded base-table promotion partition; future granular eligibility and administrator management remain deferred. The exact model, capacity constraint, active-time rules, and access pattern are defined in [PROMOTIONS_ARCHITECTURE.md](./PROMOTIONS_ARCHITECTURE.md).
 
 ### RewardDefinition
 
