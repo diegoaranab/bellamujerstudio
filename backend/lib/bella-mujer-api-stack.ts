@@ -519,6 +519,21 @@ export class BellaMujerApiStack extends cdk.Stack {
       resources: [memberClubHistoryCursorSecret.secretArn]
     }));
 
+    const memberPromotionsFunction = new nodejs.NodejsFunction(this, 'MemberClubPromotionsFunction', {
+      ...sharedLambdaProps,
+      entry: 'src/handlers/member-club-promotions.ts', handler: 'handler',
+      description: 'Reads authenticated Bella Mujer Club member promotions',
+      logGroup: new logs.LogGroup(this, 'MemberClubPromotionsFunctionLogGroup', {
+        logGroupName: `/aws/lambda/${cdk.Stack.of(this).stackName}-member-club-promotions`,
+        retention: logs.RetentionDays.TWO_WEEKS, removalPolicy: cdk.RemovalPolicy.DESTROY
+      }),
+      environment: { CLUB_TABLE_NAME: clubTable.tableName }
+    });
+    memberPromotionsFunction.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['dynamodb:Query'], resources: [clubTable.tableArn],
+      conditions: { 'ForAllValues:StringEquals': { 'dynamodb:LeadingKeys': ['STUDIO#bella-mujer#PROMOTIONS'] } }
+    }));
+
     const memberClubQrFunction = new nodejs.NodejsFunction(
       this,
       'MemberClubQrFunction',
@@ -653,6 +668,12 @@ export class BellaMujerApiStack extends cdk.Stack {
         'MemberClubHistoryIntegration',
         memberHistoryFunction
       ),
+      authorizer: memberAuthorizer
+    });
+
+    api.addRoutes({
+      path: '/club/me/promotions', methods: [apigwv2.HttpMethod.GET],
+      integration: new integrations.HttpLambdaIntegration('MemberClubPromotionsIntegration', memberPromotionsFunction),
       authorizer: memberAuthorizer
     });
 

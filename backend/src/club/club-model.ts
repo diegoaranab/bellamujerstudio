@@ -1,4 +1,4 @@
-import { validateKeySegment } from './club-keys';
+import { validateKeySegment, validatePromotionId } from './club-keys';
 
 export const CLUB_CLIENT_STATUSES = ['active', 'inactive'] as const;
 export type ClubClientStatus = typeof CLUB_CLIENT_STATUSES[number];
@@ -160,4 +160,38 @@ export const validateLoyaltyLedgerEntry = (
   if (entry.visitId !== undefined) validateKeySegment('visitId', entry.visitId);
   if (entry.reason !== undefined) requireBoundedString('reason', entry.reason, 1000);
   return entry;
+};
+
+export interface ClubPromotion {
+  studioId: string;
+  promotionId: string;
+  title: string;
+  description: string;
+  status: 'active' | 'inactive';
+  startsAtISO: string;
+  endsAtISO: string;
+  createdAtISO: string;
+  updatedAtISO: string;
+}
+
+export const validateClubPromotion = (promotion: ClubPromotion): ClubPromotion => {
+  validateKeySegment('studioId', promotion.studioId);
+  validatePromotionId(promotion.promotionId);
+  requireBoundedString('title', promotion.title, 100);
+  const description = promotion.description;
+  if (typeof description !== 'string' || !description.length || description.trim() !== description ||
+      Array.from(description).length > 500 || /[\u0000-\u0009\u000b-\u001f\u007f-\u009f]/.test(description)) {
+    throw new Error('Invalid Club field: description');
+  }
+  if (promotion.status !== 'active' && promotion.status !== 'inactive') throw new Error('Invalid Club field: status');
+  for (const value of [promotion.startsAtISO, promotion.endsAtISO, promotion.createdAtISO, promotion.updatedAtISO]) {
+    if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value)) {
+      throw new Error('Invalid Club promotion timestamp');
+    }
+    requireISO('promotion timestamp', value);
+  }
+  if (promotion.startsAtISO >= promotion.endsAtISO || promotion.createdAtISO > promotion.updatedAtISO) {
+    throw new Error('Invalid Club promotion time range');
+  }
+  return promotion;
 };

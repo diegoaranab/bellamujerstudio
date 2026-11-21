@@ -61,3 +61,17 @@ const validateLedgerTimestamp = (value: string): string => {
   }
   return value;
 };
+
+export const validatePromotionId = (value: string): string => {
+  if (typeof value !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(value)) {
+    throw new Error('Invalid Club promotion ID');
+  }
+  return value;
+};
+
+export const promotionPartitionKey = (studioId: string): string =>
+  `STUDIO#${validateKeySegment('studioId', studioId)}#PROMOTIONS`;
+
+export const promotionKey = (studioId: string, promotionId: string): ClubPhysicalKey => ({
+  pk: promotionPartitionKey(studioId), sk: `PROMOTION#${validatePromotionId(promotionId)}`
+});
