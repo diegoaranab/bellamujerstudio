@@ -303,7 +303,17 @@ The purpose is reconstruction, not code transplantation.
 ### Phase 6D status
 
 - Phase 6D1: **MERGED / DEPLOYED / PRODUCTION-VALIDATED**.
-- Phase 6D2: **IMPLEMENTED / REVIEW PENDING**.
+- Phase 6D2: **MERGED / DEPLOYED / PRODUCTION-VALIDATED**.
+- Phase 6D: **CLOSED / PRODUCTION-VALIDATED**.
+
+Closure evidence: PR #107 merged to production commit
+`097ddb37421083da33b762892ed0088b6ac10e2d`; GitHub Pages workflow #82 succeeded; the
+production member QR smoke passed, including a physical camera scan to the protected administrator
+client summary. QR scanning remained identification-only and created no visit or stamp mutation.
+
+The completed Phase 6 member capabilities are Mi Club/stamp progress, transaction/stamp history,
+and opaque identification QR. **Active promotions remain the only Phase 6 capability not yet
+implemented.** Configurable administrator promotion management remains Phase 7 scope.
 
 Every implementation phase should preserve these confirmed properties:
 
