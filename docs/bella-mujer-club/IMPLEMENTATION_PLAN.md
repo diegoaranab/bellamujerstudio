@@ -248,13 +248,30 @@ started by this closure slice.
 
 ## Phase 6 — Client Club experience
 
+**COMPLETED / DEPLOYED / PRODUCTION-VALIDATED.**
+
 Completed member capabilities:
 
 - Mi Club and stamp progress;
 - transaction/stamp history;
 - opaque identification QR.
+- studio-wide active promotion read and member display.
 
-Active promotions are the remaining Phase 6 member capability. **6E0 architecture is approved and complete. 6E1 backend is implemented, merged, deployed and production-validated. 6E2 delivers the member UI and is in implementation/review.** After 6E2 review and merge, deploy Pages and validate production before Phase 6 closure. Each implementation slice has its own review gate. Configurable administrator promotion management remains in Phase 7.
+### Phase 6 closure
+
+- **6E0 architecture:** COMPLETE.
+- **6E1 backend:** MERGED / DEPLOYED / PRODUCTION-VALIDATED (PR #110).
+- **6E2 member UI:** MERGED / DEPLOYED / PRODUCTION-VALIDATED (PR #112).
+- **6E:** CLOSED / PRODUCTION-VALIDATED.
+- **Phase 6:** CLOSED / PRODUCTION-COMPLETE.
+
+The reviewed 6E2 implementation HEAD was `360c4ec18024486d7e226dcb05f84e95e169f999`; the
+production main merge is `01b0ba14da7cc355fffd2a7e7e05f25e73999607`. GitHub Pages workflow #87
+completed successfully, including unit tests, Chromium E2E, Pages build, and deployment. Production
+validation passed for empty and active member views and the core stamp progress, history, and QR
+surfaces at mobile and tablet widths. The controlled temporary fixture was conditionally removed;
+cleanup passed, the final promotion row count was zero, and no production data was left by validation.
+Configurable administrator promotion management remains future Phase 7 work.
 
 Member screens should emphasize progress, clarity, and beauty-oriented polish rather than administration.
 

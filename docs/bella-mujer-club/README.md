@@ -53,4 +53,5 @@ Existing administrative Cognito authentication remains the administrative bounda
 - **Phase 4 — completed.** The operational administrator UI provides client management, Balance, visit registration, server-authoritative loyalty outcomes, and auditable paginated ledger/history.
 - **Phase 5 — completed, deployed, and production-validated.** Member access is live with the selected security architecture and controlled production validation complete.
 - **Phase 5F — completed, deployed remediation production-validated, UI/UX audit closed.**
-- **Next roadmap work: Phase 6 — Client Club experience.**
+- **Phase 6 — completed, deployed, and production-validated.** Members can view stamp progress, transaction/stamp history, opaque QR identification, and studio-wide active promotions.
+- **Next roadmap work: Phase 7 — Rewards and promotions.** Configurable promotion administration remains future work.
