@@ -534,6 +534,32 @@ export class BellaMujerApiStack extends cdk.Stack {
       conditions: { 'ForAllValues:StringEquals': { 'dynamodb:LeadingKeys': ['STUDIO#bella-mujer#PROMOTIONS'] } }
     }));
 
+    const adminClubPromotionsFunction = new nodejs.NodejsFunction(
+      this,
+      'AdminClubPromotionsFunction',
+      {
+        ...sharedLambdaProps,
+        entry: 'src/handlers/admin-club-promotions.ts',
+        handler: 'handler',
+        description: 'Reads Club promotions for authenticated administrators',
+        logGroup: new logs.LogGroup(this, 'AdminClubPromotionsFunctionLogGroup', {
+          logGroupName: `/aws/lambda/${cdk.Stack.of(this).stackName}-admin-club-promotions`,
+          retention: logs.RetentionDays.TWO_WEEKS,
+          removalPolicy: cdk.RemovalPolicy.DESTROY
+        }),
+        environment: clubLambdaEnvironment
+      }
+    );
+    adminClubPromotionsFunction.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['dynamodb:GetItem', 'dynamodb:Query'],
+      resources: [clubTable.tableArn],
+      conditions: {
+        'ForAllValues:StringEquals': {
+          'dynamodb:LeadingKeys': ['STUDIO#bella-mujer#PROMOTIONS']
+        }
+      }
+    }));
+
     const memberClubQrFunction = new nodejs.NodejsFunction(
       this,
       'MemberClubQrFunction',
@@ -693,6 +719,28 @@ export class BellaMujerApiStack extends cdk.Stack {
       integration: new integrations.HttpLambdaIntegration(
         'AdminHealthIntegration',
         healthFunction
+      ),
+      authorizer: adminAuthorizer,
+      authorizationScopes: ['openid']
+    });
+
+    api.addRoutes({
+      path: '/admin/club/promotions',
+      methods: [apigwv2.HttpMethod.GET],
+      integration: new integrations.HttpLambdaIntegration(
+        'AdminClubPromotionsIntegration',
+        adminClubPromotionsFunction
+      ),
+      authorizer: adminAuthorizer,
+      authorizationScopes: ['openid']
+    });
+
+    api.addRoutes({
+      path: '/admin/club/promotions/{promotionId}',
+      methods: [apigwv2.HttpMethod.GET],
+      integration: new integrations.HttpLambdaIntegration(
+        'AdminClubPromotionDetailIntegration',
+        adminClubPromotionsFunction
       ),
       authorizer: adminAuthorizer,
       authorizationScopes: ['openid']
