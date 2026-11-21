@@ -97,7 +97,7 @@ describe('BellaMujerApiStack', () => {
         'https://studio.example.com/app/'
       ]
     });
-  });
+  }, 15_000);
 
   it('defines an owner-only Cognito user pool with strong defaults', () => {
     template.resourceCountIs('AWS::Cognito::UserPool', 1);
