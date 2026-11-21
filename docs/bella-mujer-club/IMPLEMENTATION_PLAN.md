@@ -275,16 +275,23 @@ Configurable administrator promotion management remains future Phase 7 work.
 
 Member screens should emphasize progress, clarity, and beauty-oriented polish rather than administration.
 
-## Phase 7 — Rewards and promotions
+## Phase 7 — Promotions and rewards
 
-After reward economics are approved:
+**STARTING.** Phase 6 and Phase 6E are closed; Phase 7A begins with configurable promotion administration. Its technical authority is [PROMOTION_ADMIN_ARCHITECTURE.md](./PROMOTION_ADMIN_ARCHITECTURE.md), which preserves the delivered Phase 6 member reader and canonical promotion row.
 
-- implement configurable promotion management;
-- implement configurable reward definitions;
-- support audited redemption; and
-- validate rewards against the `$120 MXN/hour` average Club profitability reference.
+Promotion administration is decomposed into these gates:
 
-The profitability reference is an average evaluation target, not a guaranteed per-appointment minimum. Historical `$80` and `$120` reward examples remain unapproved.
+```text
+7A0 architecture authority
+7A1a persistence foundation
+7A1b reconciliation / capacity initialization
+7A2 protected admin read API
+7A3 admin mutation API
+7A4 administrator UI
+7A5 reconciliation, writer enablement, and production validation
+```
+
+Rewards remain separate from Phase 7A and blocked on explicit economic approval. Reward stamp threshold, monetary amount, complementary-service economics, redemption economics, and referral reward are **NOT APPROVED**. Historical `$80` and `$120` examples are not requirements. No RewardDefinition or redemption implementation is included in Phase 7A. If later approved, validate rewards against the `$120 MXN/hour` average Club profitability reference, which is not a guaranteed per-appointment minimum.
 
 ## Phase 8 — Referrals and later features
 
