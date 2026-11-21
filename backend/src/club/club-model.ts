@@ -195,3 +195,106 @@ export const validateClubPromotion = (promotion: ClubPromotion): ClubPromotion =
   }
   return promotion;
 };
+
+export interface PromotionCapacity {
+  studioId: string;
+  count: number;
+  state: 'READY';
+  reconciledAtISO: string;
+}
+
+export type PromotionAuditOperation = 'CREATE' | 'UPDATE' | 'DELETE';
+
+export interface PromotionAuditEntry {
+  studioId: string;
+  eventId: string;
+  promotionId: string;
+  operation: PromotionAuditOperation;
+  occurredAtISO: string;
+  adminSub: string;
+  requestId: string;
+  beforePromotion?: ClubPromotion;
+  afterPromotion?: ClubPromotion;
+}
+
+export interface PromotionCreateIdempotency {
+  studioId: string;
+  keyHash: string;
+  requestFingerprint: string;
+  promotionId: string;
+  createdAtISO: string;
+  creationResult: ClubPromotion;
+}
+
+const validateCanonicalPromotionTimestamp = (field: string, value: string): string => {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value)) {
+    throw new Error(`Invalid Club field: ${field}`);
+  }
+  return requireISO(field, value);
+};
+
+const requireSha256 = (field: string, value: string): string => {
+  if (typeof value !== 'string' || !/^[0-9a-f]{64}$/.test(value)) throw new Error(`Invalid Club field: ${field}`);
+  return value;
+};
+
+export const validatePromotionCapacity = (capacity: PromotionCapacity): PromotionCapacity => {
+  assertExactLogicalFields(capacity, ['studioId', 'count', 'state', 'reconciledAtISO']);
+  validateKeySegment('studioId', capacity.studioId);
+  requireSafeInteger('count', capacity.count, 0);
+  if (capacity.count > 100 || capacity.state !== 'READY') throw new Error('Invalid Club promotion capacity');
+  validateCanonicalPromotionTimestamp('reconciledAtISO', capacity.reconciledAtISO);
+  return capacity;
+};
+
+export const validatePromotionAuditEntry = (entry: PromotionAuditEntry): PromotionAuditEntry => {
+  assertExactLogicalFields(entry, ['studioId', 'eventId', 'promotionId', 'operation', 'occurredAtISO', 'adminSub', 'requestId',
+    ...(entry.beforePromotion === undefined ? [] : ['beforePromotion']), ...(entry.afterPromotion === undefined ? [] : ['afterPromotion'])]);
+  validateKeySegment('studioId', entry.studioId);
+  validatePromotionId(entry.promotionId);
+  validatePromotionId(entry.eventId);
+  if (!['CREATE', 'UPDATE', 'DELETE'].includes(entry.operation)) throw new Error('Invalid Club promotion audit operation');
+  validateCanonicalPromotionTimestamp('occurredAtISO', entry.occurredAtISO);
+  requireBoundedString('adminSub', entry.adminSub, 256);
+  validateKeySegment('requestId', entry.requestId);
+  const hasBefore = entry.beforePromotion !== undefined;
+  const hasAfter = entry.afterPromotion !== undefined;
+  if ((entry.operation === 'CREATE' && (hasBefore || !hasAfter)) ||
+      (entry.operation === 'UPDATE' && (!hasBefore || !hasAfter)) ||
+      (entry.operation === 'DELETE' && (!hasBefore || hasAfter))) {
+    throw new Error('Invalid Club promotion audit snapshots');
+  }
+  for (const promotion of [entry.beforePromotion, entry.afterPromotion]) {
+    if (promotion) {
+      assertExactLogicalFields(promotion, ['studioId', 'promotionId', 'title', 'description', 'status', 'startsAtISO', 'endsAtISO', 'createdAtISO', 'updatedAtISO']);
+      validateClubPromotion(promotion);
+      if (promotion.studioId !== entry.studioId || promotion.promotionId !== entry.promotionId) {
+        throw new Error('Invalid Club promotion audit identity');
+      }
+    }
+  }
+  return entry;
+};
+
+export const validatePromotionCreateIdempotency = (record: PromotionCreateIdempotency): PromotionCreateIdempotency => {
+  assertExactLogicalFields(record, ['studioId', 'keyHash', 'requestFingerprint', 'promotionId', 'createdAtISO', 'creationResult']);
+  validateKeySegment('studioId', record.studioId);
+  requireSha256('keyHash', record.keyHash);
+  requireSha256('requestFingerprint', record.requestFingerprint);
+  validatePromotionId(record.promotionId);
+  validateCanonicalPromotionTimestamp('createdAtISO', record.createdAtISO);
+  validateClubPromotion(record.creationResult);
+  assertExactLogicalFields(record.creationResult, ['studioId', 'promotionId', 'title', 'description', 'status', 'startsAtISO', 'endsAtISO', 'createdAtISO', 'updatedAtISO']);
+  if (record.creationResult.studioId !== record.studioId || record.creationResult.promotionId !== record.promotionId) {
+    throw new Error('Invalid Club promotion idempotency identity');
+  }
+  return record;
+};
+
+const assertExactLogicalFields = (value: object, expected: string[]): void => {
+  const actual = Object.keys(value).sort();
+  const fields = [...expected].sort();
+  if (actual.length !== fields.length || actual.some((field, index) => field !== fields[index])) {
+    throw new Error('Invalid Club promotion domain attributes');
+  }
+};

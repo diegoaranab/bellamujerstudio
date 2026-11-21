@@ -75,3 +75,42 @@ export const promotionPartitionKey = (studioId: string): string =>
 export const promotionKey = (studioId: string, promotionId: string): ClubPhysicalKey => ({
   pk: promotionPartitionKey(studioId), sk: `PROMOTION#${validatePromotionId(promotionId)}`
 });
+
+export const promotionCapacityKey = (studioId: string): ClubPhysicalKey => ({
+  pk: promotionPartitionKey(studioId), sk: 'CAPACITY'
+});
+
+export const validatePromotionEventId = (value: string): string => {
+  if (typeof value !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(value)) {
+    throw new Error('Invalid Club promotion event ID');
+  }
+  return value;
+};
+
+const validateCanonicalUtcTimestamp = (value: string): string => {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value)) {
+    throw new Error('Invalid Club promotion timestamp');
+  }
+  const parsed = new Date(value);
+  if (!Number.isFinite(parsed.getTime()) || parsed.toISOString() !== value) {
+    throw new Error('Invalid Club promotion timestamp');
+  }
+  return value;
+};
+
+export const promotionAuditKey = (studioId: string, occurredAtISO: string, eventId: string): ClubPhysicalKey => ({
+  pk: `STUDIO#${validateKeySegment('studioId', studioId)}#PROMOTION_AUDIT`,
+  sk: `EVENT#${validateCanonicalUtcTimestamp(occurredAtISO)}#${validatePromotionEventId(eventId)}`
+});
+
+export const validatePromotionKeyHash = (value: string): string => {
+  if (typeof value !== 'string' || !/^[0-9a-f]{64}$/.test(value)) {
+    throw new Error('Invalid Club promotion key hash');
+  }
+  return value;
+};
+
+export const promotionCreateIdempotencyKey = (studioId: string, keyHash: string): ClubPhysicalKey => ({
+  pk: `STUDIO#${validateKeySegment('studioId', studioId)}#PROMOTION_IDEMPOTENCY`,
+  sk: `CREATE#${validatePromotionKeyHash(keyHash)}`
+});

@@ -10,11 +10,14 @@ import {
   clientAggregatePartitionKey,
   clientProfileKey,
   ledgerKey,
-  visitKey, promotionKey, promotionPartitionKey, validatePromotionId
+  visitKey, promotionKey, promotionPartitionKey, validatePromotionId,
+  promotionCapacityKey, promotionAuditKey, promotionCreateIdempotencyKey,
 } from './club-keys';
 import {
   CLUB_CLIENT_STATUSES,
   ClubClient, ClubPromotion, validateClubPromotion,
+  PromotionCapacity, PromotionAuditEntry, PromotionCreateIdempotency,
+  validatePromotionCapacity, validatePromotionAuditEntry, validatePromotionCreateIdempotency,
   ClubVisit,
   LOYALTY_LEDGER_TYPES,
   LoyaltyBalance,
@@ -249,11 +252,142 @@ export const clubPromotionFromDynamoItem = (item: DynamoItem): ClubPromotion => 
   return promotion;
 };
 
+const assertExactAttributes = (item: DynamoItem, fields: string[], label: string): void => {
+  if (Object.keys(item).length !== fields.length || fields.some((field) => !item[field]) ||
+      Object.keys(item).some((field) => !fields.includes(field))) throw new Error(`Invalid Club ${label} attributes`);
+};
+
+const assertAttributeType = (item: DynamoItem, field: string, type: 'S' | 'N' | 'M'): void => {
+  const value = item[field];
+  if (!value || Object.keys(value).length !== 1 || !Object.prototype.hasOwnProperty.call(value, type)) {
+    throw new Error(`Invalid Club persisted field: ${field}`);
+  }
+};
+
+const assertTypedAttributes = (item: DynamoItem, types: Record<string, 'S' | 'N' | 'M'>): void => {
+  for (const [field, type] of Object.entries(types)) assertAttributeType(item, field, type);
+};
+
+const readMapPromotion = (value: AttributeValue | undefined): ClubPromotion => {
+  const map = value?.M;
+  if (!map) throw new Error('Invalid Club persisted field: promotion snapshot');
+  const expected = ['studioId', 'promotionId', 'title', 'description', 'status', 'startsAtISO', 'endsAtISO', 'createdAtISO', 'updatedAtISO'];
+  assertExactAttributes(map, expected, 'promotion snapshot');
+  assertTypedAttributes(map, Object.fromEntries(expected.map((field) => [field, 'S'])) as Record<string, 'S'>);
+  const promotion = Object.fromEntries(expected.map((field) => [field, requiredString(map, field)])) as unknown as ClubPromotion;
+  validateClubPromotion(promotion);
+  return promotion;
+};
+
+const dynamoMapPromotion = (promotion: ClubPromotion): AttributeValue => ({ M: {
+  studioId: s(promotion.studioId), promotionId: s(promotion.promotionId), title: s(promotion.title),
+  description: s(promotion.description), status: s(promotion.status), startsAtISO: s(promotion.startsAtISO),
+  endsAtISO: s(promotion.endsAtISO), createdAtISO: s(promotion.createdAtISO), updatedAtISO: s(promotion.updatedAtISO)
+} });
+
+export const promotionCapacityToDynamoItem = (capacity: PromotionCapacity): DynamoItem => {
+  validatePromotionCapacity(capacity);
+  const key = promotionCapacityKey(capacity.studioId);
+  return { pk: s(key.pk), sk: s(key.sk), entityType: s('PROMOTION_CAPACITY'), studioId: s(capacity.studioId),
+    count: n(capacity.count), state: s(capacity.state), reconciledAtISO: s(capacity.reconciledAtISO) };
+};
+
+export const promotionCapacityFromDynamoItem = (item: DynamoItem): PromotionCapacity => {
+  assertExactAttributes(item, ['pk', 'sk', 'entityType', 'studioId', 'count', 'state', 'reconciledAtISO'], 'promotion capacity');
+  assertTypedAttributes(item, { pk: 'S', sk: 'S', entityType: 'S', studioId: 'S', count: 'N', state: 'S', reconciledAtISO: 'S' });
+  if (requiredString(item, 'entityType') !== 'PROMOTION_CAPACITY') throw new Error('Invalid Club persisted field: entityType');
+  const capacity = { studioId: requiredString(item, 'studioId'), count: requiredInteger(item, 'count'),
+    state: requiredString(item, 'state') as 'READY', reconciledAtISO: requiredString(item, 'reconciledAtISO') };
+  validatePromotionCapacity(capacity);
+  assertKey(item, promotionCapacityKey(capacity.studioId));
+  return capacity;
+};
+
+const AUDIT_FIELDS = ['pk', 'sk', 'entityType', 'studioId', 'eventId', 'promotionId', 'operation', 'occurredAtISO', 'adminSub', 'requestId'];
+export const promotionAuditEntryToDynamoItem = (entry: PromotionAuditEntry): DynamoItem => {
+  validatePromotionAuditEntry(entry);
+  const key = promotionAuditKey(entry.studioId, entry.occurredAtISO, entry.eventId);
+  return { pk: s(key.pk), sk: s(key.sk), entityType: s('PROMOTION_AUDIT'), studioId: s(entry.studioId),
+    eventId: s(entry.eventId), promotionId: s(entry.promotionId), operation: s(entry.operation),
+    occurredAtISO: s(entry.occurredAtISO), adminSub: s(entry.adminSub), requestId: s(entry.requestId),
+    ...(entry.beforePromotion ? { beforePromotion: dynamoMapPromotion(entry.beforePromotion) } : {}),
+    ...(entry.afterPromotion ? { afterPromotion: dynamoMapPromotion(entry.afterPromotion) } : {}) };
+};
+
+export const promotionAuditEntryFromDynamoItem = (item: DynamoItem): PromotionAuditEntry => {
+  const hasBefore = item.beforePromotion !== undefined;
+  const hasAfter = item.afterPromotion !== undefined;
+  assertExactAttributes(item, [...AUDIT_FIELDS, ...(hasBefore ? ['beforePromotion'] : []), ...(hasAfter ? ['afterPromotion'] : [])], 'promotion audit');
+  assertTypedAttributes(item, { pk: 'S', sk: 'S', entityType: 'S', studioId: 'S', eventId: 'S', promotionId: 'S', operation: 'S', occurredAtISO: 'S', adminSub: 'S', requestId: 'S',
+    ...(hasBefore ? { beforePromotion: 'M' as const } : {}), ...(hasAfter ? { afterPromotion: 'M' as const } : {}) });
+  if (requiredString(item, 'entityType') !== 'PROMOTION_AUDIT') throw new Error('Invalid Club persisted field: entityType');
+  const operation = requiredString(item, 'operation') as PromotionAuditEntry['operation'];
+  const entry: PromotionAuditEntry = { studioId: requiredString(item, 'studioId'), eventId: requiredString(item, 'eventId'),
+    promotionId: requiredString(item, 'promotionId'), operation, occurredAtISO: requiredString(item, 'occurredAtISO'),
+    adminSub: requiredString(item, 'adminSub'), requestId: requiredString(item, 'requestId'),
+    ...(hasBefore ? { beforePromotion: readMapPromotion(item.beforePromotion) } : {}),
+    ...(hasAfter ? { afterPromotion: readMapPromotion(item.afterPromotion) } : {}) };
+  validatePromotionAuditEntry(entry);
+  assertKey(item, promotionAuditKey(entry.studioId, entry.occurredAtISO, entry.eventId));
+  return entry;
+};
+
+export const promotionCreateIdempotencyToDynamoItem = (record: PromotionCreateIdempotency): DynamoItem => {
+  validatePromotionCreateIdempotency(record);
+  const key = promotionCreateIdempotencyKey(record.studioId, record.keyHash);
+  return { pk: s(key.pk), sk: s(key.sk), entityType: s('PROMOTION_CREATE_IDEMPOTENCY'), studioId: s(record.studioId),
+    keyHash: s(record.keyHash), requestFingerprint: s(record.requestFingerprint), promotionId: s(record.promotionId),
+    createdAtISO: s(record.createdAtISO), creationResult: dynamoMapPromotion(record.creationResult) };
+};
+
+export const promotionCreateIdempotencyFromDynamoItem = (item: DynamoItem): PromotionCreateIdempotency => {
+  assertExactAttributes(item, ['pk', 'sk', 'entityType', 'studioId', 'keyHash', 'requestFingerprint', 'promotionId', 'createdAtISO', 'creationResult'], 'promotion idempotency');
+  assertTypedAttributes(item, { pk: 'S', sk: 'S', entityType: 'S', studioId: 'S', keyHash: 'S', requestFingerprint: 'S', promotionId: 'S', createdAtISO: 'S', creationResult: 'M' });
+  if (requiredString(item, 'entityType') !== 'PROMOTION_CREATE_IDEMPOTENCY') throw new Error('Invalid Club persisted field: entityType');
+  const record: PromotionCreateIdempotency = { studioId: requiredString(item, 'studioId'), keyHash: requiredString(item, 'keyHash'),
+    requestFingerprint: requiredString(item, 'requestFingerprint'), promotionId: requiredString(item, 'promotionId'),
+    createdAtISO: requiredString(item, 'createdAtISO'), creationResult: readMapPromotion(item.creationResult) };
+  validatePromotionCreateIdempotency(record);
+  assertKey(item, promotionCreateIdempotencyKey(record.studioId, record.keyHash));
+  return record;
+};
+
 export interface CommitVisitOutcomeInput {
   visit: ClubVisit;
   ledgerEntries: LoyaltyLedgerEntry[];
   expectedBalanceVersion: number;
   nextBalance: LoyaltyBalance;
+}
+
+export interface CreatePromotionOutcomeInput {
+  promotion: ClubPromotion;
+  capacityMutation: { studioId: string };
+  idempotency: PromotionCreateIdempotency;
+  audit: PromotionAuditEntry;
+}
+
+export interface UpdatePromotionOutcomeInput {
+  beforePromotion: ClubPromotion;
+  afterPromotion: ClubPromotion;
+  expectedUpdatedAtISO: string;
+  audit: PromotionAuditEntry;
+}
+
+export interface DeletePromotionOutcomeInput {
+  beforePromotion: ClubPromotion;
+  expectedUpdatedAtISO: string;
+  capacityMutation: { studioId: string };
+  audit: PromotionAuditEntry;
+}
+
+const samePromotion = (left: ClubPromotion, right: ClubPromotion): boolean =>
+  ['studioId', 'promotionId', 'title', 'description', 'status', 'startsAtISO', 'endsAtISO', 'createdAtISO', 'updatedAtISO']
+    .every((field) => left[field as keyof ClubPromotion] === right[field as keyof ClubPromotion]);
+
+const validateCapacityMutationIdentity = (identity: { studioId: string }): void => {
+  if (!identity || Object.keys(identity).length !== 1 || Object.keys(identity)[0] !== 'studioId') {
+    throw new Error('Invalid promotion capacity mutation identity');
+  }
 }
 
 export class DynamoClubPersistence {
@@ -300,6 +434,92 @@ export class DynamoClubPersistence {
       cursor = { pk: { S: pk }, sk: { S: sk } };
     }
     throw new Error('Incomplete promotion catalog');
+  }
+
+  async getPromotion(studioId: string, promotionId: string): Promise<ClubPromotion | undefined> {
+    return this.get(promotionKey(studioId, promotionId), clubPromotionFromDynamoItem);
+  }
+
+  async getPromotionCapacity(studioId: string): Promise<PromotionCapacity | undefined> {
+    return this.get(promotionCapacityKey(studioId), promotionCapacityFromDynamoItem);
+  }
+
+  async getPromotionCreateIdempotency(studioId: string, keyHash: string): Promise<PromotionCreateIdempotency | undefined> {
+    return this.get(promotionCreateIdempotencyKey(studioId, keyHash), promotionCreateIdempotencyFromDynamoItem);
+  }
+
+  async createPromotionOutcome(input: CreatePromotionOutcomeInput): Promise<void> {
+    const { promotion, capacityMutation, idempotency, audit } = input;
+    validateClubPromotion(promotion);
+    validateCapacityMutationIdentity(capacityMutation);
+    validatePromotionCreateIdempotency(idempotency);
+    validatePromotionAuditEntry(audit);
+    if (audit.operation !== 'CREATE' || audit.beforePromotion !== undefined || !audit.afterPromotion ||
+        !samePromotion(audit.afterPromotion, promotion) || !samePromotion(idempotency.creationResult, promotion) ||
+        capacityMutation.studioId !== promotion.studioId || idempotency.studioId !== promotion.studioId ||
+        audit.studioId !== promotion.studioId || audit.promotionId !== promotion.promotionId ||
+        idempotency.promotionId !== promotion.promotionId) {
+      throw new Error('Invalid promotion create transaction records');
+    }
+    const capacityKey = promotionCapacityKey(promotion.studioId);
+    await this.client.send(new TransactWriteItemsCommand({ TransactItems: [
+      { Put: { TableName: this.tableName, Item: clubPromotionToDynamoItem(promotion), ConditionExpression: CREATE_CONDITION } },
+      { Update: { TableName: this.tableName, Key: { pk: s(capacityKey.pk), sk: s(capacityKey.sk) },
+        UpdateExpression: 'SET #count = #count + :one',
+        ConditionExpression: '#entityType = :capacityType AND #state = :ready AND #count BETWEEN :minimum AND :maximum',
+        ExpressionAttributeNames: { '#count': 'count', '#entityType': 'entityType', '#state': 'state' },
+        ExpressionAttributeValues: { ':one': n(1), ':capacityType': s('PROMOTION_CAPACITY'), ':ready': s('READY'), ':minimum': n(0), ':maximum': n(99) } } },
+      { Put: { TableName: this.tableName, Item: promotionCreateIdempotencyToDynamoItem(idempotency), ConditionExpression: CREATE_CONDITION } },
+      { Put: { TableName: this.tableName, Item: promotionAuditEntryToDynamoItem(audit), ConditionExpression: CREATE_CONDITION } }
+    ] }));
+  }
+
+  async updatePromotionOutcome(input: UpdatePromotionOutcomeInput): Promise<void> {
+    const { beforePromotion, afterPromotion, expectedUpdatedAtISO, audit } = input;
+    validateClubPromotion(beforePromotion); validateClubPromotion(afterPromotion); validatePromotionAuditEntry(audit);
+    if (typeof expectedUpdatedAtISO !== 'string' || beforePromotion.updatedAtISO !== expectedUpdatedAtISO ||
+        afterPromotion.studioId !== beforePromotion.studioId || afterPromotion.promotionId !== beforePromotion.promotionId ||
+        afterPromotion.createdAtISO !== beforePromotion.createdAtISO || afterPromotion.updatedAtISO <= expectedUpdatedAtISO ||
+        audit.operation !== 'UPDATE' || !audit.beforePromotion || !audit.afterPromotion ||
+        !samePromotion(audit.beforePromotion, beforePromotion) || !samePromotion(audit.afterPromotion, afterPromotion) ||
+        audit.studioId !== beforePromotion.studioId || audit.promotionId !== beforePromotion.promotionId) {
+      throw new Error('Invalid promotion update transaction records');
+    }
+    const key = promotionKey(beforePromotion.studioId, beforePromotion.promotionId);
+    await this.client.send(new TransactWriteItemsCommand({ TransactItems: [
+      { Update: { TableName: this.tableName, Key: { pk: s(key.pk), sk: s(key.sk) },
+        UpdateExpression: 'SET #title = :title, #description = :description, #status = :status, #startsAt = :startsAt, #endsAt = :endsAt, #updatedAt = :updatedAt',
+        ConditionExpression: 'attribute_exists(pk) AND #entityType = :promotionType AND #studioId = :studioId AND #promotionId = :promotionId AND #updatedAt = :expectedUpdatedAt',
+        ExpressionAttributeNames: { '#title': 'title', '#description': 'description', '#status': 'status', '#startsAt': 'startsAtISO', '#endsAt': 'endsAtISO', '#updatedAt': 'updatedAtISO', '#entityType': 'entityType', '#studioId': 'studioId', '#promotionId': 'promotionId' },
+        ExpressionAttributeValues: { ':title': s(afterPromotion.title), ':description': s(afterPromotion.description), ':status': s(afterPromotion.status), ':startsAt': s(afterPromotion.startsAtISO), ':endsAt': s(afterPromotion.endsAtISO), ':updatedAt': s(afterPromotion.updatedAtISO), ':promotionType': s('PROMOTION'), ':studioId': s(beforePromotion.studioId), ':promotionId': s(beforePromotion.promotionId), ':expectedUpdatedAt': s(expectedUpdatedAtISO) } } },
+      { Put: { TableName: this.tableName, Item: promotionAuditEntryToDynamoItem(audit), ConditionExpression: CREATE_CONDITION } }
+    ] }));
+  }
+
+  async deletePromotionOutcome(input: DeletePromotionOutcomeInput): Promise<void> {
+    const { beforePromotion, expectedUpdatedAtISO, capacityMutation, audit } = input;
+    validateClubPromotion(beforePromotion); validatePromotionAuditEntry(audit);
+    validateCapacityMutationIdentity(capacityMutation);
+    if (typeof expectedUpdatedAtISO !== 'string' || beforePromotion.updatedAtISO !== expectedUpdatedAtISO ||
+        capacityMutation.studioId !== beforePromotion.studioId || audit.operation !== 'DELETE' ||
+        !audit.beforePromotion || audit.afterPromotion !== undefined || !samePromotion(audit.beforePromotion, beforePromotion) ||
+        audit.studioId !== beforePromotion.studioId || audit.promotionId !== beforePromotion.promotionId) {
+      throw new Error('Invalid promotion delete transaction records');
+    }
+    const promotion = promotionKey(beforePromotion.studioId, beforePromotion.promotionId);
+    const capacity = promotionCapacityKey(beforePromotion.studioId);
+    await this.client.send(new TransactWriteItemsCommand({ TransactItems: [
+      { Delete: { TableName: this.tableName, Key: { pk: s(promotion.pk), sk: s(promotion.sk) },
+        ConditionExpression: 'attribute_exists(pk) AND #entityType = :promotionType AND #studioId = :studioId AND #promotionId = :promotionId AND #updatedAt = :expectedUpdatedAt',
+        ExpressionAttributeNames: { '#entityType': 'entityType', '#studioId': 'studioId', '#promotionId': 'promotionId', '#updatedAt': 'updatedAtISO' },
+        ExpressionAttributeValues: { ':promotionType': s('PROMOTION'), ':studioId': s(beforePromotion.studioId), ':promotionId': s(beforePromotion.promotionId), ':expectedUpdatedAt': s(expectedUpdatedAtISO) } } },
+      { Update: { TableName: this.tableName, Key: { pk: s(capacity.pk), sk: s(capacity.sk) },
+        UpdateExpression: 'SET #count = #count - :one',
+        ConditionExpression: '#entityType = :capacityType AND #state = :ready AND #count BETWEEN :minimum AND :maximum',
+        ExpressionAttributeNames: { '#count': 'count', '#entityType': 'entityType', '#state': 'state' },
+        ExpressionAttributeValues: { ':one': n(1), ':capacityType': s('PROMOTION_CAPACITY'), ':ready': s('READY'), ':minimum': n(1), ':maximum': n(100) } } },
+      { Put: { TableName: this.tableName, Item: promotionAuditEntryToDynamoItem(audit), ConditionExpression: CREATE_CONDITION } }
+    ] }));
   }
 
   async createClient(client: ClubClient, initialBalance: LoyaltyBalance): Promise<void> {
