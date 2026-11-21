@@ -26,6 +26,7 @@ async function expectNoHorizontalOverflow(page: Page): Promise<void> {
 
 test('emits the approved semantic foundation and production font request', async ({ page }) => {
   await page.goto('/#/');
+  await expect(page.getByTestId('public-home-page')).toBeVisible();
 
   const foundation = await page.evaluate(() => {
     const root = getComputedStyle(document.documentElement);
@@ -127,6 +128,7 @@ test('keeps typography roles scoped to public, admin, and member modes', async (
   expect(memberTypography.control).toContain('Source Sans 3');
 
   await page.goto('/#/');
+  await expect(page.getByTestId('public-home-page')).toBeVisible();
   const publicTypography = await page.evaluate(() => ({
     heroEyebrow: getComputedStyle(document.querySelector('.hero .eyebrow')!).textTransform,
     servicesEyebrow: getComputedStyle(document.querySelector('.services .eyebrow')!).textTransform

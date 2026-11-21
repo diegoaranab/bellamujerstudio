@@ -16,6 +16,17 @@ export const memberClubFixture = {
   }
 } as const;
 
+const longPromotionDescription = (
+  'Contenido sintético del Club para comprobar la lectura de una descripción extensa en distintos tamaños de pantalla, con líneas que fluyen sin recortes ni desplazamiento horizontal. '
+).repeat(5).slice(0, 499) + '…';
+
+export const memberClubPromotionFixture = {
+  title: 'Beneficio de prueba del Club con un título lo bastante extenso para verificar el ajuste de línea',
+  description: longPromotionDescription,
+  startsAtISO: '2026-11-01T15:00:00.000Z',
+  endsAtISO: '2026-12-01T15:00:00.000Z'
+} as const;
+
 export const configuredClubClient = {
   studioId: 'studio-fixture',
   clientId: CLIENT_ID,
@@ -195,6 +206,7 @@ export async function installMemberClubFixture(
     failFirstSummary?: 'authentication' | 'server';
     qr?: 'server-then-success' | 'authentication';
     history?: 'empty' | 'authentication' | 'server' | 'paginated' | 'load-more-failure';
+    promotion?: 'active' | 'server' | 'server-then-success' | 'authentication' | 'malformed';
   } = {}
 ): Promise<void> {
   await page.route('**/*.js', async (route) => {
@@ -216,6 +228,7 @@ export async function installMemberClubFixture(
   let summaryAttempts = 0;
   let historyAttempts = 0;
   let qrAttempts = 0;
+  let promotionAttempts = 0;
   await page.route(`**${FIXTURE_API_PATH}/club/**`, async (route) => {
     const url = new URL(route.request().url());
     const path = url.pathname.slice(FIXTURE_API_PATH.length);
@@ -281,6 +294,27 @@ export async function installMemberClubFixture(
         return;
       }
       await json(route, { qr: { identifier: memberClubFixture.qrIdentifier } });
+      return;
+    }
+    if (path === '/club/me/promotions' && route.request().method() === 'GET') {
+      promotionAttempts += 1;
+      if (options.promotion === 'authentication') {
+        await json(route, { error: 'private detail' }, 401);
+        return;
+      }
+      if (options.promotion === 'server' || (options.promotion === 'server-then-success' && promotionAttempts === 1)) {
+        await json(route, { error: 'private detail' }, 500);
+        return;
+      }
+      if (options.promotion === 'malformed') {
+        await json(route, { promotion: { ...memberClubPromotionFixture, studioId: 'private' } });
+        return;
+      }
+      await json(route, {
+        promotion: options.promotion === 'active' || options.promotion === 'server-then-success'
+          ? memberClubPromotionFixture
+          : null
+      });
       return;
     }
     if (path === '/club/access/logout' && route.request().method() === 'POST') {
