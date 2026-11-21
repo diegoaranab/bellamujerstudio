@@ -84,8 +84,8 @@ describe('Club infrastructure', () => {
       template.findResources('AWS::ApiGatewayV2::Authorizer')
     ).find(([, resource]) => resource.Properties.AuthorizerType === 'JWT')!;
 
-    expect(functions).toHaveLength(17);
-    expect(routes).toHaveLength(21);
+    expect(functions).toHaveLength(18);
+    expect(routes).toHaveLength(23);
     const accessFunctions = functions.filter((lambdaFunction) =>
       lambdaFunction.Properties.Description ===
         'Manages Club member access for authenticated administrators'
@@ -416,10 +416,11 @@ describe('Club infrastructure', () => {
       'Reads Club clients for authenticated administrators',
       'Registers Club visits and loyalty for authenticated administrators',
       'Reads Club loyalty ledger for authenticated administrators',
-      'Manages Club member access for authenticated administrators'
+      'Manages Club member access for authenticated administrators',
+      'Reads Club promotions for authenticated administrators'
     ].includes(resource.Properties.Description));
 
-    expect(clubFunctions).toHaveLength(5);
+    expect(clubFunctions).toHaveLength(6);
     for (const lambdaFunction of clubFunctions) {
       expect(lambdaFunction.Properties.Environment.Variables).toMatchObject({
         CLUB_TABLE_NAME: { Ref: clubTableLogicalId },
@@ -430,5 +431,97 @@ describe('Club infrastructure', () => {
     for (const lambdaFunction of functions.filter((resource) => !clubFunctions.includes(resource))) {
       expect(lambdaFunction.Properties.Environment?.Variables?.CLUB_STUDIO_ID).toBeUndefined();
     }
+  });
+
+  it('wires exactly one isolated read-only admin promotion Lambda behind the admin JWT', () => {
+    const clubLogicalId = template.findOutputs('ClubTableName').ClubTableName.Value.Ref as string;
+    const accessLogicalId = template.findOutputs('ClubAccessTableName')
+      .ClubAccessTableName.Value.Ref as string;
+    const giftCardsLogicalId = template.findOutputs('GiftCardsTableName')
+      .GiftCardsTableName.Value.Ref as string;
+    const functions = Object.values(template.findResources('AWS::Lambda::Function'));
+    const adminFunctions = Object.entries(template.findResources('AWS::Lambda::Function')).filter(
+      ([, value]) => value.Properties.Description ===
+        'Reads Club promotions for authenticated administrators'
+    );
+    expect(adminFunctions).toHaveLength(1);
+    const [adminFunctionLogicalId, adminFunction] = adminFunctions[0];
+    expect(adminFunction.Properties.Handler).toBe('index.handler');
+    expect(adminFunction.Properties.Code.S3Key).toMatch(/\.zip$/);
+    expect(adminFunction.Properties.Environment.Variables).toMatchObject({
+      CLUB_TABLE_NAME: { Ref: clubLogicalId },
+      CLUB_STUDIO_ID: 'bella-mujer',
+      ALLOWED_FRONTEND_ORIGINS: 'http://localhost:4200,https://diegoaranab.github.io'
+    });
+    for (const variable of [
+      'CLUB_ACCESS_TABLE_NAME', 'CLUB_PIN_PEPPER_SECRET_ARN',
+      'CLUB_HISTORY_CURSOR_SECRET_ARN', 'GIFT_CARDS_TABLE_NAME'
+    ]) expect(adminFunction.Properties.Environment.Variables[variable]).toBeUndefined();
+
+    const adminRole = adminFunction.Properties.Role['Fn::GetAtt'][0];
+    const policies = Object.values(template.findResources('AWS::IAM::Policy'));
+    const adminStatements = policies.flatMap((policy) => policy.Properties.Roles.some(
+      (role: { Ref?: string }) => role.Ref === adminRole
+    ) ? policy.Properties.PolicyDocument.Statement : []);
+    const dynamodbStatements = adminStatements.filter((statement: { Action?: string | string[] }) => {
+      const actions = typeof statement.Action === 'string' ? [statement.Action] : statement.Action ?? [];
+      return actions.some((action) => action.startsWith('dynamodb:'));
+    });
+    expect(dynamodbStatements).toEqual([{
+      Action: ['dynamodb:GetItem', 'dynamodb:Query'],
+      Condition: {
+        'ForAllValues:StringEquals': {
+          'dynamodb:LeadingKeys': ['STUDIO#bella-mujer#PROMOTIONS']
+        }
+      },
+      Effect: 'Allow',
+      Resource: { 'Fn::GetAtt': [clubLogicalId, 'Arn'] }
+    }]);
+    const serializedStatements = JSON.stringify(adminStatements);
+    expect(serializedStatements).not.toContain(accessLogicalId);
+    expect(serializedStatements).not.toContain(giftCardsLogicalId);
+    expect(serializedStatements).not.toContain('secretsmanager:');
+    for (const forbidden of [
+      'dynamodb:PutItem', 'dynamodb:UpdateItem', 'dynamodb:DeleteItem',
+      'dynamodb:Scan', 'dynamodb:BatchWriteItem', 'dynamodb:TransactWriteItems'
+    ]) expect(serializedStatements).not.toContain(forbidden);
+
+    const routes = Object.fromEntries(Object.values(
+      template.findResources('AWS::ApiGatewayV2::Route')
+    ).map((route) => [route.Properties.RouteKey, route.Properties]));
+    const adminAuthorizerLogicalId = Object.entries(
+      template.findResources('AWS::ApiGatewayV2::Authorizer')
+    ).find(([, resource]) => resource.Properties.AuthorizerType === 'JWT')![0];
+    for (const routeKey of [
+      'GET /admin/club/promotions', 'GET /admin/club/promotions/{promotionId}'
+    ]) {
+      expect(routes[routeKey]).toMatchObject({
+        AuthorizationType: 'JWT',
+        AuthorizerId: { Ref: adminAuthorizerLogicalId },
+        AuthorizationScopes: ['openid']
+      });
+      expect(routes[routeKey].AuthorizationType).not.toBe('NONE');
+      expect(routes[routeKey].AuthorizationType).not.toBe('CUSTOM');
+      const integrationLogicalId = routes[routeKey].Target['Fn::Join'][1][1].Ref;
+      const integration = template.findResources('AWS::ApiGatewayV2::Integration')[integrationLogicalId];
+      expect(JSON.stringify(integration.Properties.IntegrationUri)).toContain(adminFunctionLogicalId);
+    }
+    expect(Object.keys(routes).filter((routeKey) =>
+      /^(POST|PATCH|DELETE) \/admin\/club\/promotions/.test(routeKey)
+    )).toEqual([]);
+
+    const memberFunction = functions.find((value) => value.Properties.Description ===
+      'Reads authenticated Bella Mujer Club member promotions')!;
+    const memberRole = memberFunction.Properties.Role['Fn::GetAtt'][0];
+    const memberStatements = policies.flatMap((policy) => policy.Properties.Roles.some(
+      (role: { Ref?: string }) => role.Ref === memberRole
+    ) ? policy.Properties.PolicyDocument.Statement : []);
+    expect(memberStatements).toEqual([{
+      Action: 'dynamodb:Query', Effect: 'Allow',
+      Resource: { 'Fn::GetAtt': [clubLogicalId, 'Arn'] },
+      Condition: { 'ForAllValues:StringEquals': {
+        'dynamodb:LeadingKeys': ['STUDIO#bella-mujer#PROMOTIONS']
+      } }
+    }]);
   });
 });

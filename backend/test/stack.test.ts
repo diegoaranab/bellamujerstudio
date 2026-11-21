@@ -53,7 +53,7 @@ describe('BellaMujerApiStack', () => {
         ]
       }
     });
-    template.resourcePropertiesCountIs('AWS::Lambda::Function', {}, 17);
+    template.resourcePropertiesCountIs('AWS::Lambda::Function', {}, 18);
 
     for (const lambdaFunction of Object.values(template.findResources('AWS::Lambda::Function'))) {
       if ([
@@ -182,14 +182,14 @@ describe('BellaMujerApiStack', () => {
   });
 
   it('bounds Lambda log retention to two weeks', () => {
-    template.resourcePropertiesCountIs('AWS::Logs::LogGroup', { RetentionInDays: 14 }, 17);
+    template.resourcePropertiesCountIs('AWS::Logs::LogGroup', { RetentionInDays: 14 }, 18);
   });
 
   it('uses the existing Cognito pool and SPA client for a JWT authorizer', () => {
     template.resourceCountIs('AWS::Cognito::UserPool', 1);
     template.resourceCountIs('AWS::Cognito::UserPoolClient', 1);
     template.resourceCountIs('AWS::ApiGatewayV2::Authorizer', 2);
-    template.resourcePropertiesCountIs('AWS::Lambda::Function', {}, 17);
+    template.resourcePropertiesCountIs('AWS::Lambda::Function', {}, 18);
 
     const [[userPoolLogicalId]] = Object.entries(
       template.findResources('AWS::Cognito::UserPool')
@@ -215,7 +215,7 @@ describe('BellaMujerApiStack', () => {
   });
 
   it('keeps public/member/admin authorization boundaries separate', () => {
-    template.resourceCountIs('AWS::ApiGatewayV2::Route', 21);
+    template.resourceCountIs('AWS::ApiGatewayV2::Route', 23);
 
     const routes = Object.values(template.findResources('AWS::ApiGatewayV2::Route'));
     const routesByKey = Object.fromEntries(
@@ -243,6 +243,8 @@ describe('BellaMujerApiStack', () => {
       'GET /admin/club/clients/{id}',
       'GET /admin/club/clients/{id}/access',
       'GET /admin/club/clients/{id}/ledger',
+      'GET /admin/club/promotions',
+      'GET /admin/club/promotions/{promotionId}',
       'GET /admin/gift-cards',
       'GET /admin/health',
       'GET /club/access/session',
@@ -301,6 +303,17 @@ describe('BellaMujerApiStack', () => {
       AuthorizerId: { Ref: adminAuthorizerLogicalId },
       AuthorizationScopes: ['openid']
     });
+    for (const routeKey of [
+      'GET /admin/club/promotions', 'GET /admin/club/promotions/{promotionId}'
+    ]) {
+      expect(routesByKey[routeKey]).toMatchObject({
+        AuthorizationType: 'JWT',
+        AuthorizerId: { Ref: adminAuthorizerLogicalId },
+        AuthorizationScopes: ['openid']
+      });
+      expect(routesByKey[routeKey].AuthorizationType).not.toBe('NONE');
+      expect(routesByKey[routeKey].AuthorizationType).not.toBe('CUSTOM');
+    }
     expect(routesByKey['GET /admin/gift-cards']).toMatchObject({
       AuthorizationType: 'JWT',
       AuthorizerId: { Ref: adminAuthorizerLogicalId },
@@ -401,7 +414,7 @@ describe('BellaMujerApiStack', () => {
       'dynamodb:PutItem',
       ['dynamodb:GetItem', 'dynamodb:Query']
     ]));
-    expect(dynamodbActions).toHaveLength(19);
+    expect(dynamodbActions).toHaveLength(20);
 
     const lambdaFunctions = Object.values(template.findResources('AWS::Lambda::Function'));
     const roleForDescription = (description: string): string => {
@@ -466,6 +479,30 @@ describe('BellaMujerApiStack', () => {
       Resource: { 'Fn::GetAtt': [Object.keys(template.findResources('AWS::DynamoDB::Table')).find((id) => id.startsWith('ClubTable')), 'Arn'] },
       Condition: { 'ForAllValues:StringEquals': { 'dynamodb:LeadingKeys': ['STUDIO#bella-mujer#PROMOTIONS'] } }
     })]);
+
+    const adminPromotionsRole = roleForDescription(
+      'Reads Club promotions for authenticated administrators'
+    );
+    const adminPromotionsStatements = Object.values(template.findResources('AWS::IAM::Policy')).flatMap((policy) =>
+      policy.Properties.Roles.some((role: { Ref?: string }) => role.Ref === adminPromotionsRole)
+        ? policy.Properties.PolicyDocument.Statement : []);
+    const adminPromotionsClubTableLogicalId = template.findOutputs('ClubTableName')
+      .ClubTableName.Value.Ref as string;
+    expect(adminPromotionsStatements).toEqual([{
+      Action: ['dynamodb:GetItem', 'dynamodb:Query'],
+      Condition: {
+        'ForAllValues:StringEquals': {
+          'dynamodb:LeadingKeys': ['STUDIO#bella-mujer#PROMOTIONS']
+        }
+      },
+      Effect: 'Allow',
+      Resource: { 'Fn::GetAtt': [adminPromotionsClubTableLogicalId, 'Arn'] }
+    }]);
+    for (const forbidden of [
+      'dynamodb:PutItem', 'dynamodb:UpdateItem', 'dynamodb:DeleteItem',
+      'dynamodb:Scan', 'dynamodb:BatchWriteItem', 'dynamodb:TransactWriteItems',
+      'secretsmanager:'
+    ]) expect(JSON.stringify(adminPromotionsStatements)).not.toContain(forbidden);
     const qrFunction = lambdaFunctions.find((resource) =>
       resource.Properties.Description === 'Returns the authenticated Bella Mujer Club member QR identifier'
     );
