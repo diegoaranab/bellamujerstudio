@@ -1,7 +1,9 @@
 import {
   AttributeValue,
+  ConditionalCheckFailedException,
   DynamoDBClient,
   GetItemCommand,
+  PutItemCommand,
   QueryCommand,
   TransactWriteItemsCommand
 } from '@aws-sdk/client-dynamodb';
@@ -380,6 +382,8 @@ export interface DeletePromotionOutcomeInput {
   audit: PromotionAuditEntry;
 }
 
+export type PromotionCapacityInitializationResult = 'CREATED' | 'ALREADY_EXISTS';
+
 const samePromotion = (left: ClubPromotion, right: ClubPromotion): boolean =>
   ['studioId', 'promotionId', 'title', 'description', 'status', 'startsAtISO', 'endsAtISO', 'createdAtISO', 'updatedAtISO']
     .every((field) => left[field as keyof ClubPromotion] === right[field as keyof ClubPromotion]);
@@ -442,6 +446,21 @@ export class DynamoClubPersistence {
 
   async getPromotionCapacity(studioId: string): Promise<PromotionCapacity | undefined> {
     return this.get(promotionCapacityKey(studioId), promotionCapacityFromDynamoItem);
+  }
+
+  async initializePromotionCapacityIfAbsent(capacity: PromotionCapacity): Promise<PromotionCapacityInitializationResult> {
+    const item = promotionCapacityToDynamoItem(capacity);
+    try {
+      await this.client.send(new PutItemCommand({
+        TableName: this.tableName,
+        Item: item,
+        ConditionExpression: CREATE_CONDITION
+      }));
+      return 'CREATED';
+    } catch (error) {
+      if (error instanceof ConditionalCheckFailedException) return 'ALREADY_EXISTS';
+      throw error;
+    }
   }
 
   async getPromotionCreateIdempotency(studioId: string, keyHash: string): Promise<PromotionCreateIdempotency | undefined> {

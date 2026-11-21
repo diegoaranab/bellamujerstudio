@@ -1,4 +1,4 @@
-import { DynamoDBClient, GetItemCommand, TransactWriteItemsCommand } from '@aws-sdk/client-dynamodb';
+import { ConditionalCheckFailedException, DynamoDBClient, GetItemCommand, PutItemCommand, TransactWriteItemsCommand } from '@aws-sdk/client-dynamodb';
 import { describe, expect, it, vi } from 'vitest';
 import { promotionAuditKey, promotionCapacityKey, promotionCreateIdempotencyKey } from '../src/club/club-keys';
 import { ClubPromotion, PromotionAuditEntry, PromotionCapacity, PromotionCreateIdempotency } from '../src/club/club-model';
@@ -104,6 +104,31 @@ describe('promotion persistence transactions and consistent reads', () => {
     const input = send.mock.calls[0][0].input;
     expect(input.KeyConditionExpression).toContain('begins_with(#sk, :prefix)');
     expect(input.ExpressionAttributeValues[':prefix']).toEqual({ S: 'PROMOTION#' });
+  });
+
+  it('conditionally initializes capacity once and distinguishes only the concrete conditional failure', async () => {
+    const send = vi.fn().mockResolvedValue({});
+    const db = new DynamoClubPersistence({ send } as unknown as DynamoDBClient, 'ClubTable');
+    expect(await db.initializePromotionCapacityIfAbsent(capacity)).toBe('CREATED');
+    const command = send.mock.calls[0][0];
+    expect(command).toBeInstanceOf(PutItemCommand);
+    expect(command.input).toEqual({
+      TableName: 'ClubTable',
+      Item: promotionCapacityToDynamoItem(capacity),
+      ConditionExpression: 'attribute_not_exists(pk) AND attribute_not_exists(sk)'
+    });
+
+    send.mockReset().mockRejectedValue(new ConditionalCheckFailedException({ message: 'exists', $metadata: {} }));
+    expect(await db.initializePromotionCapacityIfAbsent(capacity)).toBe('ALREADY_EXISTS');
+    expect(send.mock.calls[0][0]).toBeInstanceOf(PutItemCommand);
+
+    const failure = new Error('ordinary SDK failure');
+    send.mockReset().mockRejectedValue(failure);
+    await expect(db.initializePromotionCapacityIfAbsent(capacity)).rejects.toBe(failure);
+
+    send.mockReset();
+    await expect(db.initializePromotionCapacityIfAbsent({ ...capacity, count: 101 })).rejects.toThrow();
+    expect(send).not.toHaveBeenCalled();
   });
 
   it('builds create as exactly four conditioned ClubTable operations', async () => {
