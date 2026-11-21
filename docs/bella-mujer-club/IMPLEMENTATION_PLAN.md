@@ -248,12 +248,15 @@ started by this closure slice.
 
 ## Phase 6 — Client Club experience
 
-Connect real member experiences:
+Completed member capabilities:
 
 - Mi Club and stamp progress;
 - transaction/stamp history;
-- opaque identification QR; and
-- active promotions.
+- opaque identification QR.
+
+Active promotions remain the outstanding Phase 6 member capability. They have not been
+implemented, designed, or started. Configurable administrator promotion management remains in
+Phase 7.
 
 Member screens should emphasize progress, clarity, and beauty-oriented polish rather than administration.
 
@@ -306,14 +309,9 @@ The purpose is reconstruction, not code transplantation.
 - Phase 6D2: **MERGED / DEPLOYED / PRODUCTION-VALIDATED**.
 - Phase 6D: **CLOSED / PRODUCTION-VALIDATED**.
 
-Closure evidence: PR #107 merged to production commit
-`097ddb37421083da33b762892ed0088b6ac10e2d`; GitHub Pages workflow #82 succeeded; the
-production member QR smoke passed, including a physical camera scan to the protected administrator
-client summary. QR scanning remained identification-only and created no visit or stamp mutation.
-
-The completed Phase 6 member capabilities are Mi Club/stamp progress, transaction/stamp history,
-and opaque identification QR. **Active promotions remain the only Phase 6 capability not yet
-implemented.** Configurable administrator promotion management remains Phase 7 scope.
+Closure evidence: PR #107 merged to production as `097ddb37421083da33b762892ed0088b6ac10e2d`;
+GitHub Pages workflow #82 succeeded. The production member QR smoke and physical phone-camera
+scan passed. The scan remained identification-only and caused no visit or stamp mutation.
 
 Every implementation phase should preserve these confirmed properties:
 
