@@ -147,6 +147,76 @@ describe('MemberClubApiClient', () => {
     });
   });
 
+  it('rejects unapproved promotion server metadata', async () => {
+    const client = configure();
+    const promise = firstValueFrom(client.getPromotion(SESSION));
+    const request = http.expectOne('https://api.example.test/club/me/promotions');
+    expect(request.request.method).toBe('GET');
+    expect(request.request.headers.get('Authorization')).toBe(`Bearer ${SESSION}`);
+    expect(request.request.urlWithParams).not.toContain(SESSION);
+    request.flush({ promotion: {
+      title: '  Beneficio de prueba  ',
+      description: 'Descripción\ncon línea',
+      startsAtISO: '2026-11-01T15:00:00.000Z',
+      endsAtISO: '2026-12-01T15:00:00.000Z',
+      promotionId: 'must not project'
+    } });
+    await expect(promise).rejects.toMatchObject({ kind: 'server' });
+  });
+
+  it('accepts null and projects a valid promotion without server metadata', async () => {
+    const client = configure();
+    const empty = firstValueFrom(client.getPromotion(SESSION));
+    http.expectOne('https://api.example.test/club/me/promotions').flush({ promotion: null });
+    await expect(empty).resolves.toBeNull();
+
+    const active = firstValueFrom(client.getPromotion(SESSION));
+    http.expectOne('https://api.example.test/club/me/promotions').flush({ promotion: {
+      title: '  Beneficio de prueba  ',
+      description: 'Descripción\ncon línea',
+      startsAtISO: '2026-11-01T15:00:00.000Z',
+      endsAtISO: '2026-12-01T15:00:00.000Z'
+    } });
+    await expect(active).resolves.toEqual({
+      title: 'Beneficio de prueba',
+      description: 'Descripción\ncon línea',
+      startsAtISO: '2026-11-01T15:00:00.000Z',
+      endsAtISO: '2026-12-01T15:00:00.000Z'
+    });
+  });
+
+  it.each([
+    { promotion: null, extra: true },
+    { promotion: { title: 'T', description: 'D', startsAtISO: '2026-11-01T15:00:00.000Z', endsAtISO: '2026-12-01T15:00:00.000Z', extra: true } },
+    { promotion: { title: 'T', description: 'D', startsAtISO: '2026-11-01T15:00:00.000Z' } },
+    { promotion: { title: ' ', description: 'D', startsAtISO: '2026-11-01T15:00:00.000Z', endsAtISO: '2026-12-01T15:00:00.000Z' } },
+    { promotion: { title: 'T', description: '  ', startsAtISO: '2026-11-01T15:00:00.000Z', endsAtISO: '2026-12-01T15:00:00.000Z' } },
+    { promotion: { title: 'T\nT', description: 'D', startsAtISO: '2026-11-01T15:00:00.000Z', endsAtISO: '2026-12-01T15:00:00.000Z' } },
+    { promotion: { title: 'T', description: 'D\rD', startsAtISO: '2026-11-01T15:00:00.000Z', endsAtISO: '2026-12-01T15:00:00.000Z' } },
+    { promotion: { title: 'T', description: 'D', startsAtISO: '2026-02-30T15:00:00.000Z', endsAtISO: '2026-12-01T15:00:00.000Z' } },
+    { promotion: { title: 'T', description: 'D', startsAtISO: '2026-11-01T15:00:00Z', endsAtISO: '2026-12-01T15:00:00.000Z' } },
+    { promotion: { title: 'T', description: 'D', startsAtISO: '2026-12-01T15:00:00.000Z', endsAtISO: '2026-12-01T15:00:00.000Z' } }
+  ])('rejects malformed promotion envelopes safely', async (body) => {
+    const client = configure();
+    const promise = firstValueFrom(client.getPromotion(SESSION));
+    http.expectOne('https://api.example.test/club/me/promotions').flush(body);
+    await expect(promise).rejects.toMatchObject({ kind: 'server' });
+  });
+
+  it.each([[401, 'authentication'], [403, 'authentication'], [500, 'server'], [0, 'network']] as const)(
+    'normalizes promotion HTTP %s errors without backend detail', async (status, kind) => {
+      const client = configure();
+      const promise = firstValueFrom(client.getPromotion(SESSION));
+      const request = http.expectOne('https://api.example.test/club/me/promotions');
+      if (status === 0) request.error(new ProgressEvent('offline'));
+      else request.flush({ message: 'private server detail' }, { status, statusText: 'failure' });
+      await expect(promise).rejects.toMatchObject({ kind });
+      try { await promise; } catch (error) {
+        expect(JSON.stringify(error)).not.toContain('private server detail');
+      }
+    }
+  );
+
   it('reads only the canonical QR UUID using the member bearer session', async () => {
     const client = configure();
     const promise = firstValueFrom(client.getQr(SESSION));

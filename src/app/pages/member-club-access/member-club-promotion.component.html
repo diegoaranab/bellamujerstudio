@@ -1,0 +1,35 @@
+@if (loading() || error() || promotion()) {
+  <p
+    class="promotion-feedback"
+    [class.promotion-feedback--visually-hidden]="!!promotion() && !loading() && !error()"
+    role="status"
+    aria-live="polite"
+    aria-atomic="true"
+    data-testid="member-promotion-feedback"
+  >
+    @if (loading()) { Cargando promoción… }
+    @else if (error()) { {{ error() }} }
+    @else { Promoción cargada. }
+  </p>
+}
+@if (promotion(); as activePromotion) {
+  <section class="member-promotion" aria-labelledby="member-promotion-heading" data-testid="member-promotion">
+    <h2 id="member-promotion-heading">Promoción</h2>
+    <h3>{{ activePromotion.title }}</h3>
+    <p class="member-promotion__description">{{ activePromotion.description }}</p>
+    <div class="member-promotion__validity">
+      <p><span>Desde</span> <time [attr.datetime]="activePromotion.startsAtISO">{{ formatDate(activePromotion.startsAtISO) }}</time></p>
+      <p><span>Antes de</span> <time [attr.datetime]="activePromotion.endsAtISO">{{ formatDate(activePromotion.endsAtISO) }}</time></p>
+      <p class="member-promotion__timezone">Hora de Ciudad de México</p>
+    </div>
+  </section>
+}
+@if (error() || retryPending()) {
+  <button
+    class="member-promotion__retry"
+    type="button"
+    [disabled]="retryPending()"
+    (click)="retry.emit()"
+    data-testid="member-promotion-retry"
+  >Intentar de nuevo</button>
+}

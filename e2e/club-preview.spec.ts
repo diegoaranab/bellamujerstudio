@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { installMemberClubFixture, memberClubFixture } from './support/club-fixture';
+import { installMemberClubFixture, memberClubFixture, memberClubPromotionFixture } from './support/club-fixture';
 
 const MEMBER_ACCESS = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
 const MEMBER_INVITATION = 'AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE';
@@ -216,6 +216,87 @@ test('authenticated member home renders only the mocked name and real stamp coun
   await expect(page.getByTestId('member-club-home')).not.toContainText('Sesión válida hasta');
   await expect(page.getByTestId('member-logout')).toBeVisible();
   await expect(page.evaluate(() => [localStorage.length, sessionStorage.length])).resolves.toEqual([0, 0]);
+});
+
+test('member promotion omits empty results and presents active validity after history before logout', async ({ page }) => {
+  await installMemberClubFixture(page);
+  await signIntoMemberClub(page);
+  await expect(page.getByTestId('member-promotion')).toHaveCount(0);
+  await page.goto('about:blank');
+
+  await installMemberClubFixture(page, { promotion: 'active' });
+  await signIntoMemberClub(page);
+  const promotion = page.getByTestId('member-promotion');
+  await expect(promotion).toBeVisible();
+  await expect(promotion.getByRole('heading', { level: 2, name: 'Promoción' })).toBeVisible();
+  await expect(promotion.getByRole('heading', { level: 3, name: memberClubPromotionFixture.title })).toBeVisible();
+  await expect(promotion).toContainText('Contenido sintético del Club');
+  const descriptionLength = await promotion.locator('.member-promotion__description').evaluate(
+    (element) => Array.from(element.textContent ?? '').length
+  );
+  expect(descriptionLength).toBe(500);
+  await expect(promotion).toContainText('Desde');
+  await expect(promotion).toContainText('Antes de');
+  await expect(promotion).toContainText('Hora de Ciudad de México');
+  const order = await page.evaluate(() => {
+    const history = document.querySelector('[data-testid="member-history"]')!;
+    const activePromotion = document.querySelector('[data-testid="member-promotion"]')!;
+    const logout = document.querySelector('[data-testid="member-logout"]')!;
+    return (history.compareDocumentPosition(activePromotion) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0 &&
+      (activePromotion.compareDocumentPosition(logout) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+  });
+  expect(order).toBe(true);
+  expect(await page.evaluate(() => [localStorage.length, sessionStorage.length])).toEqual([0, 0]);
+});
+
+test('promotion failure stays local, retry recovers, and auth failure returns to login', async ({ page }) => {
+  await installMemberClubFixture(page, { promotion: 'server-then-success' });
+  await signIntoMemberClub(page);
+  await expect(page.getByTestId('member-promotion-feedback')).toContainText('No pudimos cargar la promoción. Intenta de nuevo.');
+  await expect(page.getByTestId('member-progress')).toBeVisible();
+  await expect(page.getByTestId('member-history')).toBeVisible();
+  await page.getByTestId('member-qr-toggle').click();
+  await expect(page.getByTestId('member-qr-image')).toBeVisible();
+  await page.getByTestId('member-promotion-retry').click();
+  await expect(page.getByTestId('member-promotion')).toContainText(memberClubPromotionFixture.title);
+
+  await page.goto('about:blank');
+  await installMemberClubFixture(page, { promotion: 'authentication' });
+  await page.goto(`/#/club?access=${memberClubFixture.access}`);
+  await page.getByTestId('member-login-pin').fill('482731');
+  await page.getByTestId('member-login-submit').click();
+  await expect(page.getByTestId('member-login')).toBeVisible();
+  await expect(page.getByTestId('member-login-heading')).toBeFocused();
+});
+
+test('active promotion reflows without clipping at required member widths and landscape', async ({ page }) => {
+  await installMemberClubFixture(page, { promotion: 'active' });
+  await signIntoMemberClub(page);
+  for (const [width, height, enlarged] of [
+    [320, 760, false], [390, 844, false], [720, 900, true],
+    [820, 1180, false], [1440, 1000, false], [844, 390, false]
+  ]) {
+    await page.setViewportSize({ width, height });
+    await page.evaluate((zoomed) => {
+      document.documentElement.style.fontSize = zoomed ? '200%' : '';
+    }, enlarged);
+    await expect(page.getByTestId('member-promotion')).toBeVisible();
+    await expect(page.getByTestId('member-logout')).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+    if (width === 320 || width === 390 || width === 720 || width === 820 || width === 1440 || height === 390) {
+      await page.screenshot({ path: `/tmp/phase6e2-active-${width}${enlarged ? '-200' : ''}.png`, fullPage: true });
+    }
+  }
+});
+
+test('promotion error remains contained at mobile width', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await installMemberClubFixture(page, { promotion: 'server' });
+  await signIntoMemberClub(page);
+  await expect(page.getByTestId('member-promotion-feedback')).toBeVisible();
+  await expect(page.getByTestId('member-promotion-retry')).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+  await page.screenshot({ path: '/tmp/phase6e2-error-390.png', fullPage: true });
 });
 
 test('member history supports empty, recovery, authentication, and paginated activity states', async ({ page }) => {

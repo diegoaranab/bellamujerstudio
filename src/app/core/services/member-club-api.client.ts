@@ -48,6 +48,13 @@ export interface MemberClubHistoryPage {
   nextToken?: string;
 }
 
+export interface MemberClubPromotion {
+  title: string;
+  description: string;
+  startsAtISO: string;
+  endsAtISO: string;
+}
+
 export type MemberClubApiErrorKind =
   | 'configuration'
   | 'validation'
@@ -180,6 +187,23 @@ export class MemberClubApiClient {
         })
       );
     });
+  }
+
+  getPromotion(sessionToken: string): Observable<MemberClubPromotion | null> {
+    return this.withSessionToken(sessionToken, (headers) =>
+      this.http.get<unknown>(`${this.baseUrl}/club/me/promotions`, { headers }).pipe(
+        map((response) => {
+          if (!this.isPromotionResponse(response)) throw this.safeServerError();
+          if (response.promotion === null) return null;
+          return {
+            title: response.promotion.title.trim(),
+            description: response.promotion.description.trim(),
+            startsAtISO: response.promotion.startsAtISO,
+            endsAtISO: response.promotion.endsAtISO
+          };
+        })
+      )
+    );
   }
 
   private requestSession(request: Observable<unknown>): Observable<MemberClubSessionResponse> {
@@ -389,6 +413,39 @@ export class MemberClubApiClient {
 
   private isHistoryToken(value: unknown): value is string {
     return typeof value === 'string' && value.length > 0 && value.length <= 2048;
+  }
+
+  private isPromotionResponse(
+    value: unknown
+  ): value is { promotion: MemberClubPromotion | null } {
+    if (
+      !value || typeof value !== 'object' || Array.isArray(value) ||
+      Object.keys(value).length !== 1 || !('promotion' in value)
+    ) return false;
+    if (value.promotion === null) return true;
+    const promotion = value.promotion;
+    if (
+      !promotion || typeof promotion !== 'object' || Array.isArray(promotion) ||
+      Object.keys(promotion).length !== 4 ||
+      !('title' in promotion) || !this.isPromotionText(promotion.title, false) ||
+      !('description' in promotion) || !this.isPromotionText(promotion.description, true) ||
+      !('startsAtISO' in promotion) || !this.isCanonicalUtcISO(promotion.startsAtISO) ||
+      !('endsAtISO' in promotion) || !this.isCanonicalUtcISO(promotion.endsAtISO)
+    ) return false;
+    return Date.parse(promotion.startsAtISO) < Date.parse(promotion.endsAtISO);
+  }
+
+  private isCanonicalUtcISO(value: unknown): value is string {
+    if (typeof value !== 'string') return false;
+    const epoch = Date.parse(value);
+    return Number.isFinite(epoch) && new Date(epoch).toISOString() === value;
+  }
+
+  private isPromotionText(value: unknown, allowLineFeeds: boolean): value is string {
+    if (typeof value !== 'string' || !value.trim()) return false;
+    return allowLineFeeds
+      ? !/[\u0000-\u0009\u000B-\u001F\u007F-\u009F]/.test(value)
+      : !/[\u0000-\u001F\u007F-\u009F]/.test(value);
   }
 
   private configurationError(): MemberClubApiError {

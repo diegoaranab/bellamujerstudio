@@ -226,6 +226,15 @@
             (retry)="retryHistory()"
             (loadMore)="loadMoreHistory()"
           />
+          @if (isLoadingPromotion() || hasPromotionLoadError() || memberPromotion()) {
+            <app-member-club-promotion
+              [promotion]="memberPromotion()"
+              [loading]="isLoadingPromotion()"
+              [error]="promotionErrorMessage()"
+              [retryPending]="isRetryingPromotion()"
+              (retry)="retryPromotion()"
+            />
+          }
           <div class="member-home__utility">
             <button
               mat-button

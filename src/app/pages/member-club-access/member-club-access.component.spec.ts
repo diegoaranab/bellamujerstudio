@@ -32,6 +32,7 @@ describe('MemberClubAccessComponent', () => {
     logout: ReturnType<typeof vi.fn>;
     getSelfSummary: ReturnType<typeof vi.fn>;
     getHistory: ReturnType<typeof vi.fn>;
+    getPromotion: ReturnType<typeof vi.fn>;
     getQr: ReturnType<typeof vi.fn>;
   };
   let navigate: ReturnType<typeof vi.fn>;
@@ -44,6 +45,7 @@ describe('MemberClubAccessComponent', () => {
       logout: vi.fn(),
       getSelfSummary: vi.fn().mockReturnValue(of(memberSummary())),
       getHistory: vi.fn().mockReturnValue(of({ items: [] })),
+      getPromotion: vi.fn().mockReturnValue(of(null)),
       getQr: vi.fn()
     };
     navigate = vi.fn().mockResolvedValue(true);
@@ -132,6 +134,7 @@ describe('MemberClubAccessComponent', () => {
       logout: vi.fn(),
       getSelfSummary: vi.fn().mockReturnValue(of(memberSummary())),
       getHistory: vi.fn().mockReturnValue(of({ items: [] })),
+      getPromotion: vi.fn().mockReturnValue(of(null)),
       getQr: vi.fn()
     };
     await TestBed.configureTestingModule({
@@ -469,7 +472,9 @@ describe('MemberClubAccessComponent', () => {
     vi.setSystemTime(new Date('2030-01-01T00:00:00.000Z'));
     await configure({ access: ACCESS_A }, 'club');
     const pending = new Subject<MemberClubSelfSummary>();
+    const pendingPromotion = new Subject<any>();
     api.getSelfSummary.mockReturnValue(pending);
+    api.getPromotion.mockReturnValue(pendingPromotion);
     TestBed.inject(MemberClubSessionService).establish({
       token: SESSION_TOKEN,
       expiresAtISO: futureISO(1000)
@@ -479,6 +484,8 @@ describe('MemberClubAccessComponent', () => {
 
     expect(api.getSelfSummary).toHaveBeenCalledOnce();
     vi.advanceTimersByTime(1000);
+    fixture.detectChanges();
+    expect(pendingPromotion.observed).toBe(false);
     pending.next(memberSummary());
     fixture.detectChanges();
 
@@ -486,6 +493,7 @@ describe('MemberClubAccessComponent', () => {
     expect(element.querySelector('[data-testid="member-club-home"]')).toBeFalsy();
     expect(element.textContent).not.toContain('Mariana Prueba');
     expect(element.querySelector('[data-testid="member-login"]')).toBeTruthy();
+    expect(element.querySelector('[data-testid="member-promotion"]')).toBeNull();
   });
 
   it('does not let an old member summary overwrite a newer session', async () => {
@@ -992,6 +1000,141 @@ describe('MemberClubAccessComponent', () => {
     fixture.nativeElement.querySelector('[data-testid="member-logout"]').click();
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).not.toContain('Sello ganado');
+  });
+
+  it('starts the deduplicated promotion read independently while summary is still pending', async () => {
+    await configure({ access: ACCESS_A }, 'club');
+    const summary = new Subject<MemberClubSelfSummary>();
+    const history = new Subject<any>();
+    const promotion = new Subject<any>();
+    api.getSelfSummary.mockReturnValue(summary);
+    api.getHistory.mockReturnValue(history);
+    api.getPromotion.mockReturnValue(promotion);
+    TestBed.inject(MemberClubSessionService).establish(sessionResponse().session);
+    const fixture = TestBed.createComponent(MemberClubAccessComponent);
+    fixture.detectChanges();
+    expect(api.getSelfSummary).toHaveBeenCalledOnce();
+    expect(api.getPromotion).toHaveBeenCalledOnce();
+    expect(api.getHistory).not.toHaveBeenCalled();
+    queryParams.next(convertToParamMap({ access: ACCESS_A }));
+    fixture.detectChanges();
+    expect(api.getPromotion).toHaveBeenCalledOnce();
+    summary.next(memberSummary());
+    expect(api.getHistory).toHaveBeenCalledOnce();
+    history.next({ items: [] });
+    promotion.next(null);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[data-testid="member-promotion"]')).toBeNull();
+  });
+
+  it('keeps promotion failure local and retries only promotion with the current session', async () => {
+    await configure({ access: ACCESS_A }, 'club');
+    api.getPromotion.mockReturnValueOnce(throwError(() => new MemberClubApiError('server', 'private')))
+      .mockReturnValueOnce(of({
+        title: 'Contenido sintético', description: 'Prueba de interfaz',
+        startsAtISO: '2026-11-01T15:00:00.000Z', endsAtISO: '2026-12-01T15:00:00.000Z'
+      }));
+    TestBed.inject(MemberClubSessionService).establish(sessionResponse().session);
+    const fixture = TestBed.createComponent(MemberClubAccessComponent);
+    fixture.detectChanges();
+    expect(api.getPromotion).toHaveBeenCalledTimes(1);
+    expect(fixture.nativeElement.querySelector('app-member-club-promotion')).toBeTruthy();
+    expect(fixture.nativeElement.textContent).toContain('No pudimos cargar la promoción. Intenta de nuevo.');
+    expect(fixture.nativeElement.querySelector('[data-testid="member-progress"]')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('[data-testid="member-qr-toggle"]')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('[data-testid="member-history"]')).toBeTruthy();
+    const component = fixture.componentInstance as any;
+    const failedAttempt = component.promotionAttempt;
+    fixture.nativeElement.querySelector('[data-testid="member-promotion-retry"]').click();
+    fixture.detectChanges();
+    expect(api.getPromotion).toHaveBeenCalledTimes(2);
+    expect(component.promotionAttempt).toBe(failedAttempt + 1);
+    expect(component.isCurrentPromotionRequest(SESSION_TOKEN, failedAttempt)).toBe(false);
+    expect(api.getSelfSummary).toHaveBeenCalledTimes(1);
+    expect(api.getHistory).toHaveBeenCalledTimes(1);
+    expect(fixture.nativeElement.textContent).toContain('Contenido sintético');
+  });
+
+  it('clears promotion on logout initiation and restarts it when logout fails for the same session', async () => {
+    await configure({ access: ACCESS_A }, 'club');
+    const pendingPromotion = new Subject<any>();
+    api.getPromotion.mockReturnValueOnce(pendingPromotion).mockReturnValueOnce(of(null));
+    api.logout.mockReturnValue(throwError(() => new MemberClubApiError('server', 'private')));
+    TestBed.inject(MemberClubSessionService).establish(sessionResponse().session);
+    const fixture = TestBed.createComponent(MemberClubAccessComponent);
+    fixture.detectChanges();
+    expect(api.getPromotion).toHaveBeenCalledOnce();
+    fixture.nativeElement.querySelector('[data-testid="member-logout"]').click();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[data-testid="member-promotion-feedback"]')).toBeNull();
+    expect(api.getPromotion).toHaveBeenCalledTimes(2);
+    expect(TestBed.inject(MemberClubSessionService).token()).toBe(SESSION_TOKEN);
+  });
+
+  it('clears an old promotion and starts a new read after session replacement', async () => {
+    await configure({ access: ACCESS_A }, 'club');
+    const oldPromotion = new Subject<any>();
+    api.getPromotion.mockReturnValueOnce(oldPromotion).mockReturnValueOnce(of({
+      title: 'Sesión nueva', description: 'Contenido vigente',
+      startsAtISO: '2026-11-01T15:00:00.000Z', endsAtISO: '2026-12-01T15:00:00.000Z'
+    }));
+    const session = TestBed.inject(MemberClubSessionService);
+    session.establish(sessionResponse().session);
+    const fixture = TestBed.createComponent(MemberClubAccessComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance as any;
+    const capturedAttempt = component.promotionAttempt;
+    session.establish(sessionResponseFor(ACCESS_B).session);
+    fixture.detectChanges();
+    expect(component.isCurrentPromotionRequest(SESSION_TOKEN, capturedAttempt)).toBe(false);
+    oldPromotion.next({ title: 'Sesión vieja', description: 'stale', startsAtISO: '2026-11-01T15:00:00.000Z', endsAtISO: '2026-12-01T15:00:00.000Z' });
+    oldPromotion.error(new MemberClubApiError('authentication', 'stale auth'));
+    fixture.detectChanges();
+    expect(api.getPromotion).toHaveBeenCalledTimes(2);
+    expect(session.token()).toBe(ACCESS_B);
+    expect(fixture.nativeElement.textContent).toContain('Sesión nueva');
+    expect(fixture.nativeElement.textContent).not.toContain('Sesión vieja');
+  });
+
+  it('keeps a retry from starting another request while logout is pending and cancels on destroy', async () => {
+    await configure({ access: ACCESS_A }, 'club');
+    const pendingLogout = new Subject<void>();
+    const pendingPromotion = new Subject<any>();
+    api.getPromotion.mockReturnValueOnce(throwError(() => new MemberClubApiError('server', 'private')))
+      .mockReturnValueOnce(pendingPromotion);
+    api.logout.mockReturnValue(pendingLogout);
+    TestBed.inject(MemberClubSessionService).establish(sessionResponse().session);
+    const fixture = TestBed.createComponent(MemberClubAccessComponent);
+    fixture.detectChanges();
+    fixture.nativeElement.querySelector('[data-testid="member-promotion-retry"]').click();
+    fixture.detectChanges();
+    expect(api.getPromotion).toHaveBeenCalledTimes(2);
+    fixture.nativeElement.querySelector('[data-testid="member-logout"]').click();
+    fixture.detectChanges();
+    expect(pendingPromotion.observed).toBe(false);
+    (fixture.componentInstance as any).retryPromotion();
+    expect(api.getPromotion).toHaveBeenCalledTimes(2);
+    const finalRead = new Subject<any>();
+    api.getPromotion.mockReturnValueOnce(finalRead);
+    pendingLogout.error(new MemberClubApiError('server', 'private'));
+    fixture.detectChanges();
+    expect(api.getPromotion).toHaveBeenCalledTimes(3);
+    fixture.destroy();
+    expect(finalRead.observed).toBe(false);
+  });
+
+  it('invalidates and cancels promotion when member route parameters become invalid', async () => {
+    await configure({ access: ACCESS_A }, 'club');
+    const pending = new Subject<any>();
+    api.getPromotion.mockReturnValue(pending);
+    TestBed.inject(MemberClubSessionService).establish(sessionResponse().session);
+    const fixture = TestBed.createComponent(MemberClubAccessComponent);
+    fixture.detectChanges();
+    expect(pending.observed).toBe(true);
+    queryParams.next(convertToParamMap({}));
+    fixture.detectChanges();
+    expect(pending.observed).toBe(false);
+    expect(fixture.nativeElement.querySelector('[data-testid="member-promotion"]')).toBeNull();
   });
 
 });

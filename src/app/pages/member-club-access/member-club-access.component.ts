@@ -33,6 +33,7 @@ import {
   MemberClubApiClient,
   MemberClubApiError,
   MemberClubHistoryItem,
+  MemberClubPromotion,
   MemberClubQrIdentification,
   MemberClubSelfSummary,
   MemberClubSessionResponse
@@ -41,6 +42,7 @@ import { buildBellaMujerWhatsAppUrl } from '../../core/constants/contact.constan
 import { isCanonicalMemberClubCredential } from '../../core/services/member-club-credential';
 import { MemberClubSessionService } from '../../core/services/member-club-session.service';
 import { MemberClubHistoryComponent } from './member-club-history.component';
+import { MemberClubPromotionComponent } from './member-club-promotion.component';
 import { MemberClubQrComponent, MemberClubQrState } from './member-club-qr.component';
 import { buildMemberClubAdminQrTarget, generateMemberClubQrDataUrl } from '../../core/services/member-club-qr';
 
@@ -62,6 +64,7 @@ const matchingPinsValidator: ValidatorFn = (
     MatIconModule,
     MatInputModule,
     MemberClubHistoryComponent,
+    MemberClubPromotionComponent,
     MemberClubQrComponent
   ],
   templateUrl: './member-club-access.component.html',
@@ -87,6 +90,13 @@ export class MemberClubAccessComponent implements OnInit {
   private qrRequest: Subscription | null = null;
   private qrRequestToken: string | null = null;
   private qrAttempt = 0;
+  private promotionRequest: Subscription | null = null;
+  private promotionRequestToken: string | null = null;
+  private promotionAttempt = 0;
+  private promotionAttemptedToken: string | null = null;
+  private promotionRetryPending = false;
+  private promotionRouteValid = false;
+  private logoutPending = false;
   private readonly document = inject(DOCUMENT);
   private observedSessionToken: string | null | undefined = undefined;
   private throttleTimer: ReturnType<typeof setInterval> | null = null;
@@ -108,6 +118,11 @@ export class MemberClubAccessComponent implements OnInit {
   protected readonly isLoadingMoreHistory = signal(false);
   protected readonly hasHistoryLoadError = signal(false);
   protected readonly hasHistoryPaginationError = signal(false);
+  protected readonly memberPromotion = signal<MemberClubPromotion | null>(null);
+  protected readonly isLoadingPromotion = signal(false);
+  protected readonly hasPromotionLoadError = signal(false);
+  protected readonly promotionErrorMessage = signal('');
+  protected readonly isRetryingPromotion = signal(false);
   protected readonly earnedStampMarkers = computed(() => {
     const stampCount = this.memberSummary()?.loyalty.stampCount ?? 0;
     return Array.from({ length: Math.min(stampCount, 8) });
@@ -153,6 +168,7 @@ export class MemberClubAccessComponent implements OnInit {
       this.activeRequest?.unsubscribe();
       this.summaryRequest?.unsubscribe();
       this.historyRequest?.unsubscribe();
+      this.invalidatePromotion();
       this.clearQrState();
       this.resetLoginThrottle();
     });
@@ -229,6 +245,15 @@ export class MemberClubAccessComponent implements OnInit {
     this.loadHistory();
   }
 
+  protected retryPromotion(): void {
+    const token = this.session.token();
+    if (
+      !token || !this.promotionRouteValid || this.logoutPending || this.session.isExpired() ||
+      !this.hasPromotionLoadError() || this.isRetryingPromotion()
+    ) return;
+    this.startPromotionRead(token, true);
+  }
+
   protected loadMoreHistory(): void {
     const nextToken = this.historyNextToken();
     const token = this.session.token();
@@ -256,6 +281,8 @@ export class MemberClubAccessComponent implements OnInit {
 
     this.clearQrState();
     this.qrState.set('closed');
+    this.logoutPending = true;
+    this.invalidatePromotion();
 
     this.errorMessage.set('');
     this.isSubmitting.set(true);
@@ -271,8 +298,12 @@ export class MemberClubAccessComponent implements OnInit {
           this.errorMessage.set('Tu sesión del Club ya no está activa. Ingresa nuevamente.');
           return;
         }
+        this.logoutPending = false;
         this.isSubmitting.set(false);
         this.errorMessage.set('No pudimos confirmar el cierre de sesión. Intenta nuevamente.');
+        if (this.session.token() === token && !this.session.isExpired() && this.promotionRouteValid) {
+          this.startPromotionRead(token);
+        }
       }
     });
   }
@@ -285,6 +316,8 @@ export class MemberClubAccessComponent implements OnInit {
     this.concealNip();
     const access = params.get('access') ?? '';
     const hasValidAccess = isCanonicalMemberClubCredential(access);
+    this.promotionRouteValid = !this.activationRoute && hasValidAccess;
+    if (!this.promotionRouteValid) this.invalidatePromotion();
     if (
       this.activationRoute &&
       !params.has('invite') &&
@@ -379,6 +412,7 @@ export class MemberClubAccessComponent implements OnInit {
       this.session.clear();
       return;
     }
+    if (this.promotionRouteValid && !this.logoutPending) this.startPromotionRead(token);
     if (this.isLoadingSummary()) return;
 
     this.errorMessage.set('');
@@ -439,6 +473,8 @@ export class MemberClubAccessComponent implements OnInit {
 
   private finishLogout(): void {
     this.concealNip();
+    this.logoutPending = false;
+    this.invalidatePromotion();
     this.session.clear();
     this.isSubmitting.set(false);
   }
@@ -447,6 +483,11 @@ export class MemberClubAccessComponent implements OnInit {
     const previousToken = this.observedSessionToken;
     if (previousToken === token) return;
     this.observedSessionToken = token;
+    this.logoutPending = false;
+    this.isSubmitting.set(false);
+    // Effects can observe a just-established session after route processing already started its
+    // first read. Preserve that current-token attempt; invalidate every request from another token.
+    if (this.promotionAttemptedToken !== token) this.invalidatePromotion();
     this.clearQrState();
     this.qrState.set('closed');
 
@@ -462,6 +503,80 @@ export class MemberClubAccessComponent implements OnInit {
       this.clearHistoryState();
       if (this.hasUsableLink() && !this.activationRoute) this.loadSummary();
     }
+  }
+
+  private startPromotionRead(token: string, force = false): void {
+    if (
+      this.destroyRef.destroyed || !this.promotionRouteValid || this.logoutPending ||
+      this.session.token() !== token || this.session.isExpired()
+    ) return;
+    if (!force && this.promotionAttemptedToken === token) return;
+    this.promotionRequest?.unsubscribe();
+    const attempt = ++this.promotionAttempt;
+    this.promotionAttemptedToken = token;
+    this.promotionRequestToken = token;
+    this.promotionRetryPending = force;
+    this.isRetryingPromotion.set(force);
+    this.memberPromotion.set(null);
+    this.hasPromotionLoadError.set(false);
+    this.promotionErrorMessage.set('');
+    this.isLoadingPromotion.set(true);
+    this.promotionRequest = this.api.getPromotion(token).subscribe({
+      next: (promotion) => {
+        if (!this.isCurrentPromotionRequest(token, attempt)) return;
+        this.memberPromotion.set(promotion);
+        this.finishPromotionAttempt();
+      },
+      error: (error: unknown) => {
+        if (!this.isCurrentPromotionRequest(token, attempt)) return;
+        this.finishPromotionAttempt();
+        if (error instanceof MemberClubApiError && error.kind === 'authentication') {
+          this.invalidatePromotion();
+          this.session.clear();
+          this.errorMessage.set('Tu sesión del Club ya no está activa. Ingresa nuevamente.');
+          afterNextRender(
+            () => (this.hostElement.nativeElement as HTMLElement)
+              .querySelector<HTMLElement>('[data-testid="member-login-heading"]')?.focus(),
+            { injector: this.injector }
+          );
+          return;
+        }
+        this.hasPromotionLoadError.set(true);
+        this.promotionErrorMessage.set(
+          error instanceof MemberClubApiError && error.kind === 'network'
+            ? 'No pudimos cargar la promoción. Revisa tu conexión.'
+            : 'No pudimos cargar la promoción. Intenta de nuevo.'
+        );
+      }
+    });
+  }
+
+  private isCurrentPromotionRequest(token: string, attempt: number): boolean {
+    return !this.destroyRef.destroyed && !this.logoutPending && this.promotionRouteValid &&
+      this.promotionRequestToken === token && this.promotionAttempt === attempt &&
+      this.session.token() === token && !this.session.isExpired();
+  }
+
+  private finishPromotionAttempt(): void {
+    this.promotionRequest = null;
+    this.promotionRequestToken = null;
+    this.promotionRetryPending = false;
+    this.isRetryingPromotion.set(false);
+    this.isLoadingPromotion.set(false);
+  }
+
+  private invalidatePromotion(): void {
+    this.promotionAttempt += 1;
+    this.promotionRequest?.unsubscribe();
+    this.promotionRequest = null;
+    this.promotionRequestToken = null;
+    this.promotionAttemptedToken = null;
+    this.promotionRetryPending = false;
+    this.memberPromotion.set(null);
+    this.isLoadingPromotion.set(false);
+    this.isRetryingPromotion.set(false);
+    this.hasPromotionLoadError.set(false);
+    this.promotionErrorMessage.set('');
   }
 
   private loadQr(token: string): void {
