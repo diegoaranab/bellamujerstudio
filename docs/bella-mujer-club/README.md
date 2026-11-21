@@ -24,6 +24,8 @@ The historical prototype was a product and UX prototype created largely through 
 - [UX.md](./UX.md) — member and administrator experience, information architecture, and visual direction
 - [DOMAIN.md](./DOMAIN.md) — conceptual entities, loyalty calculation, auditability, idempotency, and security principles
 - [MEMBER_ACCESS_SECURITY.md](./MEMBER_ACCESS_SECURITY.md) — selected Phase 5A member identity, invitation, PIN, session, authorization, and reset architecture
+- [PROMOTIONS_ARCHITECTURE.md](./PROMOTIONS_ARCHITECTURE.md) — Phase 6 member promotion catalog, reader, and selection authority
+- [PROMOTION_ADMIN_ARCHITECTURE.md](./PROMOTION_ADMIN_ARCHITECTURE.md) — Phase 7A configurable promotion administration authority
 - [IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md) — incremental roadmap and prototype-to-production mapping
 
 ## Platform direction
