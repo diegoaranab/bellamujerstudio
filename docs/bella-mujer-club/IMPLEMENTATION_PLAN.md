@@ -254,9 +254,7 @@ Completed member capabilities:
 - transaction/stamp history;
 - opaque identification QR.
 
-Active promotions remain the outstanding Phase 6 member capability. They have not been
-implemented, designed, or started. Configurable administrator promotion management remains in
-Phase 7.
+Active promotions remain the outstanding Phase 6 member capability. **6E0 selects an architecture for review** in [PROMOTIONS_ARCHITECTURE.md](./PROMOTIONS_ARCHITECTURE.md); implementation has not started. Follow with 6E1 domain, persistence and member read API; backend deployment and controlled production validation; 6E2 member UI; Pages deployment and production validation; then Phase 6 closure. Each implementation slice has its own review gate. Configurable administrator promotion management remains in Phase 7.
 
 Member screens should emphasize progress, clarity, and beauty-oriented polish rather than administration.
 
