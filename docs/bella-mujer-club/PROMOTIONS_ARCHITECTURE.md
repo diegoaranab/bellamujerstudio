@@ -1,6 +1,6 @@
 # Phase 6E active promotions architecture
 
-**Status: 6E0 architecture approved and complete; 6E1 backend implemented, merged, deployed and production-validated; 6E2 is the member-UI delivery slice.** This is the technical and member-experience authority for the follow-up slices. It interprets the confirmed promotion capability in [PRODUCT.md](./PRODUCT.md), the member security boundary in [MEMBER_ACCESS_SECURITY.md](./MEMBER_ACCESS_SECURITY.md), and the hierarchy in [BELLA_MUJER_UI_UX_DIRECTION.md](../BELLA_MUJER_UI_UX_DIRECTION.md). Configurable administration remains Phase 7.
+**Status: 6E0 architecture complete; 6E1 backend merged, deployed and production-validated; 6E2 member UI merged, deployed and production-validated; Phase 6E closed / production-validated.** This is the technical and member-experience authority for the delivered member promotion capability. It interprets the confirmed promotion capability in [PRODUCT.md](./PRODUCT.md), the member security boundary in [MEMBER_ACCESS_SECURITY.md](./MEMBER_ACCESS_SECURITY.md), and the hierarchy in [BELLA_MUJER_UI_UX_DIRECTION.md](../BELLA_MUJER_UI_UX_DIRECTION.md). Configurable administration remains Phase 7.
 
 ## Evidence and decision
 
