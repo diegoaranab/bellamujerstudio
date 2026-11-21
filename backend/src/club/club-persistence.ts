@@ -10,11 +10,11 @@ import {
   clientAggregatePartitionKey,
   clientProfileKey,
   ledgerKey,
-  visitKey
+  visitKey, promotionKey, promotionPartitionKey, validatePromotionId
 } from './club-keys';
 import {
   CLUB_CLIENT_STATUSES,
-  ClubClient,
+  ClubClient, ClubPromotion, validateClubPromotion,
   ClubVisit,
   LOYALTY_LEDGER_TYPES,
   LoyaltyBalance,
@@ -26,7 +26,7 @@ import {
 } from './club-model';
 
 type DynamoItem = Record<string, AttributeValue>;
-type EntityType = 'CLIENT' | 'BALANCE' | 'VISIT' | 'LEDGER';
+type EntityType = 'CLIENT' | 'BALANCE' | 'VISIT' | 'LEDGER' | 'PROMOTION';
 
 export type ClubClientContinuationKey = {
   pk: { S: string };
@@ -220,6 +220,35 @@ export const loyaltyLedgerEntryFromDynamoItem = (item: DynamoItem): LoyaltyLedge
   return entry;
 };
 
+const promotionFields = ['pk', 'sk', 'entityType', 'studioId', 'promotionId', 'title', 'description',
+  'status', 'startsAtISO', 'endsAtISO', 'createdAtISO', 'updatedAtISO'];
+
+export const clubPromotionToDynamoItem = (promotion: ClubPromotion): DynamoItem => {
+  validateClubPromotion(promotion);
+  const key = promotionKey(promotion.studioId, promotion.promotionId);
+  const values: Record<string, string> = { ...key, entityType: 'PROMOTION' };
+  for (const field of promotionFields.slice(3) as (keyof ClubPromotion)[]) values[field] = promotion[field];
+  return Object.fromEntries(Object.entries(values).map(([field, value]) => [field, s(value)]));
+};
+
+export const clubPromotionFromDynamoItem = (item: DynamoItem): ClubPromotion => {
+  if (Object.keys(item).length !== promotionFields.length ||
+      promotionFields.some((field) => !item[field] || Object.keys(item[field]).length !== 1 || typeof item[field].S !== 'string')) {
+    throw new Error('Invalid Club promotion attributes');
+  }
+  assertEntity(item, 'PROMOTION');
+  const promotion: ClubPromotion = {
+    studioId: requiredString(item, 'studioId'), promotionId: requiredString(item, 'promotionId'),
+    title: requiredString(item, 'title'), description: requiredString(item, 'description'),
+    status: requiredString(item, 'status') as ClubPromotion['status'],
+    startsAtISO: requiredString(item, 'startsAtISO'), endsAtISO: requiredString(item, 'endsAtISO'),
+    createdAtISO: requiredString(item, 'createdAtISO'), updatedAtISO: requiredString(item, 'updatedAtISO')
+  };
+  validateClubPromotion(promotion);
+  assertKey(item, promotionKey(promotion.studioId, promotion.promotionId));
+  return promotion;
+};
+
 export interface CommitVisitOutcomeInput {
   visit: ClubVisit;
   ledgerEntries: LoyaltyLedgerEntry[];
@@ -233,6 +262,44 @@ export class DynamoClubPersistence {
     private readonly tableName: string
   ) {
     if (!tableName) throw new Error('Club table name is required');
+  }
+
+  async listPromotions(studioId: string): Promise<ClubPromotion[]> {
+    const partition = promotionPartitionKey(studioId);
+    const items: ClubPromotion[] = [];
+    let cursor: ClubClientContinuationKey | undefined;
+    let previousSk = '';
+    for (let requests = 0; requests < 101; requests++) {
+      const result = await this.client.send(new QueryCommand({
+        TableName: this.tableName, ConsistentRead: true,
+        KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :prefix)',
+        ExpressionAttributeNames: { '#pk': 'pk', '#sk': 'sk' },
+        ExpressionAttributeValues: { ':pk': s(partition), ':prefix': s('PROMOTION#') },
+        Limit: 101 - items.length,
+        ...(cursor ? { ExclusiveStartKey: cursor } : {})
+      }));
+      const rows = result.Items ?? [];
+      if (rows.length > 101 - items.length) throw new Error('Invalid promotion catalog size');
+      for (const row of rows) {
+        const promotion = clubPromotionFromDynamoItem(row);
+        if (promotion.studioId !== studioId) throw new Error('Invalid promotion studio');
+        items.push(promotion);
+      }
+      if (items.length > 100) throw new Error('Promotion catalog capacity exceeded');
+      const key = result.LastEvaluatedKey;
+      if (!key) return items;
+      const pk = key.pk?.S;
+      const sk = key.sk?.S;
+      if (Object.keys(key).length !== 2 || !key.pk || Object.keys(key.pk).length !== 1 ||
+          !key.sk || Object.keys(key.sk).length !== 1 || pk !== partition ||
+          typeof sk !== 'string' || !sk.startsWith('PROMOTION#') || sk <= previousSk) {
+        throw new Error('Invalid promotion continuation key');
+      }
+      validatePromotionId(sk.slice('PROMOTION#'.length));
+      previousSk = sk;
+      cursor = { pk: { S: pk }, sk: { S: sk } };
+    }
+    throw new Error('Incomplete promotion catalog');
   }
 
   async createClient(client: ClubClient, initialBalance: LoyaltyBalance): Promise<void> {
