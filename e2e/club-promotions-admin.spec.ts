@@ -16,7 +16,9 @@ for (const width of [390, 820, 1440]) {
     await expect(page.getByText('Inactiva', { exact: true })).toBeVisible();
     await expect(page.getByText('Horarios de Ciudad de México')).toBeVisible();
     await expect(page.locator('time')).toHaveCount(4);
-    await expect(page.getByRole('heading', { name: 'Promociones' })).toBeFocused();
+    const promotionsHeading = page.getByRole('heading', { name: 'Promociones' });
+    await expect(promotionsHeading).toBeFocused();
+    await expect(promotionsHeading).toHaveCSS('outline-style', 'none');
     await expect(page.getByRole('button', { name: /crear|editar|eliminar|activar|desactivar|guardar|publicar/i })).toHaveCount(0);
     const widths = await page.evaluate(() => [document.body.scrollWidth, document.documentElement.scrollWidth, document.documentElement.clientWidth]);
     expect(widths[0]).toBeLessThanOrEqual(widths[2]); expect(widths[1]).toBeLessThanOrEqual(widths[2]);

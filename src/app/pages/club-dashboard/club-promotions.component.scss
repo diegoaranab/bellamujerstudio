@@ -1,6 +1,7 @@
 :host { display: block; min-width: 0; }
 .promotions { background: var(--bm-surface); border: 1px solid var(--bm-border-standard); padding: var(--bm-space-6); }
 .promotions__header h2 { font: 700 1.6rem/1.2 var(--bm-font-interface); color: var(--bm-text-primary); }
+.promotions__header h2:focus { outline: none; }
 .promotions__header p { margin-top: var(--bm-space-2); color: var(--bm-text-secondary); }
 .promotions__header .timezone { margin-top: var(--bm-space-4); font-weight: 600; }
 .catalog { list-style: none; margin: var(--bm-space-4) 0 0; padding: 0; border-top: 1px solid var(--bm-border-standard); }
