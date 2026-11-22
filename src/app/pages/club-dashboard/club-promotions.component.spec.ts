@@ -86,6 +86,51 @@ describe('promotion creation', () => {
     expect(api.createPromotion.mock.calls[1]).toEqual(api.createPromotion.mock.calls[0]); expect(random).toHaveBeenCalledTimes(1);
     expect(component.pending()).toBeNull(); expect(component.editorOpen()).toBe(false); expect(api.listPromotions).toHaveBeenCalledTimes(2);
   });
+  it('preserves an uncertain attempt through authentication failure and resolves it on retry success', () => {
+    api.createPromotion
+      .mockReturnValueOnce(throwError(() => new AdminClubApiError('network', 'Red')))
+      .mockReturnValueOnce(throwError(() => new AdminClubApiError('authentication', 'Sesión')))
+      .mockReturnValueOnce(of({}));
+    const random = vi.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue(uuid);
+    const fixture = setup(); open(fixture); fill(fixture); const component = fixture.componentInstance as any;
+    component.submit();
+    const firstCall = api.createPromotion.mock.calls[0];
+    const pendingAfterNetwork = component.pending();
+    expect(pendingAfterNetwork.uncertain).toBe(true);
+    component.retryCreate(); fixture.detectChanges();
+    expect(api.createPromotion).toHaveBeenCalledTimes(2);
+    expect(component.pending()).toEqual(pendingAfterNetwork);
+    expect(component.form.disabled).toBe(true); expect(component.editorOpen()).toBe(true);
+    expect(api.createPromotion.mock.calls[1][0]).toBe(firstCall[0]);
+    expect(api.createPromotion.mock.calls[1][1]).toBe(firstCall[1]);
+    expect(random).toHaveBeenCalledTimes(1);
+    component.retryCreate(); fixture.detectChanges();
+    expect(api.createPromotion).toHaveBeenCalledTimes(3);
+    expect(api.createPromotion.mock.calls[2][0]).toBe(firstCall[0]);
+    expect(api.createPromotion.mock.calls[2][1]).toBe(firstCall[1]);
+    expect(random).toHaveBeenCalledTimes(1);
+    expect(component.pending()).toBeNull(); expect(component.editorOpen()).toBe(false);
+    expect(api.listPromotions).toHaveBeenCalledTimes(2);
+  });
+  it('preserves an uncertain attempt when a retry fails configuration', () => {
+    api.createPromotion
+      .mockReturnValueOnce(throwError(() => new AdminClubApiError('server', 'Servidor')))
+      .mockReturnValueOnce(throwError(() => new AdminClubApiError('configuration', 'Configuración')));
+    vi.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue(uuid);
+    const fixture = setup(); open(fixture); fill(fixture); const component = fixture.componentInstance as any;
+    component.submit(); const attempt = component.pending(); component.retryCreate(); fixture.detectChanges();
+    expect(component.pending()).toEqual(attempt); expect(component.pending().uncertain).toBe(true);
+    expect(component.form.disabled).toBe(true);
+    expect(api.createPromotion.mock.calls[1]).toEqual(api.createPromotion.mock.calls[0]);
+  });
+  it('clears an initial deterministic authentication failure without marking it uncertain', () => {
+    api.createPromotion.mockReturnValue(throwError(() => new AdminClubApiError('authentication', 'Sesión')));
+    vi.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue(uuid);
+    const fixture = setup(); open(fixture); fill(fixture); const component = fixture.componentInstance as any;
+    component.submit(); fixture.detectChanges();
+    expect(component.pending()).toBeNull(); expect(component.form.enabled).toBe(true);
+    expect(component.editorOpen()).toBe(true);
+  });
   for (const code of ['VALIDATION_ERROR', 'PROMOTION_CATALOG_FULL', 'IDEMPOTENCY_CONFLICT'] as const) it(`shows safe ${code} error`, () => {
     vi.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue(uuid);
     api.createPromotion.mockReturnValue(throwError(() => new AdminClubApiError('validation', 'Mensaje seguro', code)));

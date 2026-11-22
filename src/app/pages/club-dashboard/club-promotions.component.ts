@@ -26,7 +26,7 @@ export class ClubPromotionsComponent {
   protected readonly mutationsEnabled = inject(CLUB_PROMOTION_ADMIN_CAPABILITIES).mutationsEnabled;
   protected readonly editorOpen = signal(false);
   protected readonly creating = signal(false);
-  protected readonly pending = signal<{ request: AdminClubPromotionCreateRequest; idempotencyKey: string } | null>(null);
+  protected readonly pending = signal<{ request: AdminClubPromotionCreateRequest; idempotencyKey: string; uncertain: boolean } | null>(null);
   protected readonly createError = signal('');
   protected readonly success = signal('');
   protected readonly submitted = signal(false);
@@ -100,7 +100,7 @@ export class ClubPromotionsComponent {
     }
     const value = this.form.getRawValue();
     const request: AdminClubPromotionCreateRequest = { ...value, status: value.status as 'active' | 'inactive' };
-    this.pending.set({ request: Object.freeze(request), idempotencyKey: key });
+    this.pending.set({ request: Object.freeze(request), idempotencyKey: key, uncertain: false });
     this.sendAttempt();
   }
   protected retryCreate(): void { if (this.pending() && !this.creating()) this.sendAttempt(); }
@@ -115,9 +115,10 @@ export class ClubPromotionsComponent {
       },
       error: (error: unknown) => {
         this.creating.set(false);
-        const uncertain = !(error instanceof AdminClubApiError) || error.kind === 'network' || error.kind === 'server';
+        const uncertainFailure = !(error instanceof AdminClubApiError) || error.kind === 'network' || error.kind === 'server';
+        if (uncertainFailure && !attempt.uncertain) this.pending.set({ ...attempt, uncertain: true });
         this.createError.set(error instanceof AdminClubApiError ? error.message : 'No fue posible confirmar la creación. Reintenta para comprobarla.');
-        if (!uncertain) { this.pending.set(null); this.form.enable(); }
+        if (!uncertainFailure && !attempt.uncertain) { this.pending.set(null); this.form.enable(); }
       }
     });
   }
