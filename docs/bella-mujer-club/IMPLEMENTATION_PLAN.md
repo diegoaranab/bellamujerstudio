@@ -277,7 +277,7 @@ Member screens should emphasize progress, clarity, and beauty-oriented polish ra
 
 ## Phase 7 — Promotions and rewards
 
-**IN PROGRESS — Phase 7A4a.** Phase 6 and Phase 6E are closed. 7A0, 7A1a, and 7A1b are complete; 7A2 is merged, deployed, production-validated, and closed. 7A3a and 7A3b are complete; 7A3c is merged, deployed, production-validated, and closed, so 7A3 is closed. 7A4a (administrator promotion API client) is current. 7A5 still owns reconciliation and mutation-route enablement after successful reconciliation. The technical authority is [PROMOTION_ADMIN_ARCHITECTURE.md](./PROMOTION_ADMIN_ARCHITECTURE.md), which preserves the delivered Phase 6 member reader and canonical promotion row.
+**IN PROGRESS — Phase 7A4b.** Phase 6 and Phase 6E are closed. 7A0, 7A1a, and 7A1b are complete; 7A2 is merged, deployed, production-validated, and closed. 7A3a and 7A3b are complete; 7A3c is merged, deployed, production-validated, and closed, so 7A3 is closed. 7A4a is merged; Pages deployment is handled by the normal main workflow. 7A4b is current; 7A4 is not yet closed. 7A5 still owns reconciliation and mutation-route enablement after successful reconciliation. The technical authority is [PROMOTION_ADMIN_ARCHITECTURE.md](./PROMOTION_ADMIN_ARCHITECTURE.md), which preserves the delivered Phase 6 member reader and canonical promotion row.
 
 Promotion administration is decomposed into these gates:
 
@@ -290,8 +290,9 @@ Promotion administration is decomposed into these gates:
 7A3b mutation handler — COMPLETE
 7A3c dormant writer infrastructure — MERGED / DEPLOYED / PRODUCTION-VALIDATED / CLOSED
 7A3 admin mutation API — CLOSED
-7A4a administrator promotion API client — CURRENT
-7A4 administrator UI — NOT STARTED
+7A4a administrator promotion API client — MERGED / Pages deployment handled by normal main workflow
+7A4b read-only administrator promotion catalog — CURRENT
+7A4 administrator UI — NOT YET CLOSED
 7A5 reconciliation, mutation-route enablement only after successful reconciliation, production validation, and retained evidence — NOT STARTED
 ```
 

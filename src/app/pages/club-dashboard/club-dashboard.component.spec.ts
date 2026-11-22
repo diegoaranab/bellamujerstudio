@@ -29,6 +29,7 @@ import {
   ClubDashboardComponent
 } from './club-dashboard.component';
 import { ClubRouteContext } from './club-route-context.service';
+import { routes } from '../../app.routes';
 
 const ana: ClubClient = {
   studioId: 'studio-1',
@@ -376,7 +377,7 @@ describe('ClubDashboardComponent', () => {
   }
 
   function renderRouteTask(
-    task: 'directorio' | 'nueva' | 'clienta',
+    task: 'directorio' | 'nueva' | 'clienta' | 'promociones',
     subview: 'resumen' | 'visita' | 'historial' | 'acceso' = 'resumen'
   ): ComponentFixture<ClubDashboardComponent> {
     const fixture = TestBed.createComponent(ClubDashboardComponent);
@@ -475,6 +476,18 @@ describe('ClubDashboardComponent', () => {
     expect(text(fixture)).toContain('Servicio de Club no configurado');
     expect(text(fixture)).not.toContain('Clienta demo');
     expect(fixture.nativeElement.querySelector('[data-testid="client-list"]')).toBeNull();
+  });
+
+  it('provides the promotions route and Club section navigation', async () => {
+    const club = routes.find(route => route.path === 'admin')?.children?.find(route => route.path === 'club');
+    expect(club?.children?.find(route => route.path === 'promociones')?.data?.['clubTask']).toBe('promociones');
+    await configure({ configured: false });
+    const fixture = renderRouteTask('promociones');
+    expect(TestBed.inject(ClubRouteContext).selectedClientId()).toBeNull();
+    expect(fixture.nativeElement.querySelector('app-club-promotions')).toBeTruthy();
+    const links = Array.from(fixture.nativeElement.querySelectorAll('[data-testid="club-section-nav"] a')) as HTMLAnchorElement[];
+    expect(links.map(link => link.textContent?.trim())).toEqual(['Clientas', 'Promociones']);
+    expect(links[1].getAttribute('aria-current')).toBe('page');
   });
 
   it('composes the directory and creation routes as distinct tasks', async () => {

@@ -27,6 +27,11 @@ export const memberClubPromotionFixture = {
   endsAtISO: '2026-12-01T15:00:00.000Z'
 } as const;
 
+export const adminPromotionFixture = [
+  { promotionId: '11111111-1111-4111-8111-111111111111', title: memberClubPromotionFixture.title, description: longPromotionDescription, status: 'active', startsAtISO: '2026-11-21T19:05:00.000Z', endsAtISO: '2026-11-30T18:00:00.000Z', createdAtISO: '2026-10-01T12:00:00.000Z', updatedAtISO: '2026-10-02T12:00:00.000Z' },
+  { promotionId: '22222222-2222-4222-8222-222222222222', title: 'Beneficio anterior', description: 'Promoción de temporada.', status: 'inactive', startsAtISO: '2026-09-01T15:00:00.000Z', endsAtISO: '2026-10-01T15:00:00.000Z', createdAtISO: '2026-08-01T12:00:00.000Z', updatedAtISO: '2026-10-02T12:00:00.000Z' }
+] as const;
+
 export const configuredClubClient = {
   studioId: 'studio-fixture',
   clientId: CLIENT_ID,
@@ -147,6 +152,10 @@ export async function installConfiguredClubFixture(page: Page): Promise<void> {
     const path = url.pathname.slice(FIXTURE_API_PATH.length);
     const method = route.request().method();
 
+    if (method === 'GET' && path === '/admin/club/promotions') {
+      await json(route, { items: adminPromotionFixture });
+      return;
+    }
     if (method === 'GET' && path === '/admin/club/clients') {
       await json(route, { items: configuredClubClients });
       return;
