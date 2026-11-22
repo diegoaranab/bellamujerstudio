@@ -1,6 +1,6 @@
 # Phase 7A configurable promotion administration architecture
 
-**Status: Phase 7A authority; 7A3 starting.** 7A0 architecture, 7A1a persistence foundation, 7A1b reconciliation/capacity initialization, and 7A2 protected admin read API are complete; 7A2 is merged, deployed, production-validated, and closed. Phase 7A3 has started with the 7A3a local-time and DTO foundation. This document builds on, and does not replace, [PROMOTIONS_ARCHITECTURE.md](./PROMOTIONS_ARCHITECTURE.md). That Phase 6 authority remains canonical for the promotion row, member read, active-selection semantics, 100-row catalog, and member-facing contract. This document extends it with administrator readers and writers.
+**Status: Phase 7A authority; 7A3c current and 7A3 not yet closed.** 7A0 architecture, 7A1a persistence foundation, 7A1b reconciliation/capacity initialization, and 7A2 protected admin read API are complete; 7A2 is merged, deployed, production-validated, and closed. 7A3a and 7A3b are complete; 7A3c provisions dormant writer infrastructure and remains in progress. This document builds on, and does not replace, [PROMOTIONS_ARCHITECTURE.md](./PROMOTIONS_ARCHITECTURE.md). That Phase 6 authority remains canonical for the promotion row, member read, active-selection semantics, 100-row catalog, and member-facing contract. This document extends it with administrator readers and writers.
 
 ## Phase boundary
 
@@ -182,6 +182,8 @@ All routes reuse the existing administrator Cognito boundary, derive studio serv
 - **Admin readers:** only the promotion read access they require.
 - **Admin writers:** only the `ClubTable` actions required for canonical promotion items, capacity, create-idempotency, and audit records.
 
+Phase 7A3c provisions the mutation handler as a separate dormant writer Lambda, with transaction-scoped item permissions restricted by promotion partition keys, and adds `DELETE` to API CORS. It creates no mutation routes or API Gateway integration, so no production write path exists. Phase 7A5 owns mutation-route enablement, and may enable it only after successful reconciliation.
+
 Do not grant promotion handlers access to `ClubAccessTable`, member credential/session secrets, Gift Cards, or unrelated loyalty mutations. Verify IAM in synth/tests and later against the target AWS environment.
 
 ## Time-zone boundary and mutation DTO
@@ -225,9 +227,9 @@ The completed analysis left overall uncertainty **MEDIUM**. Keep implementation 
 | **7A1a — promotion persistence foundation** | Capacity, audit, and create-idempotency models/keys; canonical UTC transactional persistence; optimistic concurrency. No HTTP routes, timezone library, or exposed writer. |
 | **7A1b — reconciliation / capacity initialization** | Bounded canonical traversal; initialization and verification; rerunnable fail-closed behavior. No public/admin writer enabled. |
 | **7A2 — protected admin read API** | List/detail and IAM; no mutation. |
-| **7A3 — admin mutation API** | 7A3a defines/pins local-time conversion and DTO precision. Remaining work: create/edit/delete; idempotency and concurrency conflicts; IAM/CORS; writers initially disabled. |
+| **7A3 — admin mutation API** | 7A3a local-time/DTO foundation and 7A3b handler are complete. 7A3c provisions dormant writer infrastructure and DELETE CORS without routes or integration. 7A3 remains open. |
 | **7A4 — administrator UI** | Use relevant frontend skills; list/create/edit/status/schedule/delete; conflict/reload UX; server-confirmed effective local interval. |
-| **7A5 — reconciliation and writer enablement** | Production reconciliation, writer enablement, production validation, and retained evidence. |
+| **7A5 — reconciliation and writer enablement** | Production reconciliation, mutation-route enablement only after successful reconciliation, production validation, and retained evidence. |
 
 Do not combine 7A1a and 7A1b into one large implementation PR unless repository coupling demonstrates that separation is impossible.
 

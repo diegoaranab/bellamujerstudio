@@ -560,6 +560,67 @@ export class BellaMujerApiStack extends cdk.Stack {
       }
     }));
 
+    const adminClubPromotionMutationsFunction = new nodejs.NodejsFunction(
+      this,
+      'AdminClubPromotionMutationsFunction',
+      {
+        ...sharedLambdaProps,
+        entry: 'src/handlers/admin-club-promotion-mutations.ts',
+        handler: 'handler',
+        description: 'Mutates Club promotions for authenticated administrators',
+        logGroup: new logs.LogGroup(this, 'AdminClubPromotionMutationsFunctionLogGroup', {
+          logGroupName: `/aws/lambda/${cdk.Stack.of(this).stackName}-admin-club-promotion-mutations`,
+          retention: logs.RetentionDays.TWO_WEEKS,
+          removalPolicy: cdk.RemovalPolicy.DESTROY
+        }),
+        environment: clubLambdaEnvironment
+      }
+    );
+
+    const promotionPartitions = [
+      'STUDIO#bella-mujer#PROMOTIONS',
+      'STUDIO#bella-mujer#PROMOTION_IDEMPOTENCY'
+    ];
+    const transactionalCondition = {
+      'ForAnyValue:StringEquals': {
+        'dynamodb:EnclosingOperation': ['TransactWriteItems']
+      }
+    };
+    adminClubPromotionMutationsFunction.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['dynamodb:GetItem'],
+      resources: [clubTable.tableArn],
+      conditions: {
+        'ForAllValues:StringEquals': {
+          'dynamodb:LeadingKeys': promotionPartitions
+        }
+      }
+    }));
+    adminClubPromotionMutationsFunction.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['dynamodb:PutItem'],
+      resources: [clubTable.tableArn],
+      conditions: {
+        'ForAllValues:StringEquals': {
+          'dynamodb:LeadingKeys': [
+            ...promotionPartitions,
+            'STUDIO#bella-mujer#PROMOTION_AUDIT'
+          ]
+        },
+        ...transactionalCondition
+      }
+    }));
+    for (const action of ['dynamodb:UpdateItem', 'dynamodb:DeleteItem']) {
+      adminClubPromotionMutationsFunction.addToRolePolicy(new iam.PolicyStatement({
+        actions: [action],
+        resources: [clubTable.tableArn],
+        conditions: {
+          'ForAllValues:StringEquals': {
+            'dynamodb:LeadingKeys': ['STUDIO#bella-mujer#PROMOTIONS']
+          },
+          ...transactionalCondition
+        }
+      }));
+    }
+
     const memberClubQrFunction = new nodejs.NodejsFunction(
       this,
       'MemberClubQrFunction',
@@ -586,6 +647,7 @@ export class BellaMujerApiStack extends cdk.Stack {
           apigwv2.CorsHttpMethod.GET,
           apigwv2.CorsHttpMethod.POST,
           apigwv2.CorsHttpMethod.PATCH,
+          apigwv2.CorsHttpMethod.DELETE,
           apigwv2.CorsHttpMethod.OPTIONS
         ]
       }

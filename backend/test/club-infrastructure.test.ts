@@ -84,7 +84,7 @@ describe('Club infrastructure', () => {
       template.findResources('AWS::ApiGatewayV2::Authorizer')
     ).find(([, resource]) => resource.Properties.AuthorizerType === 'JWT')!;
 
-    expect(functions).toHaveLength(18);
+    expect(functions).toHaveLength(19);
     expect(routes).toHaveLength(23);
     const accessFunctions = functions.filter((lambdaFunction) =>
       lambdaFunction.Properties.Description ===
@@ -417,10 +417,11 @@ describe('Club infrastructure', () => {
       'Registers Club visits and loyalty for authenticated administrators',
       'Reads Club loyalty ledger for authenticated administrators',
       'Manages Club member access for authenticated administrators',
-      'Reads Club promotions for authenticated administrators'
+      'Reads Club promotions for authenticated administrators',
+      'Mutates Club promotions for authenticated administrators'
     ].includes(resource.Properties.Description));
 
-    expect(clubFunctions).toHaveLength(6);
+    expect(clubFunctions).toHaveLength(7);
     for (const lambdaFunction of clubFunctions) {
       expect(lambdaFunction.Properties.Environment.Variables).toMatchObject({
         CLUB_TABLE_NAME: { Ref: clubTableLogicalId },
@@ -523,5 +524,95 @@ describe('Club infrastructure', () => {
         'dynamodb:LeadingKeys': ['STUDIO#bella-mujer#PROMOTIONS']
       } }
     }]);
+  });
+
+  it('creates one dormant, transaction-scoped promotion writer with no API exposure', () => {
+    const clubLogicalId = template.findOutputs('ClubTableName').ClubTableName.Value.Ref as string;
+    const accessLogicalId = template.findOutputs('ClubAccessTableName')
+      .ClubAccessTableName.Value.Ref as string;
+    const giftCardsLogicalId = template.findOutputs('GiftCardsTableName')
+      .GiftCardsTableName.Value.Ref as string;
+    const writerFunctions = Object.entries(template.findResources('AWS::Lambda::Function'))
+      .filter(([, resource]) => resource.Properties.Description ===
+        'Mutates Club promotions for authenticated administrators');
+    expect(writerFunctions).toHaveLength(1);
+    const [writerLogicalId, writer] = writerFunctions[0];
+    expect(writer.Properties.Handler).toBe('index.handler');
+    expect(writer.Properties.Code.S3Key).toMatch(/\.zip$/);
+    expect(writer.Properties.Environment.Variables).toEqual({
+      ALLOWED_FRONTEND_ORIGINS: 'http://localhost:4200,https://diegoaranab.github.io',
+      CLUB_STUDIO_ID: 'bella-mujer',
+      CLUB_TABLE_NAME: { Ref: clubLogicalId }
+    });
+
+    const logGroups = Object.values(template.findResources('AWS::Logs::LogGroup'))
+      .filter((resource) => resource.Properties.LogGroupName ===
+        '/aws/lambda/ClubInfrastructureTest-admin-club-promotion-mutations');
+    expect(logGroups).toHaveLength(1);
+    expect(logGroups[0]).toMatchObject({
+      DeletionPolicy: 'Delete',
+      Properties: { RetentionInDays: 14 }
+    });
+
+    const writerRole = writer.Properties.Role['Fn::GetAtt'][0];
+    const statements = Object.values(template.findResources('AWS::IAM::Policy')).flatMap(
+      (policy) => policy.Properties.Roles.some(
+        (role: { Ref?: string }) => role.Ref === writerRole
+      ) ? policy.Properties.PolicyDocument.Statement : []
+    );
+    const clubStatements = statements.filter((statement: { Action?: string | string[] }) => {
+      const actions = typeof statement.Action === 'string' ? [statement.Action] : statement.Action ?? [];
+      return actions.some((action: string) => action.startsWith('dynamodb:'));
+    });
+    const effectiveClubStatements = clubStatements.flatMap((statement: {
+      Action: string | string[]; Condition: unknown; Effect: string; Resource: unknown;
+    }) => (typeof statement.Action === 'string' ? [statement.Action] : statement.Action).map(
+      (action) => ({ ...statement, Action: action })
+    ));
+    expect(effectiveClubStatements).toEqual([
+      {
+        Action: 'dynamodb:GetItem', Effect: 'Allow',
+        Resource: { 'Fn::GetAtt': [clubLogicalId, 'Arn'] },
+        Condition: { 'ForAllValues:StringEquals': { 'dynamodb:LeadingKeys': [
+          'STUDIO#bella-mujer#PROMOTIONS', 'STUDIO#bella-mujer#PROMOTION_IDEMPOTENCY'
+        ] } }
+      },
+      {
+        Action: 'dynamodb:PutItem', Effect: 'Allow',
+        Resource: { 'Fn::GetAtt': [clubLogicalId, 'Arn'] },
+        Condition: {
+          'ForAllValues:StringEquals': { 'dynamodb:LeadingKeys': [
+            'STUDIO#bella-mujer#PROMOTIONS', 'STUDIO#bella-mujer#PROMOTION_IDEMPOTENCY',
+            'STUDIO#bella-mujer#PROMOTION_AUDIT'
+          ] },
+          'ForAnyValue:StringEquals': { 'dynamodb:EnclosingOperation': ['TransactWriteItems'] }
+        }
+      },
+      ...['dynamodb:UpdateItem', 'dynamodb:DeleteItem'].map((action) => ({
+        Action: action, Effect: 'Allow',
+        Resource: { 'Fn::GetAtt': [clubLogicalId, 'Arn'] },
+        Condition: {
+          'ForAllValues:StringEquals': { 'dynamodb:LeadingKeys': ['STUDIO#bella-mujer#PROMOTIONS'] },
+          'ForAnyValue:StringEquals': { 'dynamodb:EnclosingOperation': ['TransactWriteItems'] }
+        }
+      }))
+    ]);
+    const allWriterPermissions = JSON.stringify(statements);
+    for (const forbidden of [
+      'dynamodb:Query', 'dynamodb:Scan', 'dynamodb:BatchGetItem', 'dynamodb:BatchWriteItem',
+      'dynamodb:ConditionCheckItem', 'dynamodb:TransactWriteItems', accessLogicalId,
+      giftCardsLogicalId, 'secretsmanager:', 'cognito-idp:', 'sqs:', 'sns:', 's3:'
+    ]) expect(allWriterPermissions).not.toContain(forbidden);
+
+    const routes = Object.values(template.findResources('AWS::ApiGatewayV2::Route'));
+    expect(routes).toHaveLength(23);
+    expect(routes.map((route) => route.Properties.RouteKey).filter((routeKey) =>
+      /^(POST|PATCH|DELETE) \/admin\/club\/promotions/.test(routeKey)
+    )).toEqual([]);
+    const integrations = Object.values(template.findResources('AWS::ApiGatewayV2::Integration'));
+    expect(JSON.stringify(integrations)).not.toContain(writerLogicalId);
+    const permissions = Object.values(template.findResources('AWS::Lambda::Permission'));
+    expect(permissions.filter((permission) => JSON.stringify(permission.Properties.FunctionName)
+      .includes(writerLogicalId))).toEqual([]);
   });
 });
