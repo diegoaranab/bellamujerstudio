@@ -1,6 +1,7 @@
 import { AppEnvironment } from './environment.model';
 
 export const environment: AppEnvironment = {
+  clubPromotionMutationsEnabled: false,
   production: true,
   // Replace with the deployed Worker URL for production builds.
   assistantApiBaseUrl: 'https://REPLACE_ME.workers.dev',

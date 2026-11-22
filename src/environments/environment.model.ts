@@ -1,5 +1,6 @@
 export interface AppEnvironment {
   production: boolean;
+  clubPromotionMutationsEnabled: boolean;
   assistantApiBaseUrl: string;
   giftCardDataMode: 'local' | 'api';
   bellaMujerApiBaseUrl: string;

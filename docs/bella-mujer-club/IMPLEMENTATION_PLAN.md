@@ -277,7 +277,7 @@ Member screens should emphasize progress, clarity, and beauty-oriented polish ra
 
 ## Phase 7 — Promotions and rewards
 
-**IN PROGRESS — Phase 7A4b.** Phase 6 and Phase 6E are closed. 7A0, 7A1a, and 7A1b are complete; 7A2 is merged, deployed, production-validated, and closed. 7A3a and 7A3b are complete; 7A3c is merged, deployed, production-validated, and closed, so 7A3 is closed. 7A4a is merged; Pages deployment is handled by the normal main workflow. 7A4b is current; 7A4 is not yet closed. 7A5 still owns reconciliation and mutation-route enablement after successful reconciliation. The technical authority is [PROMOTION_ADMIN_ARCHITECTURE.md](./PROMOTION_ADMIN_ARCHITECTURE.md), which preserves the delivered Phase 6 member reader and canonical promotion row.
+**IN PROGRESS — Phase 7A4c1.** Phase 6 and Phase 6E are closed. 7A0, 7A1a, and 7A1b are complete; 7A2 is merged, deployed, production-validated, and closed. 7A3a and 7A3b are complete; 7A3c is merged, deployed, production-validated, and closed, so 7A3 is closed. 7A4a is closed. 7A4b is merged, deployed, production-validated, and closed. 7A4c1 is current; 7A4 is not yet closed. 7A5 still owns reconciliation and mutation-route enablement after successful reconciliation. The technical authority is [PROMOTION_ADMIN_ARCHITECTURE.md](./PROMOTION_ADMIN_ARCHITECTURE.md), which preserves the delivered Phase 6 member reader and canonical promotion row.
 
 Promotion administration is decomposed into these gates:
 
@@ -290,8 +290,9 @@ Promotion administration is decomposed into these gates:
 7A3b mutation handler — COMPLETE
 7A3c dormant writer infrastructure — MERGED / DEPLOYED / PRODUCTION-VALIDATED / CLOSED
 7A3 admin mutation API — CLOSED
-7A4a administrator promotion API client — MERGED / Pages deployment handled by normal main workflow
-7A4b read-only administrator promotion catalog — CURRENT
+7A4a administrator promotion API client — CLOSED
+7A4b read-only administrator promotion catalog — MERGED / DEPLOYED / PRODUCTION-VALIDATED / CLOSED
+7A4c1 gated promotion creation UX — CURRENT
 7A4 administrator UI — NOT YET CLOSED
 7A5 reconciliation, mutation-route enablement only after successful reconciliation, production validation, and retained evidence — NOT STARTED
 ```
@@ -352,3 +353,5 @@ Every implementation phase should preserve these confirmed properties:
 - AWS permissions follow least privilege.
 
 Decisions still classified **OPEN TECHNICAL DECISION** become confirmed architecture only through the relevant implementation/security review. The member-access security architecture is already selected in Phase 5A. Configurable business values must remain data/configuration rather than hidden constants.
+
+Promotion mutation UX is guarded by a compile-time capability. Production remains false; only 7A5 may enable it after successful reconciliation and mutation-route enablement.

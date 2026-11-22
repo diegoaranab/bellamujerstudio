@@ -4,6 +4,7 @@ import { createAuthConfig } from './auth-config';
 function environmentWithAuthMode(authMode: AppEnvironment['authMode']): AppEnvironment {
   return {
     production: false,
+    clubPromotionMutationsEnabled: false,
     assistantApiBaseUrl: '',
     giftCardDataMode: 'local',
     bellaMujerApiBaseUrl: '',
