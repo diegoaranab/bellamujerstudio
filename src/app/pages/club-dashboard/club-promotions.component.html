@@ -1,0 +1,24 @@
+<section class="promotions" aria-labelledby="promotions-title">
+  <header class="promotions__header">
+    <h2 id="promotions-title" tabindex="-1">Promociones</h2>
+    <p>Consulta las promociones del Club y su vigencia.</p>
+    <p class="timezone">Horarios de Ciudad de México</p>
+  </header>
+  @if (configured) {
+    @switch (state()) {
+      @case ('loading') { <p class="feedback" role="status">Cargando promociones…</p> }
+      @case ('empty') { <div class="feedback"><p>Aún no hay promociones configuradas.</p><p>Cuando exista una promoción, aparecerá aquí con su estado y vigencia.</p></div> }
+      @case ('error') { <div class="feedback"><p role="alert">{{ errorMessage() }}</p><button type="button" (click)="load()">Reintentar</button></div> }
+      @case ('ready') {
+        <ul class="catalog">
+          @for (promotion of items(); track promotion.promotionId) {
+            <li class="promotion">
+              <div class="promotion__content"><h3>{{ promotion.title }}</h3><p>{{ promotion.description }}</p></div>
+              <div class="promotion__details"><span class="status">{{ promotion.status === 'active' ? 'Activa' : 'Inactiva' }}</span><div><strong>Vigencia</strong><p>Desde <time [attr.datetime]="promotion.startsAtISO">{{ formatSchedule(promotion.startsAtISO) }}</time></p><p>Hasta <time [attr.datetime]="promotion.endsAtISO">{{ formatSchedule(promotion.endsAtISO) }}</time></p></div></div>
+            </li>
+          }
+        </ul>
+      }
+    }
+  }
+</section>

@@ -260,3 +260,9 @@ a:focus-visible {
     font-size: 0.82rem;
   }
 }
+
+.club-section-nav { display: flex; flex-wrap: wrap; gap: var(--bm-space-2); }
+.club-section-nav a { display: inline-flex; align-items: center; min-height: 44px; padding: var(--bm-space-2) var(--bm-space-3); color: var(--bm-text-inverse); text-decoration: none; font-weight: 600; border-bottom: 3px solid transparent; }
+.club-section-nav a[aria-current="page"] { border-bottom-color: var(--bm-brand-primary); }
+.club-section-nav a:hover { background: color-mix(in srgb, var(--bm-text-inverse) 12%, transparent); }
+@media (max-width: 900px) { .club-signature { flex-wrap: wrap; } }

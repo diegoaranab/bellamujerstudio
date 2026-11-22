@@ -61,6 +61,7 @@ export const routes: Routes = [
           ),
         children: [
           { path: '', redirectTo: 'clientas', pathMatch: 'full' },
+          { path: 'promociones', component: ClubWorkspaceRouteComponent, data: { clubTask: 'promociones' } },
           {
             path: 'clientas/nueva',
             component: ClubWorkspaceRouteComponent,

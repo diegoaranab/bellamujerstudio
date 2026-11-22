@@ -59,6 +59,7 @@ import { ClubDirectoryComponent } from './club-directory.component';
 import { ClubHistoryComponent } from './club-history.component';
 import { ClubNewClientComponent } from './club-new-client.component';
 import { ClubSummaryComponent } from './club-summary.component';
+import { ClubPromotionsComponent } from './club-promotions.component';
 import { ClubVisitComponent } from './club-visit.component';
 import { CLUB_WORKSPACE_ORCHESTRATOR } from './club-workspace-orchestrator';
 
@@ -164,6 +165,7 @@ const serviceCountValidator: ValidatorFn = (
     ClubDirectoryComponent,
     ClubHistoryComponent,
     ClubNewClientComponent,
+    ClubPromotionsComponent,
     ClubSummaryComponent,
     ClubVisitComponent,
     RouterLink,

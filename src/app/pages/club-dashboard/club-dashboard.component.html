@@ -5,10 +5,13 @@
       <h1>Bella Mujer Club</h1>
       <p class="club-signature__promise">Cada clienta, atendida con cercanía.</p>
     </div>
-    <a mat-button routerLink="/admin/club/clientas">Ver directorio</a>
+    <nav class="club-section-nav" aria-label="Secciones del Club" data-testid="club-section-nav">
+      <a routerLink="/admin/club/clientas" [attr.aria-current]="activeWorkspaceTask() !== 'promociones' ? 'page' : null">Clientas</a>
+      <a routerLink="/admin/club/promociones" [attr.aria-current]="activeWorkspaceTask() === 'promociones' ? 'page' : null">Promociones</a>
+    </nav>
   </header>
   @if (!isConfigured) {
-    <section class="state-notice" data-testid="club-not-configured" aria-labelledby="configuration-title"><mat-icon aria-hidden="true">settings</mat-icon><div><h2 id="configuration-title">Servicio de Club no configurado</h2><p>La administración de clientas estará disponible cuando este entorno tenga conexión segura con el servicio de Club.</p></div></section>
+    <section class="state-notice" data-testid="club-not-configured" aria-labelledby="configuration-title"><mat-icon aria-hidden="true">settings</mat-icon><div><h2 id="configuration-title">Servicio de Club no configurado</h2><p>La administración del Club estará disponible cuando este entorno tenga conexión segura con el servicio de Club.</p></div></section>
   }
   @if (!isRouteBacked) {
     <!-- Direct component harnesses retain every focused surface so state/race
@@ -21,6 +24,8 @@
       <app-club-history />
       <app-club-visit />
     </main>
+  } @else if (activeWorkspaceTask() === 'promociones') {
+    <main class="task-layout" data-testid="club-active-workspace"><app-club-promotions /></main>
   } @else if (activeWorkspaceTask() === 'nueva') {
     <main class="task-layout" data-testid="club-active-workspace"><app-club-new-client /></main>
   } @else if (selectedClientId(); as clientId) {

@@ -9,7 +9,7 @@ export const CLUB_WORKSPACE_SUBVIEWS = [
 ] as const;
 
 export type ClubWorkspaceSubview = (typeof CLUB_WORKSPACE_SUBVIEWS)[number];
-export type ClubWorkspaceTask = 'directorio' | 'nueva' | 'clienta';
+export type ClubWorkspaceTask = 'directorio' | 'nueva' | 'clienta' | 'promociones';
 
 /**
  * The small, route-scoped seam between Club route containers and its shared
