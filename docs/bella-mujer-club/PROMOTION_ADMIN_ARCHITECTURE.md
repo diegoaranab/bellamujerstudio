@@ -1,6 +1,6 @@
 # Phase 7A configurable promotion administration architecture
 
-**Status: Phase 7A authority; 7A3c current and 7A3 not yet closed.** 7A0 architecture, 7A1a persistence foundation, 7A1b reconciliation/capacity initialization, and 7A2 protected admin read API are complete; 7A2 is merged, deployed, production-validated, and closed. 7A3a and 7A3b are complete; 7A3c provisions dormant writer infrastructure and remains in progress. This document builds on, and does not replace, [PROMOTIONS_ARCHITECTURE.md](./PROMOTIONS_ARCHITECTURE.md). That Phase 6 authority remains canonical for the promotion row, member read, active-selection semantics, 100-row catalog, and member-facing contract. This document extends it with administrator readers and writers.
+**Status: Phase 7A authority; 7A4a current.** 7A0 architecture, 7A1a persistence foundation, 7A1b reconciliation/capacity initialization, and 7A2 protected admin read API are complete; 7A2 is merged, deployed, production-validated, and closed. 7A3a and 7A3b are complete; 7A3c is merged, deployed, production-validated, and closed, so 7A3 is closed. 7A4a implements the frontend administrator promotion API client. 7A5 still owns reconciliation and mutation-route enablement after successful reconciliation. This document builds on, and does not replace, [PROMOTIONS_ARCHITECTURE.md](./PROMOTIONS_ARCHITECTURE.md). That Phase 6 authority remains canonical for the promotion row, member read, active-selection semantics, 100-row catalog, and member-facing contract. This document extends it with administrator readers and writers.
 
 ## Phase boundary
 
@@ -227,7 +227,8 @@ The completed analysis left overall uncertainty **MEDIUM**. Keep implementation 
 | **7A1a — promotion persistence foundation** | Capacity, audit, and create-idempotency models/keys; canonical UTC transactional persistence; optimistic concurrency. No HTTP routes, timezone library, or exposed writer. |
 | **7A1b — reconciliation / capacity initialization** | Bounded canonical traversal; initialization and verification; rerunnable fail-closed behavior. No public/admin writer enabled. |
 | **7A2 — protected admin read API** | List/detail and IAM; no mutation. |
-| **7A3 — admin mutation API** | 7A3a local-time/DTO foundation and 7A3b handler are complete. 7A3c provisions dormant writer infrastructure and DELETE CORS without routes or integration. 7A3 remains open. |
+| **7A3 — admin mutation API** | 7A3a local-time/DTO foundation and 7A3b handler are complete. 7A3c provisions dormant writer infrastructure and DELETE CORS without routes or integration. 7A3 is merged, deployed, production-validated, and closed. |
+| **7A4a — administrator promotion API client** | Frontend TypeScript contracts and validated client methods only; no UI or mutation trigger. Current slice. |
 | **7A4 — administrator UI** | Use relevant frontend skills; list/create/edit/status/schedule/delete; conflict/reload UX; server-confirmed effective local interval. |
 | **7A5 — reconciliation and writer enablement** | Production reconciliation, mutation-route enablement only after successful reconciliation, production validation, and retained evidence. |
 

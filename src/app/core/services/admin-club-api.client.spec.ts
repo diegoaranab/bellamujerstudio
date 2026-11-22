@@ -10,6 +10,8 @@ import {
   AdminClubAccessSummary,
   AdminClubApiClient,
   AdminClubApiError,
+  AdminClubPromotion,
+  AdminClubPromotionCreateRequest,
   AdminClubVisitCreateRequest
 } from './admin-club-api.client';
 import { CLUB_API_CONFIG } from './club-api-config';
@@ -75,6 +77,17 @@ const accessMutationResponse: AdminClubAccessMutationResponse = {
     activationFragment: '#/club/activar?access=opaque-handle&invite=one-time-token',
     expiresAtISO: '2026-11-11T12:00:00.000Z'
   }
+};
+
+const promotion: AdminClubPromotion = {
+  promotionId: '550e8400-e29b-41d4-a716-446655440000',
+  title: 'Promoción de noviembre',
+  description: 'Un detalle especial',
+  status: 'active',
+  startsAtISO: '2026-11-01T06:00:00.000Z',
+  endsAtISO: '2026-12-01T06:00:00.000Z',
+  createdAtISO: '2026-10-20T12:00:00.000Z',
+  updatedAtISO: '2026-10-20T12:00:00.000Z'
 };
 
 describe('AdminClubApiClient', () => {
@@ -372,5 +385,156 @@ describe('AdminClubApiClient', () => {
     await expect(promise).rejects.not.toMatchObject({
       message: expect.stringContaining('secret')
     });
+  });
+
+  it('lists promotions without query parameters and validates an empty catalog', async () => {
+    const client = configure();
+    const promise = firstValueFrom(client.listPromotions());
+    await Promise.resolve();
+    const request = http.expectOne('https://api.example.test/admin/club/promotions');
+    expect(request.request.method).toBe('GET');
+    expect(request.request.params.keys()).toEqual([]);
+    expect(request.request.headers.get('Authorization')).toBe('Bearer access-token');
+    request.flush({ items: [] });
+    await expect(promise).resolves.toEqual({ items: [] });
+    expect(getAccessToken).toHaveBeenCalledOnce();
+    expect(getToken).not.toHaveBeenCalled();
+  });
+
+  it('preserves promotion list order and rejects top-level or private extra fields safely', async () => {
+    const client = configure();
+    const promise = firstValueFrom(client.listPromotions());
+    await Promise.resolve();
+    http.expectOne('https://api.example.test/admin/club/promotions').flush({ items: [promotion, { ...promotion, promotionId: '00000000-0000-4000-8000-000000000001' }] });
+    await expect(promise).resolves.toEqual({ items: [promotion, { ...promotion, promotionId: '00000000-0000-4000-8000-000000000001' }] });
+
+    const bad = firstValueFrom(client.listPromotions());
+    await Promise.resolve();
+    http.expectOne('https://api.example.test/admin/club/promotions').flush({ items: [{ ...promotion, studioId: 'private' }] });
+    await expect(bad).rejects.toMatchObject({ kind: 'server', code: undefined, message: expect.not.stringContaining('private') });
+  });
+
+  it.each([
+    ['uppercase UUID', { ...promotion, promotionId: promotion.promotionId.toUpperCase() }],
+    ['invalid status', { ...promotion, status: 'paused' }],
+    ['noncanonical timestamp', { ...promotion, startsAtISO: '2026-11-01T06:00:00Z' }],
+    ['invalid interval', { ...promotion, startsAtISO: promotion.endsAtISO }],
+    ['extra canonical field', { ...promotion, pk: 'private' }]
+  ])('rejects a %s as a safe server error', async (_label, item) => {
+    const client = configure();
+    const promise = firstValueFrom(client.getPromotion(promotion.promotionId));
+    await Promise.resolve();
+    http.expectOne(`https://api.example.test/admin/club/promotions/${promotion.promotionId}`).flush({ promotion: item });
+    await expect(promise).rejects.toMatchObject({ kind: 'server' });
+  });
+
+  it('gets a promotion with an encoded path and accepts the exact DTO', async () => {
+    const client = configure();
+    const promise = firstValueFrom(client.getPromotion('id/a +?'));
+    await Promise.resolve();
+    const request = http.expectOne('https://api.example.test/admin/club/promotions/id%2Fa%20%2B%3F');
+    expect(request.request.method).toBe('GET');
+    request.flush({ promotion });
+    await expect(promise).resolves.toEqual({ promotion });
+  });
+
+  it.each([false, true])('creates a promotion and accepts replayed=%s', async (replayed) => {
+    const client = configure();
+    const body: AdminClubPromotionCreateRequest = { title: 'Título', description: 'Descripción', status: 'inactive', startsAtLocal: '2026-11-01T09:00', endsAtLocal: '2026-12-01T09:00' };
+    const key = 'opaque-idempotency-key';
+    const promise = firstValueFrom(client.createPromotion(body, key));
+    await Promise.resolve();
+    const request = http.expectOne('https://api.example.test/admin/club/promotions');
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual(body);
+    expect(Object.keys(request.request.body)).toEqual(['title', 'description', 'status', 'startsAtLocal', 'endsAtLocal']);
+    expect(request.request.headers.get('Idempotency-Key')).toBe(key);
+    expect(request.request.urlWithParams).not.toContain(key);
+    expect(JSON.stringify(request.request.body)).not.toContain(key);
+    request.flush({ promotion, replayed }, { status: replayed ? 200 : 201, statusText: 'OK' });
+    await expect(promise).resolves.toEqual({ promotion, replayed });
+  });
+
+  it('sends PATCH with only supplied optional fields and an encoded ID', async () => {
+    const client = configure();
+    const promise = firstValueFrom(client.updatePromotion('id/a', { expectedUpdatedAtISO: promotion.updatedAtISO, title: 'Actualizada', description: undefined, status: undefined }));
+    await Promise.resolve();
+    const request = http.expectOne('https://api.example.test/admin/club/promotions/id%2Fa');
+    expect(request.request.method).toBe('PATCH');
+    expect(request.request.body).toEqual({ expectedUpdatedAtISO: promotion.updatedAtISO, title: 'Actualizada' });
+    expect(Object.keys(request.request.body)).toEqual(['expectedUpdatedAtISO', 'title']);
+    request.flush({ promotion });
+    await expect(promise).resolves.toEqual({ promotion });
+  });
+
+  it('omits undefined and null optional PATCH properties', async () => {
+    const client = configure();
+    const promise = firstValueFrom(client.updatePromotion(promotion.promotionId, {
+      expectedUpdatedAtISO: promotion.updatedAtISO,
+      title: null as unknown as string,
+      description: undefined
+    }));
+    await Promise.resolve();
+    const request = http.expectOne(`https://api.example.test/admin/club/promotions/${promotion.promotionId}`);
+    expect(request.request.body).toEqual({ expectedUpdatedAtISO: promotion.updatedAtISO });
+    request.flush({ promotion });
+    await expect(promise).resolves.toEqual({ promotion });
+  });
+
+  it('sends DELETE with the exact JSON body and validates its response', async () => {
+    const client = configure();
+    const promise = firstValueFrom(client.deletePromotion('id/a', { expectedUpdatedAtISO: promotion.updatedAtISO }));
+    await Promise.resolve();
+    const request = http.expectOne('https://api.example.test/admin/club/promotions/id%2Fa');
+    expect(request.request.method).toBe('DELETE');
+    expect(request.request.body).toEqual({ expectedUpdatedAtISO: promotion.updatedAtISO });
+    request.flush({ deleted: true, promotionId: promotion.promotionId });
+    await expect(promise).resolves.toEqual({ deleted: true, promotionId: promotion.promotionId });
+  });
+
+  it('rejects an invalid DELETE response', async () => {
+    const client = configure();
+    const promise = firstValueFrom(client.deletePromotion(promotion.promotionId, { expectedUpdatedAtISO: promotion.updatedAtISO }));
+    await Promise.resolve();
+    http.expectOne(`https://api.example.test/admin/club/promotions/${promotion.promotionId}`).flush({ deleted: false, promotionId: promotion.promotionId });
+    await expect(promise).rejects.toMatchObject({ kind: 'server' });
+  });
+
+  it.each([
+    [400, 'VALIDATION_ERROR', 'validation'],
+    [404, 'PROMOTION_NOT_FOUND', 'not-found'],
+    [409, 'PROMOTION_CONFLICT', 'conflict'],
+    [409, 'PROMOTION_CATALOG_FULL', 'conflict'],
+    [409, 'IDEMPOTENCY_CONFLICT', 'conflict']
+  ] as const)('maps safe promotion error %s %s', async (status, code, kind) => {
+    const client = configure();
+    const promise = firstValueFrom(client.listPromotions());
+    await Promise.resolve();
+    http.expectOne('https://api.example.test/admin/club/promotions').flush({ error: code, message: 'secret backend message' }, { status, statusText: 'Error' });
+    await expect(promise).rejects.toMatchObject({ kind, code });
+    await expect(promise).rejects.not.toMatchObject({ message: expect.stringContaining('secret backend message') });
+  });
+
+  it('does not preserve unknown promotion error codes or backend messages', async () => {
+    const client = configure();
+    const promise = firstValueFrom(client.listPromotions());
+    await Promise.resolve();
+    http.expectOne('https://api.example.test/admin/club/promotions').flush({ error: 'DB_FAILURE_SECRET', message: 'private details' }, { status: 409, statusText: 'Error' });
+    await expect(promise).rejects.toMatchObject({ kind: 'conflict', code: undefined });
+    await expect(promise).rejects.not.toMatchObject({ message: expect.stringContaining('private details') });
+  });
+
+  it.each(['', '   '])('rejects empty idempotency key before HTTP', async (key) => {
+    const client = configure();
+    await expect(firstValueFrom(client.createPromotion({ title: 'a', description: 'b', status: 'active', startsAtLocal: 'x', endsAtLocal: 'y' }, key))).rejects.toMatchObject({ kind: 'validation' });
+    http.expectNone('https://api.example.test/admin/club/promotions');
+  });
+
+  it('rejects empty IDs and missing expected timestamps before HTTP', async () => {
+    const client = configure();
+    await expect(firstValueFrom(client.getPromotion(''))).rejects.toMatchObject({ kind: 'validation' });
+    await expect(firstValueFrom(client.updatePromotion('', { expectedUpdatedAtISO: promotion.updatedAtISO }))).rejects.toMatchObject({ kind: 'validation' });
+    await expect(firstValueFrom(client.deletePromotion(promotion.promotionId, {} as { expectedUpdatedAtISO: string }))).rejects.toMatchObject({ kind: 'validation' });
+    http.expectNone('https://api.example.test/admin/club/promotions');
   });
 });
