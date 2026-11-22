@@ -277,16 +277,16 @@ Member screens should emphasize progress, clarity, and beauty-oriented polish ra
 
 ## Phase 7 — Promotions and rewards
 
-**STARTING.** Phase 6 and Phase 6E are closed; Phase 7A begins with configurable promotion administration. Its technical authority is [PROMOTION_ADMIN_ARCHITECTURE.md](./PROMOTION_ADMIN_ARCHITECTURE.md), which preserves the delivered Phase 6 member reader and canonical promotion row.
+**STARTING — Phase 7A3.** Phase 6 and Phase 6E are closed. 7A0, 7A1a, and 7A1b are complete; 7A2 is merged, deployed, production-validated, and closed. The 7A3a local-time and DTO foundation is the current slice; Phase 7A3 mutation APIs remain in progress. The technical authority is [PROMOTION_ADMIN_ARCHITECTURE.md](./PROMOTION_ADMIN_ARCHITECTURE.md), which preserves the delivered Phase 6 member reader and canonical promotion row.
 
 Promotion administration is decomposed into these gates:
 
 ```text
-7A0 architecture authority
-7A1a persistence foundation
-7A1b reconciliation / capacity initialization
-7A2 protected admin read API
-7A3 admin mutation API
+7A0 architecture authority — COMPLETE
+7A1a persistence foundation — COMPLETE
+7A1b reconciliation / capacity initialization — COMPLETE
+7A2 protected admin read API — MERGED / DEPLOYED / PRODUCTION-VALIDATED / CLOSED
+7A3 admin mutation API — STARTING (7A3a local-time and DTO foundation)
 7A4 administrator UI
 7A5 reconciliation, writer enablement, and production validation
 ```

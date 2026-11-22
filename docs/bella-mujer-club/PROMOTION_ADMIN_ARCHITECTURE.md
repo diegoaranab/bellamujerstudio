@@ -1,6 +1,6 @@
 # Phase 7A configurable promotion administration architecture
 
-**Status: Phase 7A0 architecture authority.** This document records the selected technical direction for configurable promotion administration before implementation. It builds on, and does not replace, [PROMOTIONS_ARCHITECTURE.md](./PROMOTIONS_ARCHITECTURE.md). That Phase 6 authority remains canonical for the promotion row, member read, active-selection semantics, 100-row catalog, and member-facing contract. This document extends it with administrator readers and writers.
+**Status: Phase 7A authority; 7A3 starting.** 7A0 architecture, 7A1a persistence foundation, 7A1b reconciliation/capacity initialization, and 7A2 protected admin read API are complete; 7A2 is merged, deployed, production-validated, and closed. Phase 7A3 has started with the 7A3a local-time and DTO foundation. This document builds on, and does not replace, [PROMOTIONS_ARCHITECTURE.md](./PROMOTIONS_ARCHITECTURE.md). That Phase 6 authority remains canonical for the promotion row, member read, active-selection semantics, 100-row catalog, and member-facing contract. This document extends it with administrator readers and writers.
 
 ## Phase boundary
 
@@ -184,11 +184,11 @@ All routes reuse the existing administrator Cognito boundary, derive studio serv
 
 Do not grant promotion handlers access to `ClubAccessTable`, member credential/session secrets, Gift Cards, or unrelated loyalty mutations. Verify IAM in synth/tests and later against the target AWS environment.
 
-## Time-zone boundary
+## Time-zone boundary and mutation DTO
 
-Canonical persisted timestamps remain UTC in exact `YYYY-MM-DDTHH:mm:ss.sssZ` form. Administrator authoring uses `America/Mexico_City`, with server-side conversion authoritative. Browser timezone, Lambda default timezone, and a hardcoded UTC offset are not authoritative. Ambiguous or nonexistent studio-local times fail validation instead of being silently shifted.
+The authoritative studio timezone is exactly `America/Mexico_City`. Administrator-authored mutation DTO values use minute precision and the exact lexical form `YYYY-MM-DDTHH:mm` as local wall-clock time, with no seconds, offset, `Z`, or timezone suffix. Create editable fields are `title`, `description`, `status`, `startsAtLocal`, and `endsAtLocal`; the two local fields use this exact form. PATCH and DELETE concurrency transport remains a handler decision, while `expectedUpdatedAtISO` is the selected canonical UTC optimistic-concurrency token.
 
-Do not choose or add a timezone dependency in this documentation phase. Before the mutation API slice, explicitly decide the date/time library and exact local DTO precision. Persistence accepts canonical UTC domain values and is not coupled to a date-time package.
+Conversion is server-side and IANA-aware using `temporal-polyfill` exactly pinned at `1.0.8`, imported through `temporal-polyfill/implementation` without installing its global shim. Calendar overflow is rejected. Ambiguous and nonexistent local times are rejected. Browser timezone, Lambda default timezone, and fixed offsets are not authoritative. Canonical persisted timestamps remain UTC in exact `YYYY-MM-DDTHH:mm:ss.sssZ` form; conversion supplies `:00.000Z` for minute-precision input. Local authoring fields remain API-boundary values and are never added to `ClubPromotion` or persisted rows.
 
 ## Failure semantics
 
@@ -225,7 +225,7 @@ The completed analysis left overall uncertainty **MEDIUM**. Keep implementation 
 | **7A1a — promotion persistence foundation** | Capacity, audit, and create-idempotency models/keys; canonical UTC transactional persistence; optimistic concurrency. No HTTP routes, timezone library, or exposed writer. |
 | **7A1b — reconciliation / capacity initialization** | Bounded canonical traversal; initialization and verification; rerunnable fail-closed behavior. No public/admin writer enabled. |
 | **7A2 — protected admin read API** | List/detail and IAM; no mutation. |
-| **7A3 — admin mutation API** | Select/pin IANA-aware timezone implementation; define exact local datetime DTO; create/edit/delete; idempotency and concurrency conflicts; IAM/CORS; writers initially disabled. |
+| **7A3 — admin mutation API** | 7A3a defines/pins local-time conversion and DTO precision. Remaining work: create/edit/delete; idempotency and concurrency conflicts; IAM/CORS; writers initially disabled. |
 | **7A4 — administrator UI** | Use relevant frontend skills; list/create/edit/status/schedule/delete; conflict/reload UX; server-confirmed effective local interval. |
 | **7A5 — reconciliation and writer enablement** | Production reconciliation, writer enablement, production validation, and retained evidence. |
 
