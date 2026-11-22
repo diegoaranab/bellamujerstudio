@@ -15,3 +15,21 @@
 .feedback button { min-height: 44px; margin-top: var(--bm-space-3); padding: var(--bm-space-2) var(--bm-space-4); cursor: pointer; }
 .feedback button:focus-visible { outline: 3px solid var(--bm-focus-ring); outline-offset: 3px; }
 @media (max-width: 700px) { .promotions { padding: var(--bm-space-4); } .promotion { grid-template-columns: minmax(0, 1fr); gap: var(--bm-space-3); } }
+
+.heading-row { display: flex; align-items: center; justify-content: space-between; gap: var(--bm-space-4); flex-wrap: wrap; }
+.editor { margin-top: var(--bm-space-6); padding: var(--bm-space-4); border: 1px solid var(--bm-border-standard); }
+.editor h3 { margin-bottom: var(--bm-space-4); }
+.fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--bm-space-4); }
+.fields > div { min-width: 0; }
+.fields .description { grid-column: 1 / -1; }
+.editor label { display: block; font-weight: 600; margin-bottom: var(--bm-space-2); }
+.editor input, .editor textarea, .editor select { box-sizing: border-box; width: 100%; min-width: 0; min-height: 44px; padding: var(--bm-space-2); font: inherit; }
+.editor > p { margin-top: var(--bm-space-3); }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--bm-space-3); margin-top: var(--bm-space-4); }
+.heading-row button, .actions button { min-height: 44px; padding: var(--bm-space-2) var(--bm-space-4); font: inherit; cursor: pointer; }
+.promotions button:focus-visible, .editor input:focus-visible, .editor textarea:focus-visible, .editor select:focus-visible, .editor a:focus-visible, .validation-summary:focus { outline: 3px solid var(--bm-focus-ring); outline-offset: 3px; }
+.field-error { color: var(--bm-text-primary); font-weight: 600; margin-top: var(--bm-space-2); }
+.validation-summary { border-left: 3px solid currentColor; padding: var(--bm-space-3); margin-bottom: var(--bm-space-4); }
+.validation-summary a { display: block; }
+.notice { margin-top: var(--bm-space-4); }
+@media (max-width: 700px) { .fields { grid-template-columns: minmax(0, 1fr); } .fields .description { grid-column: auto; } .heading-row button, .actions button { width: 100%; } }

@@ -1,9 +1,43 @@
 <section class="promotions" aria-labelledby="promotions-title">
   <header class="promotions__header">
-    <h2 id="promotions-title" tabindex="-1">Promociones</h2>
+    <div class="heading-row"><h2 id="promotions-title" tabindex="-1">Promociones</h2>
+      @if (configured && mutationsEnabled && !editorOpen()) { <button type="button" (click)="openEditor()">Nueva promoción</button> }
+    </div>
     <p>Consulta las promociones del Club y su vigencia.</p>
     <p class="timezone">Horarios de Ciudad de México</p>
   </header>
+  @if (success()) { <p class="notice" role="status">{{ success() }}</p> }
+  @if (configured && mutationsEnabled && editorOpen()) {
+    <form class="editor" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+      <h3>Nueva promoción</h3>
+      @if (submitted() && form.invalid) {
+        <div #validationSummary class="validation-summary" role="alert" tabindex="-1">
+          Revisa los campos indicados antes de crear la promoción.
+          <button type="button" (click)="titleInput.focus()">Ir al título</button>
+        </div>
+      }
+      <div class="fields">
+        <div><label for="promotion-title">Título</label><input #titleInput id="promotion-title" formControlName="title" [attr.aria-invalid]="form.controls.title.touched && form.controls.title.invalid" aria-describedby="title-error">
+          @if (form.controls.title.touched && form.controls.title.invalid) { <p id="title-error" class="field-error">Escribe de 1 a 100 caracteres, sin espacios al inicio ni al final.</p> }</div>
+        <div><label for="promotion-status">Estado</label><select id="promotion-status" formControlName="status" [attr.aria-invalid]="form.controls.status.touched && form.controls.status.invalid" aria-describedby="status-error"><option value="">Selecciona un estado</option><option value="active">Activa</option><option value="inactive">Inactiva</option></select>
+          @if (form.controls.status.touched && form.controls.status.invalid) { <p id="status-error" class="field-error">Selecciona un estado.</p> }</div>
+        <div class="description"><label for="promotion-description">Descripción</label><textarea id="promotion-description" rows="4" formControlName="description" [attr.aria-invalid]="form.controls.description.touched && form.controls.description.invalid" aria-describedby="description-error"></textarea>
+          @if (form.controls.description.touched && form.controls.description.invalid) { <p id="description-error" class="field-error">Escribe de 1 a 500 caracteres, sin espacios al inicio ni al final.</p> }</div>
+        <div><label for="promotion-start">Inicio</label><input id="promotion-start" type="datetime-local" step="60" formControlName="startsAtLocal" [attr.aria-invalid]="(form.controls.startsAtLocal.touched && form.controls.startsAtLocal.invalid) || (submitted() && form.hasError('interval'))" aria-describedby="start-error">
+          @if (form.controls.startsAtLocal.touched && form.controls.startsAtLocal.invalid) { <p id="start-error" class="field-error">Indica el inicio con precisión de minutos.</p> }</div>
+        <div><label for="promotion-end">Fin</label><input id="promotion-end" type="datetime-local" step="60" formControlName="endsAtLocal" [attr.aria-invalid]="(form.controls.endsAtLocal.touched && form.controls.endsAtLocal.invalid) || (submitted() && form.hasError('interval'))" aria-describedby="end-error">
+          @if (form.controls.endsAtLocal.touched && form.controls.endsAtLocal.invalid) { <p id="end-error" class="field-error">Indica el fin con precisión de minutos.</p> }
+          @if (submitted() && form.hasError('interval')) { <p class="field-error">El fin debe ser posterior al inicio.</p> }</div>
+      </div>
+      <p>Horarios de Ciudad de México</p>
+      @if (createError()) { <p class="field-error" role="alert">{{ createError() }}</p> }
+      <div class="actions">
+        @if (pending() && !creating()) { <button type="button" (click)="retryCreate()">Reintentar creación</button> }
+        @if (!pending()) { <button type="submit" [disabled]="creating()">Crear promoción</button><button type="button" (click)="cancel()">Cancelar</button> }
+        @if (creating()) { <span role="status">Creando promoción…</span> }
+      </div>
+    </form>
+  }
   @if (configured) {
     @switch (state()) {
       @case ('loading') { <p class="feedback" role="status">Cargando promociones…</p> }

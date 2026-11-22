@@ -1,6 +1,7 @@
 import { AppEnvironment } from './environment.model';
 
 export const environment: AppEnvironment = {
+  clubPromotionMutationsEnabled: false,
   production: false,
   assistantApiBaseUrl: 'http://127.0.0.1:8787',
   giftCardDataMode: 'local',

@@ -19,7 +19,7 @@ for (const width of [390, 820, 1440]) {
     const promotionsHeading = page.getByRole('heading', { name: 'Promociones' });
     await expect(promotionsHeading).toBeFocused();
     await expect(promotionsHeading).toHaveCSS('outline-style', 'none');
-    await expect(page.getByRole('button', { name: /crear|editar|eliminar|activar|desactivar|guardar|publicar/i })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /nueva promoción|crear|editar|eliminar|activar|desactivar|guardar|publicar/i })).toHaveCount(0);
     const widths = await page.evaluate(() => [document.body.scrollWidth, document.documentElement.scrollWidth, document.documentElement.clientWidth]);
     expect(widths[0]).toBeLessThanOrEqual(widths[2]); expect(widths[1]).toBeLessThanOrEqual(widths[2]);
     await nav.getByRole('link', { name: 'Clientas' }).focus();
@@ -45,3 +45,35 @@ test('retry can be reached and activated with the keyboard', async ({ page }) =>
   await expect(page.getByRole('heading', { name: adminPromotionFixture[0].title })).toBeVisible();
   expect(attempts).toBe(2);
 });
+
+for (const width of [390, 820, 1440]) {
+  test(`creates a promotion when explicitly enabled at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await installConfiguredClubFixture(page, { promotionMutations: true });
+    const mutations: string[] = [];
+    let reads = 0;
+    page.on('request', request => { if (request.url().includes('/admin/club/promotions')) { if (request.method() !== 'GET') mutations.push(request.method()); else reads++; } });
+    await page.goto('/#/admin/club/promociones');
+    const newButton = page.getByRole('button', { name: 'Nueva promoción' });
+    await newButton.focus();
+    await expect(newButton).toHaveCSS('outline-style', 'solid');
+    await newButton.click();
+    await expect(page.getByLabel('Estado')).toHaveValue('');
+    await page.getByLabel('Título').fill('Promoción nueva');
+    await page.getByLabel('Descripción').fill('Una descripción');
+    await page.getByLabel('Estado').selectOption('active');
+    await page.getByLabel('Inicio').fill('2026-12-01T10:00');
+    await page.getByLabel('Fin').fill('2026-12-02T10:00');
+    const request = page.waitForRequest(r => r.url().includes('/admin/club/promotions') && r.method() === 'POST');
+    await page.getByRole('button', { name: 'Crear promoción' }).click();
+    const sent = await request;
+    expect(sent.headers()['idempotency-key']).toBeTruthy();
+    expect(sent.postDataJSON()).toEqual({ title: 'Promoción nueva', description: 'Una descripción', status: 'active', startsAtLocal: '2026-12-01T10:00', endsAtLocal: '2026-12-02T10:00' });
+    await expect(page.getByRole('status').filter({ hasText: 'Promoción creada' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Promoción nueva' })).toBeVisible();
+    expect(reads).toBeGreaterThanOrEqual(2);
+    const widths = await page.evaluate(() => [document.body.scrollWidth, document.documentElement.scrollWidth, document.documentElement.clientWidth]);
+    expect(widths[0]).toBeLessThanOrEqual(widths[2]); expect(widths[1]).toBeLessThanOrEqual(widths[2]);
+    expect(mutations).toEqual(['POST']);
+  });
+}

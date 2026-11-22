@@ -106,7 +106,8 @@ function json(route: Route, body: unknown, status = 200): Promise<void> {
   return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 }
 
-export async function installConfiguredClubFixture(page: Page): Promise<void> {
+export async function installConfiguredClubFixture(page: Page, options: { promotionMutations?: boolean } = {}): Promise<void> {
+  const promotions: Array<{ promotionId: string; title: string; description: string; status: string; startsAtISO: string; endsAtISO: string; createdAtISO: string; updatedAtISO: string }> = [...adminPromotionFixture];
   await page.route('**/*.js', async (route) => {
     const response = await route.fetch();
     let body = await response.text();
@@ -117,6 +118,11 @@ export async function installConfiguredClubFixture(page: Page): Promise<void> {
         'bellaMujerApiBaseUrl: ""',
         `bellaMujerApiBaseUrl: "${FIXTURE_API_PATH}"`
       );
+      changed = true;
+    }
+
+    if (options.promotionMutations && body.includes('clubPromotionMutationsEnabled: false')) {
+      body = body.replace('clubPromotionMutationsEnabled: false', 'clubPromotionMutationsEnabled: true');
       changed = true;
     }
 
@@ -153,8 +159,21 @@ export async function installConfiguredClubFixture(page: Page): Promise<void> {
     const method = route.request().method();
 
     if (method === 'GET' && path === '/admin/club/promotions') {
-      await json(route, { items: adminPromotionFixture });
+      await json(route, { items: promotions });
       return;
+    }
+    if (options.promotionMutations && method === 'POST' && path === '/admin/club/promotions') {
+      const body = route.request().postDataJSON();
+      const keys = ['title', 'description', 'status', 'startsAtLocal', 'endsAtLocal'];
+      if (!route.request().headers()['idempotency-key'] || Object.keys(body).sort().join() !== [...keys].sort().join() ||
+          keys.some(key => typeof body[key] !== 'string' || !body[key]) || !['active', 'inactive'].includes(body.status) ||
+          !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(body.startsAtLocal) || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(body.endsAtLocal)) {
+        await json(route, { error: 'VALIDATION_ERROR' }, 400); return;
+      }
+      const promotion = { promotionId: '33333333-3333-4333-8333-333333333333', title: body.title, description: body.description, status: body.status,
+        startsAtISO: '2026-12-01T16:00:00.000Z', endsAtISO: '2026-12-02T16:00:00.000Z', createdAtISO: '2026-11-21T12:00:00.000Z', updatedAtISO: '2026-11-21T12:00:00.000Z' };
+      promotions.push(promotion);
+      await json(route, { promotion, replayed: false }, 201); return;
     }
     if (method === 'GET' && path === '/admin/club/clients') {
       await json(route, { items: configuredClubClients });
