@@ -277,7 +277,7 @@ Member screens should emphasize progress, clarity, and beauty-oriented polish ra
 
 ## Phase 7 — Promotions and rewards
 
-**STARTING — Phase 7A3.** Phase 6 and Phase 6E are closed. 7A0, 7A1a, and 7A1b are complete; 7A2 is merged, deployed, production-validated, and closed. The 7A3a local-time and DTO foundation is the current slice; Phase 7A3 mutation APIs remain in progress. The technical authority is [PROMOTION_ADMIN_ARCHITECTURE.md](./PROMOTION_ADMIN_ARCHITECTURE.md), which preserves the delivered Phase 6 member reader and canonical promotion row.
+**IN PROGRESS — Phase 7A3c.** Phase 6 and Phase 6E are closed. 7A0, 7A1a, and 7A1b are complete; 7A2 is merged, deployed, production-validated, and closed. 7A3a (local-time/DTO foundation) and 7A3b (mutation handler) are complete. 7A3c (dormant writer infrastructure) is current; 7A3 is not yet closed. The technical authority is [PROMOTION_ADMIN_ARCHITECTURE.md](./PROMOTION_ADMIN_ARCHITECTURE.md), which preserves the delivered Phase 6 member reader and canonical promotion row.
 
 Promotion administration is decomposed into these gates:
 
@@ -286,9 +286,12 @@ Promotion administration is decomposed into these gates:
 7A1a persistence foundation — COMPLETE
 7A1b reconciliation / capacity initialization — COMPLETE
 7A2 protected admin read API — MERGED / DEPLOYED / PRODUCTION-VALIDATED / CLOSED
-7A3 admin mutation API — STARTING (7A3a local-time and DTO foundation)
+7A3a local-time and DTO foundation — COMPLETE
+7A3b mutation handler — COMPLETE
+7A3c dormant writer infrastructure — CURRENT / NOT YET MERGED
+7A3 admin mutation API — NOT YET CLOSED
 7A4 administrator UI
-7A5 reconciliation, writer enablement, and production validation
+7A5 reconciliation, mutation-route enablement only after successful reconciliation, and production validation
 ```
 
 Rewards remain separate from Phase 7A and blocked on explicit economic approval. Reward stamp threshold, monetary amount, complementary-service economics, redemption economics, and referral reward are **NOT APPROVED**. Historical `$80` and `$120` examples are not requirements. No RewardDefinition or redemption implementation is included in Phase 7A. If later approved, validate rewards against the `$120 MXN/hour` average Club profitability reference, which is not a guaranteed per-appointment minimum.

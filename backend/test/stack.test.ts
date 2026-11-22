@@ -46,14 +46,14 @@ describe('BellaMujerApiStack', () => {
       ProtocolType: 'HTTP',
       CorsConfiguration: {
         AllowHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key'],
-        AllowMethods: ['GET', 'POST', 'PATCH', 'OPTIONS'],
+        AllowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
         AllowOrigins: [
           'http://localhost:4200',
           'https://diegoaranab.github.io'
         ]
       }
     });
-    template.resourcePropertiesCountIs('AWS::Lambda::Function', {}, 18);
+    template.resourcePropertiesCountIs('AWS::Lambda::Function', {}, 19);
 
     for (const lambdaFunction of Object.values(template.findResources('AWS::Lambda::Function'))) {
       if ([
@@ -182,14 +182,14 @@ describe('BellaMujerApiStack', () => {
   });
 
   it('bounds Lambda log retention to two weeks', () => {
-    template.resourcePropertiesCountIs('AWS::Logs::LogGroup', { RetentionInDays: 14 }, 18);
+    template.resourcePropertiesCountIs('AWS::Logs::LogGroup', { RetentionInDays: 14 }, 19);
   });
 
   it('uses the existing Cognito pool and SPA client for a JWT authorizer', () => {
     template.resourceCountIs('AWS::Cognito::UserPool', 1);
     template.resourceCountIs('AWS::Cognito::UserPoolClient', 1);
     template.resourceCountIs('AWS::ApiGatewayV2::Authorizer', 2);
-    template.resourcePropertiesCountIs('AWS::Lambda::Function', {}, 18);
+    template.resourcePropertiesCountIs('AWS::Lambda::Function', {}, 19);
 
     const [[userPoolLogicalId]] = Object.entries(
       template.findResources('AWS::Cognito::UserPool')
@@ -414,7 +414,7 @@ describe('BellaMujerApiStack', () => {
       'dynamodb:PutItem',
       ['dynamodb:GetItem', 'dynamodb:Query']
     ]));
-    expect(dynamodbActions).toHaveLength(20);
+    expect(dynamodbActions).toHaveLength(24);
 
     const lambdaFunctions = Object.values(template.findResources('AWS::Lambda::Function'));
     const roleForDescription = (description: string): string => {
